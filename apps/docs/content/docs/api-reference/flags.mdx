@@ -540,7 +540,7 @@ The `overrides` option of the configuration.
 | Option   | Type                                | Description                                                                                                                                                                  |
 | -------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `secret` | `string \| false`                   | The shared secret for encrypted tokens. The default is `FLAGS_SECRET`. `false` accepts no such tokens.                                                                       |
-| `vercel` | `boolean \| VercelOverridesOptions` | Accepts tokens signed by Vercel. The default is `true` on Vercel or with a linked project (`VERCEL` or `VERCEL_OIDC_TOKEN` set) and no shared secret, otherwise `false`. |
+| `vercel` | `boolean \| VercelOverridesOptions` | Accepts tokens signed by Vercel. The default is `true` on Vercel or with a linked project (`VERCEL` or the OIDC token set), also with a shared secret, otherwise `false`. |
 
 `VercelOverridesOptions` has `issuer`, `jwksUrl`, `project`
 (`Partial<PlatformProject>`: `projectId`, `environment`, `teamId?`),

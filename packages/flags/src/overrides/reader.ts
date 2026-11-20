@@ -23,9 +23,9 @@ export interface OverridesOptions {
   readonly secret?: string | false;
   /**
    * Accepts override tokens which Vercel signs. The default is `true` on
-   * Vercel or with a linked project (when `VERCEL` or `VERCEL_OIDC_TOKEN` is
-   * set) without a shared secret, otherwise `false`. An object sets options
-   * and accepts the tokens.
+   * Vercel or with a linked project (when `VERCEL` or the OIDC token is set),
+   * also with a shared secret, otherwise `false`. An object sets options and
+   * accepts the tokens, also outside of Vercel.
    */
   readonly vercel?: boolean | VercelOverridesOptions;
 }

@@ -69,7 +69,7 @@ Flags Explorer sets an override cookie which Vercel signs. The SDK accepts it wi
 - on Vercel;
 - locally, after `vercel link` and `vercel env pull`.
 
-If you set `FLAGS_SECRET`, the SDK accepts only overrides which are encrypted with it. See [Overrides](/docs/tooling/overrides).
+If you set `FLAGS_SECRET`, the SDK also accepts overrides which are encrypted with it. On Vercel, it accepts both kinds. See [Overrides](/docs/tooling/overrides).
 
 ### 4. Optional: write the flag values into the page
 

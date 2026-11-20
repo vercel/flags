@@ -1,690 +1,654 @@
-# Provider Adapters
+# Providers
 
-## Table of Contents
+A provider is an OpenFeature server provider, used as it is. There are no adapters. A source connects a provider to flags:
 
-- [Vercel](#vercel)
-- [Global Config](#global-config)
-- [Statsig](#statsig)
-- [LaunchDarkly](#launchdarkly)
-- [PostHog](#posthog)
-- [GrowthBook](#growthbook)
-- [Flagsmith](#flagsmith)
-- [Reflag](#reflag)
-- [OpenFeature](#openfeature)
-- [Split](#split)
-- [Optimizely](#optimizely)
-- [Custom Adapters](#custom-adapters)
+- File system API: the provider is the default export of `flags/sources/<source>/provider.ts`.
+- By hand: `defineSource({ provider, project?, getEvaluationContext?, hooks? })`.
 
----
+Do not call `OpenFeature.setProvider()` or `OpenFeature.getClient()`. The SDK calls the provider directly, initializes it once before the first evaluation (or at `runtime.onInit()`), waits for it, and closes it at `runtime.onShutdown()`. Do not register the same instance with the OpenFeature API too. Use a server provider (Node.js), not a web provider.
 
-## Vercel
+## Table of contents
 
-Package: `@flags-sdk/vercel`
+- [Vercel Flags](#vercel-flags)
+  - [Setup](#setup)
+  - [By hand](#by-hand)
+  - [Configure the client and SDK keys](#configure-the-client-and-sdk-keys)
+  - [The flags of another project](#the-flags-of-another-project)
+  - [Project Connections](#project-connections)
+  - [The catalog](#the-catalog)
+  - [Targeting](#targeting)
+  - [Attribute types](#attribute-types)
+  - [Flags Explorer with Vercel Flags](#flags-explorer-with-vercel-flags)
+- [OpenFeature providers](#openfeature-providers)
+  - [How to use a provider](#how-to-use-a-provider)
+  - [Providers that connect at import](#providers-that-connect-at-import)
+  - [LaunchDarkly](#launchdarkly)
+  - [GrowthBook](#growthbook)
+  - [Flagsmith](#flagsmith)
+  - [Statsig](#statsig)
+  - [PostHog](#posthog)
+  - [Other providers](#other-providers)
+  - [Reflag](#reflag)
+- [Custom providers](#custom-providers)
 
-```bash
-pnpm i flags @flags-sdk/vercel
-```
+## Vercel Flags
+
+Package: `@vercel/flags-core`. Provider: `VercelProvider` of `@vercel/flags-core/openfeature`. Catalog: `@vercel/flags-core/catalog`. `@openfeature/server-sdk` is a peer dependency.
 
 ### Setup
 
-> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
+1. Install: `pnpm add flags @vercel/flags-core @openfeature/server-sdk` plus the framework package.
+2. Credentials: `vercel link`, then `vercel env pull`. `VercelProvider` uses the OIDC token of the project. Deployments on Vercel get it automatically.
+3. Create the source:
+   ```ts
+   // flags/sources/self/provider.ts
+   import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-The following steps integrate a flag into an app and need a linked project for `vercel env pull` ([Set up the SDK](../SKILL.md#set-up-the-sdk), step 2). To only inspect or change remote flags, use the `vercel-flags` skill instead.
+   // Without an SDK key, the client uses the OIDC token of the project
+   export default new VercelProvider();
+   ```
+   ```ts
+   // flags/sources/self/catalog.ts
+   export { default } from '@vercel/flags-core/catalog';
+   ```
+   Add `context.ts` when targeting rules use entities (see [Targeting](#targeting)).
+4. Add the framework plugin. Import the flags from `flags:self`:
+   ```tsx
+   import { 'summer-sale' as summerSale } from 'flags:self';
 
-1. Create a flag in the Vercel dashboard or via CLI: `vercel flags create <flag-key> --kind boolean --description "<description>"`
-2. Pull env vars: run `vercel env pull` to write the Vercel OIDC token and the Development `FLAGS_SECRET` to `.env.local` ([Pull environment variables](../SKILL.md#pull-environment-variables)).
-3. Declare the flag:
+   export default async function Page() {
+     const sale = await summerSale();
+     return <div>{sale ? 'Summer sale!' : 'Welcome'}</div>;
+   }
+   ```
+
+Create flags with `vercel flags create <key> --kind <kind> --description "<description>"`, or in the dashboard. Local development evaluates the Development configuration.
+
+### By hand
+
+Without a bundler, or when you prefer code:
 
 ```ts
-import { flag } from 'flags/next';
-import { vercelAdapter } from '@flags-sdk/vercel';
+// flags/self.ts
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
 
-export const exampleFlag = flag({
-  key: 'example-flag',
-  adapter: vercelAdapter,
+export const self = defineSource({
+  provider: new VercelProvider(),
+  // The flags of the Vercel project of this deployment
+  project: { system: 'vercel-flags' },
+  // The entities which your targeting rules use, once per request
+  getEvaluationContext: (request) => ({
+    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+  }),
 });
 ```
 
-### User targeting
-
 ```ts
-import { dedupe, flag } from 'flags/next';
-import { vercelAdapter } from '@flags-sdk/vercel';
+// flags.ts
+'use flags';
 
-type Entities = {
-  team?: { id: string };
-  user?: { id: string };
-};
+import { bindFlag } from 'flags';
+import { self } from './flags/self';
 
-const identify = dedupe(async (): Promise<Entities> => ({
-  team: { id: 'team-123' },
-  user: { id: 'user-456' },
-}));
-
-export const exampleFlag = flag<boolean, Entities>({
-  key: 'example-flag',
-  identify,
-  adapter: vercelAdapter,
-});
-```
-
-Define the entities and attributes under Flags → Entities in the dashboard before you use them in rules or segments, and return the same names from `identify` ([Entities](https://vercel.com/docs/flags/vercel-flags/dashboard/entities)). The example above allows `--by user.id` / `--by team.id` in `vercel flags split`, `rollout`, and `rules add`, and the matching conditions in dashboard rules. Entities are evaluated fresh on every call; a rule whose attribute is missing from the context is skipped.
-
-#### Attribute types
-
-Each attribute has a type: String, Number, Boolean, String Array, or Timestamp. The value `identify` returns must match it.
-
-- **Timestamp** is a Unix epoch in **milliseconds** as a `number` (`Date.now()`, `user.createdAt.getTime()`, `1719792000000`). Do not pass a `Date`, an ISO string, or seconds.
-- Timestamp rules only compare: is after / is before / is at or after / is at or before (`gt` / `lt` / `gte` / `lte`). Equality, one-of, and exists operators are not available for Timestamp attributes.
-- Timestamp attributes cannot bucket a split or rollout (`--by`); use them in rule conditions only.
-- To release at a certain time, pass the current time as `system.time` and compare against it in a rule. Keep `Date.now()` inside `dedupe` so every flag in the request sees the same time:
-
-```ts
-const identify = dedupe(async () => ({
-  system: { time: Date.now() },
-  user: { id: 'user-456', signupAt: 1719792000000 },
-}));
-```
-
-### Flags Explorer
-
-```ts
-import { createFlagsDiscoveryEndpoint } from 'flags/next';
-import { getProviderData } from '@flags-sdk/vercel';
-import * as flags from '../../../../flags';
-
-export const GET = createFlagsDiscoveryEndpoint(async () => {
-  return await getProviderData(flags);
-});
-```
-
-### Project Connections
-
-Check the installed `@flags-sdk/vercel` version before changing the code. Project Connections require version 1.6.0 or later; upgrade it if needed. The adapter includes the required core library version.
-
-To read flags from another project in the same team, first grant the consumer project access from the source project's **Flags → Connections** page. Then pass the source project's ID:
-
-```ts
-import { flag } from 'flags/next';
-import { createVercelAdapter } from '@flags-sdk/vercel';
-
-const sharedAdapter = createVercelAdapter({ projectId: 'prj_source' });
-
-export const sharedFeature = flag({
-  key: 'shared-feature',
-  adapter: sharedAdapter,
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: self,
   defaultValue: false,
+  description: 'Shows the summer sale banner',
 });
 ```
 
-Use `vercelAdapter` alongside this adapter for the consumer's own flags. Both use the consumer's OIDC token; do not mint an SDK key for a connection. Run `vercel env pull` in the consumer project for local development. Connections apply across environments, and the token selects the source environment; custom environments use preview.
+`project: { system: 'vercel-flags' }` gives Flags Explorer the links to the dashboard. The generated code takes the `project` from the catalog.
 
-Verify access before you declare or render connected flags. A client whose first request is rejected with 401 does not retry; it serves `defaultValue` until the process restarts, with no visible error on the page:
+### Configure the client and SDK keys
 
-1. List the source project's connections: `vercel flags connections list --project <source> --scope <team> --non-interactive`. If the consumer project is missing, add it with `vercel flags connections add <consumer> --project <source> --scope <team> --non-interactive`.
-2. Confirm a real read with the consumer's credentials, outside the running app: a one-off script that calls `createClient({ projectId: 'prj_source' }).evaluate('<flag-key>')` from `@vercel/flags-core`, run with `node --env-file=.env.local`. Continue when it returns the flag's value. If it fails right after adding the connection, wait briefly and try again.
-3. Then add the `flag()` declarations and render them.
-
-If a connected flag only ever returns its `defaultValue`, the client was likely rejected before access was in place. Fix access, then restart the dev server or redeploy.
-
-For direct core access, use `@vercel/flags-core` version 1.11.0 or later with `createClient({ projectId: 'prj_source' })`. The `projectId` option cannot be combined with an SDK key. CLI management requires Vercel CLI version 63.0.0 or later; use the `vercel-flags` skill for the connection workflow, or see the [CLI reference](https://vercel.com/docs/cli/flags#project-connections). See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and setup.
-
-### Custom configuration
+`new VercelProvider()` uses the SDK key in `FLAGS` if set, otherwise the OIDC token. Pass a client or an SDK key to change this:
 
 ```ts
-import { createVercelAdapter } from '@flags-sdk/vercel';
+// flags/sources/self/provider.ts
+import { createClient } from '@vercel/flags-core';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-const customAdapter = createVercelAdapter(process.env.CUSTOM_FLAGS_KEY!);
+// A client with options
+export default new VercelProvider(createClient({ clientName: 'my-app' }));
 
-export const exampleFlag = flag({
-  key: 'example-flag',
-  adapter: customAdapter,
-});
+// Or an SDK key, e.g. for an application outside Vercel:
+// export default new VercelProvider(process.env.CUSTOM_FLAGS_KEY!);
 ```
 
-### Using your own client (e.g. for singleton)
+Use SDK keys for apps outside Vercel, to select an environment explicitly, or for a project of another team. Each SDK key is scoped to one environment, and its value is shown once, at creation. Do not print it.
 
-If the app also uses `@vercel/flags-core` directly, create the client once and pass it to the adapter so both share the same instance:
+### The flags of another project
+
+Put each project into its own source. Give the provider and the catalog the same project:
+
+```ts
+// flags/sources/shared/provider.ts
+import { createClient } from '@vercel/flags-core';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+export default new VercelProvider(createClient({ projectId: 'prj_source' }));
+```
+
+```ts
+// flags/sources/shared/catalog.ts
+import { createCatalogLoader } from '@vercel/flags-core/catalog';
+
+export default createCatalogLoader({ projectId: 'prj_source' });
+```
+
+Import from `flags:shared`. By hand:
 
 ```ts
 import { createClient } from '@vercel/flags-core';
-import { createVercelAdapter } from '@flags-sdk/vercel';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
 
-const vercelFlagsClient = createClient(); // Vercel OIDC token, on deployments and after `vercel env pull`
-const vercelAdapter = createVercelAdapter(vercelFlagsClient);
+// A project of the same team, through a Project Connection
+export const shared = defineSource({
+  provider: new VercelProvider(createClient({ projectId: 'prj_source' })),
+  project: { system: 'vercel-flags', projectId: 'prj_source' },
+});
 
-export const exampleFlag = flag({
-  key: 'example-flag',
-  adapter: vercelAdapter,
+// A project of a different team, with an SDK key of that project
+export const blog = defineSource({
+  provider: new VercelProvider(process.env.BLOG_FLAGS!),
+  project: { system: 'vercel-flags', projectId: 'prj_blog', teamId: 'team_acme' },
 });
 ```
 
-Outside Vercel, pass the SDK key: `createClient(process.env.FLAGS)`. Unlike `vercelAdapter()`, `createClient()` does not read `FLAGS` on its own.
+The SDK key must belong to the project in `project`. The SDK cannot check this.
 
-### Core client in other frameworks (for example, Express)
+### Project Connections
 
-Frameworks without a Flags SDK entrypoint use `@vercel/flags-core` directly instead of this SDK. The `vercel-flags` skill carries the example and the OIDC timing rules ([Core SDK](https://vercel.com/docs/flags/vercel-flags/sdks/core)).
+A connection lets a consumer project read the flags of a source project in the same team, with the consumer's OIDC token. Do not create an SDK key for a connection. Requirements: `@vercel/flags-core` 1.11.0 or later, and Vercel CLI 63.0.0 or later for `vercel flags connections`. `projectId` cannot be combined with an SDK key. The consumer's token selects the source environment; custom environments map to preview.
 
-### Managing flags
+Set up and verify the connection before the app evaluates connected flags. A client whose first request gets a 401 does not retry: the flags return their `defaultValue` (or throw) until the process restarts.
 
-What a flag serves (enable, set, split, rollout, rules, segments, archive) is configured in the Vercel dashboard or with the `vercel flags` CLI, not in code. Keep the declaration in sync with the remote definition: the CLI key is the `key` in `flag()`, the kind matches the type parameter, `options` mirror the variants, and `defaultValue` is what the flag serves when it is archived or still a draft. The `vercel-flags` skill covers rollouts, experiments, promotion order, and the checks to run before archiving; `vercel flags <cmd> --help` lists the options.
+1. Confirm the source project, the consumer project and the team.
+2. List the connections: `vercel flags connections list --project <source> --scope <team> --non-interactive`. Reuse an existing one.
+3. If the consumer is missing: `vercel flags connections add <consumer> --project <source> --scope <team> --non-interactive`. Run `list` again. Creation needs team Member or Owner, or Project Admin on the source project, and access to the consumer project.
+4. In the consumer, run `vercel env pull` for the local OIDC token.
+5. Confirm a real read outside the app, e.g. a one-off script with `createClient({ projectId: 'prj_source' }).evaluate('<flag-key>')` of `@vercel/flags-core`, run with `node --env-file=.env.local`. With the file system API, `npx flags sync` also fails when the catalog cannot read the source project. If it fails right after `connections add`, wait briefly and try again.
+6. Then add the source folder (or `defineSource`) and use the flags.
 
-CLI reference: https://vercel.com/docs/cli/flags
+If a connected flag only returns its default value, check the connection, then restart the dev server or redeploy. Use the `vercel-flags` skill for the full connection workflow.
 
----
+### The catalog
 
-## Global Config
-
-Package: `@flags-sdk/global-config`
-
-```bash
-pnpm i @flags-sdk/global-config
-```
-
-Env: `GLOBAL_CONFIG="global-config-connection-string"`
-
-### Usage
+`@vercel/flags-core/catalog` reads the flags of the project from the stream of Vercel Flags, with `FLAGS` or the OIDC token. A build takes the first catalog. A dev server stays connected and regenerates after each change in Vercel. The catalog sets `project: { system: 'vercel-flags', projectId }`, the variants and the descriptions.
 
 ```ts
-import { flag } from 'flags/next';
-import { globalConfigAdapter } from '@flags-sdk/global-config';
+// flags/sources/self/catalog.ts
+import { createCatalogLoader } from '@vercel/flags-core/catalog';
 
-export const exampleFlag = flag({
-  adapter: globalConfigAdapter,
-  key: 'example-flag',
+export default createCatalogLoader({
+  // A connected project of the same team, with the OIDC token
+  projectId: 'prj_source',
+  // Or: sdkKey: process.env.MY_FLAGS_KEY
 });
 ```
 
-Global Config should contain:
+| Option      | Description                                                                           |
+| ----------- | ------------------------------------------------------------------------------------- |
+| `sdkKey`    | SDK key or connection string. Default: `FLAGS`, then the OIDC token.                  |
+| `projectId` | A connected project of the same team, with the OIDC token. Not together with `sdkKey`. |
 
-```json
-{
-  "flags": {
-    "example-flag": true,
-    "another-flag": false
-  }
-}
-```
-
-### Custom configuration
+It gives no `defaultValue`. For default values, return a static catalog instead:
 
 ```ts
-import { createGlobalConfigAdapter } from '@flags-sdk/global-config';
+// flags/sources/self/catalog.ts
+import type { CatalogLoader } from 'flags';
 
-const myAdapter = createGlobalConfigAdapter({
-  connectionString: process.env.OTHER_GLOBAL_CONFIG,
-  options: {
-    globalConfigItemKey: 'other-flags-key',
-    teamSlug: 'my-team',
+const loadCatalog: CatalogLoader = () => ({
+  project: { system: 'vercel-flags' },
+  flags: {
+    'summer-sale': {
+      variants: [false, true],
+      defaultValue: false,
+      description: 'Shows the summer sale banner',
+    },
   },
 });
+
+export default loadCatalog;
 ```
 
----
+`catalogFromDatafile(datafile)` turns a datafile that you load yourself into a catalog.
 
-## Statsig
+### Targeting
 
-Package: `@flags-sdk/statsig`
-
-```bash
-pnpm i @flags-sdk/statsig
-```
-
-Env vars:
-- `STATSIG_SERVER_API_KEY` (required)
-- `STATSIG_PROJECT_ID` (optional)
-- `EXPERIMENTATION_CONFIG` (optional, Global Config)
-- `EXPERIMENTATION_CONFIG_ITEM_KEY` (optional)
-
-### Methods
+`VercelProvider` evaluates the rules against what `getEvaluationContext` returns. Return the entities that your rules use:
 
 ```ts
-import { statsigAdapter, type StatsigUser } from '@flags-sdk/statsig';
-
-// Feature Gates
-export const myGate = flag<boolean, StatsigUser>({
-  key: 'my_feature_gate',
-  adapter: statsigAdapter.featureGate((gate) => gate.value),
-  identify,
-});
-
-// Dynamic Configs
-export const myConfig = flag<Record<string, unknown>, StatsigUser>({
-  key: 'my_dynamic_config',
-  adapter: statsigAdapter.dynamicConfig((config) => config.value),
-  identify,
-});
-
-// Experiments
-export const myExperiment = flag<Record<string, unknown>, StatsigUser>({
-  key: 'my_experiment',
-  adapter: statsigAdapter.experiment((config) => config.value),
-  identify,
-});
-
-// Autotune
-export const myAutotune = flag<Record<string, unknown>, StatsigUser>({
-  key: 'my_autotune',
-  adapter: statsigAdapter.autotune((config) => config.value),
-  identify,
-});
-
-// Layers
-export const myLayer = flag<Record<string, unknown>, StatsigUser>({
-  key: 'my_layer',
-  adapter: statsigAdapter.layer((layer) => layer.value),
-  identify,
-});
-```
-
-### Same key, different mappings
-
-Use `.` to distinguish flags from the same config:
-
-```ts
-export const text = flag<string, StatsigUser>({
-  key: 'my_config.text',
-  adapter: statsigAdapter.dynamicConfig((c) => c.value.text as string),
-  identify,
-});
-
-export const price = flag<number, StatsigUser>({
-  key: 'my_config.price',
-  adapter: statsigAdapter.dynamicConfig((c) => c.value.price as number),
-  identify,
-});
-```
-
-### Exposure logging
-
-Disabled by default (middleware prefetch would cause premature exposures). Enable explicitly:
-
-```ts
-adapter: statsigAdapter.featureGate((gate) => gate.value, {
-  exposureLogging: true,
-})
-```
-
-Log exposures from the client instead when possible.
-
-### Flags Explorer
-
-```ts
-import { getProviderData as getStatsigProviderData } from '@flags-sdk/statsig';
-import { mergeProviderData } from 'flags';
-
-export const GET = createFlagsDiscoveryEndpoint(async () => {
-  return mergeProviderData([
-    getProviderData(flags),
-    getStatsigProviderData({
-      consoleApiKey: process.env.STATSIG_CONSOLE_API_KEY,
-      projectId: process.env.STATSIG_PROJECT_ID,
-    }),
-  ]);
-});
-```
-
----
-
-## LaunchDarkly
-
-Package: `@flags-sdk/launchdarkly`
-
-```bash
-pnpm i @flags-sdk/launchdarkly
-```
-
-Env vars:
-- `LAUNCHDARKLY_CLIENT_SIDE_ID` (required)
-- `LAUNCHDARKLY_PROJECT_SLUG` (required)
-- `GLOBAL_CONFIG` (required)
-
-### Usage
-
-```ts
-import { ldAdapter, type LDContext } from '@flags-sdk/launchdarkly';
-
-const identify = dedupe((async ({ headers, cookies }) => {
-  const user = await getUser(headers, cookies);
-  return { key: user.userID };
-}) satisfies Identify<LDContext>);
-
-export const exampleFlag = flag<boolean, LDContext>({
-  key: 'example-flag',
-  identify,
-  adapter: ldAdapter.variation(),
-});
-```
-
-### Flags Explorer
-
-```ts
-import { getProviderData as getLDProviderData } from '@flags-sdk/launchdarkly';
-
-return mergeProviderData([
-  getProviderData(flags),
-  getLDProviderData({
-    apiKey: process.env.LAUNCHDARKLY_API_KEY,
-    projectKey: process.env.LAUNCHDARKLY_PROJECT_KEY,
-    environment: process.env.LAUNCHDARKLY_ENVIRONMENT,
-  }),
-]);
-```
-
----
-
-## PostHog
-
-Package: `@flags-sdk/posthog`
-
-```bash
-pnpm i @flags-sdk/posthog
-```
-
-Env vars, always required:
-- `POSTHOG_HOST` (e.g. `https://us.i.posthog.com` or `https://eu.i.posthog.com`)
-- `POSTHOG_PROJECT_API_KEY` (`phc_...`)
-
-Optional, opts into local evaluation (background polling) instead of remote:
-- `POSTHOG_SECRET_KEY` (`phs_...`)
-
-For the Flags Explorer (`getProviderData` only):
-- `POSTHOG_PERSONAL_API_KEY` (`phx_...`)
-- `POSTHOG_PROJECT_ID` (e.g. `521742`)
-
-### Methods
-
-```ts
-import { postHogAdapter } from '@flags-sdk/posthog';
-
-// Value — boolean flag. Pass the adapter uninvoked or invoked, both work.
-export const myFlag = flag<boolean>({
-  key: 'my-flag',
-  adapter: postHogAdapter,
-  identify,
-});
-
-// Value — multivariate flag resolves to the variant string
-export const myVariant = flag<string>({
-  key: 'my-flag',
-  adapter: postHogAdapter,
-  identify,
-});
-
-// Payload
-export const myPayload = flag({
-  key: 'my-flag',
-  adapter: postHogAdapter.payload,
-  defaultValue: {},
-  identify,
-});
-```
-
-`identify` must return `{ distinctId }`.
-
-### Flags Explorer
-
-Requires: `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`
-
-```ts
-import { getProviderData as getPostHogProviderData } from '@flags-sdk/posthog';
-
-export const GET = createFlagsDiscoveryEndpoint(() =>
-  getPostHogProviderData({
-    personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY!,
-    projectId: process.env.POSTHOG_PROJECT_ID!,
-  }),
-);
-```
-
----
-
-## GrowthBook
-
-Package: `@flags-sdk/growthbook`
-
-```bash
-pnpm i @flags-sdk/growthbook
-```
-
-Env: `GROWTHBOOK_CLIENT_KEY` (required)
-
-### Usage
-
-```ts
-import { growthbookAdapter, type Attributes } from '@flags-sdk/growthbook';
-
-const identify = dedupe((async ({ cookies }) => ({
-  id: cookies.get('user_id')?.value,
-})) satisfies Identify<Attributes>);
-
-export const myFlag = flag({
-  key: 'my_feature',
-  identify,
-  adapter: growthbookAdapter.feature<boolean>(),
-});
-```
-
-### Global Config
-
-Set `GROWTHBOOK_EDGE_CONNECTION_STRING` or `EXPERIMENTATION_CONFIG` (Vercel Marketplace).
-
-### Tracking
-
-```ts
-growthbookAdapter.setTrackingCallback((experiment, result) => {
-  after(async () => {
-    console.log('Experiment', experiment.key, 'Variation', result.key);
-  });
-});
-```
-
----
-
-## Flagsmith
-
-Package: `@flags-sdk/flagsmith`
-
-```bash
-pnpm i @flags-sdk/flagsmith
-```
-
-Env: `FLAGSMITH_ENVIRONMENT_KEY` (required)
-
-Remote evaluation is the default for serverless deployments. For a long-running server, use `createFlagsmithAdapter({ environmentKey, enableLocalEvaluation: true })` with a server-side key to opt into local evaluation and environment polling. Call `adapter.close()` on shutdown to stop polling.
-
-### Usage with type coercion
-
-```ts
-import { flagsmithAdapter } from '@flags-sdk/flagsmith';
-
-export const buttonColor = flag<string>({
-  key: 'button-color',
-  defaultValue: 'blue',
-  adapter: flagsmithAdapter.getValue({ coerce: 'string' }),
-});
-
-export const showBanner = flag<boolean>({
-  key: 'show-banner',
-  defaultValue: false,
-  adapter: flagsmithAdapter.getValue({ coerce: 'boolean' }),
-});
-```
-
-Coercion options: `'string'`, `'number'`, `'boolean'`, or omit for raw value.
-
----
-
-## Reflag
-
-Package: `@flags-sdk/reflag`
-
-```bash
-pnpm i @flags-sdk/reflag
-```
-
-Env: `REFLAG_SECRET_KEY`
-
-```ts
-import { reflagAdapter, type Context } from '@flags-sdk/reflag';
-
-const identify = dedupe((async ({ headers, cookies }) => ({
-  user: { id: 'user-id', name: 'name', email: 'email' },
-  company: { id: 'company-id' },
-})) satisfies Identify<Context>);
-
-export const myFeature = flag<boolean, Context>({
-  key: 'my_feature',
-  identify,
-  adapter: reflagAdapter.isEnabled(),
-});
-```
-
----
-
-## OpenFeature
-
-Package: `@flags-sdk/openfeature` + `@openfeature/server-sdk`
-
-```bash
-pnpm i @flags-sdk/openfeature @openfeature/server-sdk
-```
-
-### Setup
-
-```ts
-import { createOpenFeatureAdapter } from '@flags-sdk/openfeature';
-
-// Sync provider
-OpenFeature.setProvider(new YourProvider());
-const adapter = createOpenFeatureAdapter(OpenFeature.getClient());
-
-// Async provider
-const adapter = createOpenFeatureAdapter(async () => {
-  await OpenFeature.setProviderAndWait(new YourProvider());
-  return OpenFeature.getClient();
-});
-```
-
-### Methods
-
-```ts
-adapter.booleanValue()  // boolean flags
-adapter.stringValue()   // string flags
-adapter.numberValue()   // number flags
-adapter.objectValue()   // object flags
-```
-
-All require `defaultValue` on the flag declaration.
-
----
-
-## Split
-
-Package: `@flags-sdk/split` (Flags Explorer only, adapter coming soon)
-
-```ts
-import { getProviderData as getSplitProviderData } from '@flags-sdk/split';
-
-getSplitProviderData({
-  adminApiKey: process.env.SPLIT_ADMIN_API_KEY,
-  environmentId: process.env.SPLIT_ENVIRONMENT_ID,
-  organizationId: process.env.SPLIT_ORG_ID,
-  workspaceId: process.env.SPLIT_WORKSPACE_ID,
-});
-```
-
----
-
-## Optimizely
-
-Package: `@flags-sdk/optimizely` (Flags Explorer only, adapter coming soon)
-
-```ts
-import { getProviderData as getOptimizelyProviderData } from '@flags-sdk/optimizely';
-
-getOptimizelyProviderData({
-  projectId: process.env.OPTIMIZELY_PROJECT_ID,
-  apiKey: process.env.OPTIMIZELY_API_KEY,
-});
-```
-
----
-
-## Custom Adapters
-
-Create an adapter factory:
-
-```ts
-import type { Adapter } from 'flags';
-
-export function createMyAdapter(/* options */) {
-  return function myAdapter<ValueType, EntitiesType>(): Adapter<ValueType, EntitiesType> {
-    return {
-      origin(key) {
-        return `https://my-provider.com/flags/${key}`;
-      },
-      async decide({ key }): Promise<ValueType> {
-        return false as ValueType;
-      },
-    };
+// flags/sources/self/context.ts
+import type { FlagsRequest } from 'flags';
+import { getSession } from '../../../lib/session';
+
+export default async function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  const session = await getSession(request?.cookies);
+  return {
+    user: { id: session.userId },
+    team: { id: session.teamId },
   };
 }
 ```
 
-### Bulk evaluation (`bulkDecide`)
+- Define the entities and attributes under Flags → Entities in the dashboard first. Return the same names. `user.id` above allows `--by user.id` in `vercel flags split`, `rollout` and `rules add`.
+- A rule whose attribute is missing from the context is skipped. A split or rollout without its attribute serves its fallback variant.
+- The step runs once per request, also when a page evaluates many flags. Keep it fast: read cookies and headers, and avoid network requests where you can.
 
-Adapters can implement an optional `bulkDecide` hook. When set (and the adapter has an `adapterId`), `evaluate()` calls it once for every group of flags that share this adapter and the same `identify` source — instead of calling `decide` per flag. This lets the provider share work across evaluations (e.g. a single network request for many flags).
+### Attribute types
 
-```ts
-return {
-  adapterId: 'my-provider', // required for bulkDecide to be used
-  origin(key) {
-    return `https://my-provider.com/flags/${key}`;
-  },
-  async decide({ key }): Promise<ValueType> {
-    return false as ValueType;
-  },
-  // Called by evaluate() for a batch of flags sharing this adapter + identify
-  async bulkDecide({ flags, entities, headers, cookies }) {
-    // flags: { key: string; defaultValue?: unknown }[]
-    // Return a record keyed by flag key.
-    return Object.fromEntries(
-      flags.map(({ key }) => [key, false as ValueType]),
-    );
-  },
-};
-```
+Each attribute is a String, Number, Boolean, String Array or Timestamp. The value must match the type.
 
-Contract:
-
-- Return `Record<flagKey, value>`. Missing keys or `value: undefined` fall back to each flag's `defaultValue`.
-- Throwing falls back to `defaultValue` per flag (and rejects for flags without a `defaultValue`).
-- A flag with an inline `decide` takes precedence and is excluded from bulk evaluation.
-
-### Default adapter pattern
-
-Expose a lazily-initialized default for simpler usage:
+- **Timestamp** is a Unix epoch in milliseconds, as a `number` (`Date.now()`, `user.createdAt.getTime()`, `1719792000000`). Do not pass a `Date`, an ISO string or seconds.
+- Timestamp rules only compare: after, before, at or after, at or before (`gt`, `lt`, `gte`, `lte`). No equality, one-of or exists.
+- Timestamp attributes cannot bucket a split or rollout (`--by`). Use them in rule conditions only.
+- To release at a time, pass the current time as `system.time`, and compare against it in a rule. The source step runs once per request, so all flags of a request see the same time:
 
 ```ts
-let defaultAdapter: ReturnType<typeof createMyAdapter> | undefined;
-
-export function myAdapter<V, E>(): Adapter<V, E> {
-  if (!defaultAdapter) {
-    if (!process.env.MY_API_KEY) throw new Error('Missing MY_API_KEY');
-    defaultAdapter = createMyAdapter(process.env.MY_API_KEY);
-  }
-  return defaultAdapter<V, E>();
+// flags/sources/self/context.ts
+export default function getEvaluationContext() {
+  return {
+    system: { time: Date.now() },
+    user: { id: 'user-456', signupAt: 1719792000000 },
+  };
 }
 ```
 
-Usage:
+### Flags Explorer with Vercel Flags
+
+- Overrides: Flags Explorer sets a cookie that Vercel signs. The SDK verifies it on Vercel and locally after `vercel env pull`. No `FLAGS_SECRET` is needed.
+- Dashboard links: with `project: { system: 'vercel-flags' }` (the Vercel catalog sets it).
+- Reporting: `VercelProvider` reports evaluations, and reports overrides with a hook.
+
+## OpenFeature providers
+
+### How to use a provider
+
+1. Install `flags`, `@openfeature/server-sdk` (the peer dependency of most providers), and the provider.
+2. Export the provider from `flags/sources/self/provider.ts`, or pass it to `defineSource`.
+3. Return the context the provider needs from `context.ts`. Most providers use `targetingKey`. The SDK gives no field a special meaning.
+4. List the flags in `catalog.ts`. Start with a static list.
+5. Import the flags from `flags:self`.
 
 ```ts
-import { myAdapter } from './my-adapter';
+// flags/sources/self/context.ts
+import type { FlagsRequest } from 'flags';
 
-export const exampleFlag = flag({
-  key: 'example',
-  adapter: myAdapter,
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return {
+    targetingKey: request?.cookies?.get('user-id')?.value ?? 'anonymous',
+  };
+}
+```
+
+```ts
+// flags/sources/self/catalog.ts
+import type { CatalogLoader } from 'flags';
+
+const loadCatalog: CatalogLoader = () => ({
+  flags: {
+    checkout: {
+      variants: ['control', 'express'],
+      defaultValue: 'control',
+      description: 'The checkout flow',
+    },
+  },
+});
+
+export default loadCatalog;
+```
+
+By hand, the same provider goes into `defineSource`, and each flag names the source:
+
+```ts
+// flags.ts
+'use flags';
+
+import { bindFlag } from 'flags';
+import { self } from './flags/self';
+
+export const checkout = bindFlag({
+  key: 'checkout',
+  source: self,
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
 });
 ```
+
+### Providers that connect at import
+
+Tools import `'use flags'` modules and `provider.ts` to read the flags, e.g. when a build writes the manifest. Creating a provider must not open connections.
+
+- Most providers connect in `initialize()`. They are fine.
+- Some connect when you create them: LaunchDarkly (`new LaunchDarklyProvider(...)`), Split (`SplitFactory(...).client()`), CloudBees (`await CloudbeesProvider.build(...)`). Create them once, in a module of their own (`provider.ts` or `flags/<name>.ts`), and check the provider docs for a lazy option.
+- Some throw without a key at creation, e.g. the Flagsmith client. Create them lazily, on the first `initialize()` (see [Flagsmith](#flagsmith)).
+
+### LaunchDarkly
+
+```sh
+pnpm add flags @openfeature/server-sdk @launchdarkly/node-server-sdk @launchdarkly/openfeature-node-server
+```
+
+```ts
+// flags/launchdarkly.ts
+import { LaunchDarklyProvider } from '@launchdarkly/openfeature-node-server';
+import { defineSource } from 'flags';
+
+const projectId = process.env.LAUNCHDARKLY_PROJECT_SLUG;
+
+export const launchdarkly = defineSource({
+  // The provider opens its connection to LaunchDarkly when it is created
+  provider: new LaunchDarklyProvider(process.env.LAUNCHDARKLY_SDK_KEY ?? ''),
+  // The LaunchDarkly project, for the links of Flags Explorer
+  project: projectId
+    ? {
+        system: 'launchdarkly',
+        projectId,
+        environment: process.env.LAUNCHDARKLY_ENVIRONMENT,
+      }
+    : undefined,
+  // The provider reads `kind` as the context kind, and `targetingKey` as its key
+  getEvaluationContext: () => ({ kind: 'user', targetingKey: 'demo-user' }),
+});
+```
+
+`project.system: 'launchdarkly'` needs `projectId` (the project key). Links to a flag need `environment`. Flags Explorer builds links only for Vercel Flags today.
+
+### GrowthBook
+
+```sh
+pnpm add flags @openfeature/server-sdk @growthbook/growthbook @openfeature/growthbook-provider
+```
+
+```ts
+import { GrowthbookProvider } from '@openfeature/growthbook-provider';
+import { defineSource } from 'flags';
+
+const growthbook = defineSource({
+  // Loads the features before the first evaluation, and refreshes them every 60 seconds
+  provider: new GrowthbookProvider(
+    {
+      clientKey: process.env.GROWTHBOOK_CLIENT_KEY,
+      apiHost: process.env.GROWTHBOOK_API_HOST || 'https://cdn.growthbook.io',
+    },
+    { pollingInterval: 60_000 },
+  ),
+  // The provider gives the evaluation context to GrowthBook as attributes
+  getEvaluationContext: () => ({ id: 'demo-user' }),
+});
+```
+
+Add `decryptionKey` to the first argument if feature encryption is on.
+
+### Flagsmith
+
+```sh
+pnpm add flags @openfeature/server-sdk @openfeature/flagsmith-provider flagsmith-nodejs
+```
+
+`new Flagsmith()` throws without an environment key, and with local evaluation it starts to poll at once. Create the client and the provider lazily. The repository example (`examples/providers/flagsmith/flags/flagsmith.ts`) wraps them:
+
+```ts
+import { FlagsmithOpenFeatureProvider } from '@openfeature/flagsmith-provider';
+import { defineSource, type EvaluationContext, type Logger, type Provider } from 'flags';
+import { Flagsmith } from 'flagsmith-nodejs';
+
+class LazyFlagsmithProvider implements Provider {
+  readonly metadata = { name: 'flagsmith-provider' } as const;
+  #client: Flagsmith | undefined;
+  #provider: FlagsmithOpenFeatureProvider | undefined;
+
+  #getProvider(): FlagsmithOpenFeatureProvider {
+    if (!this.#provider) {
+      this.#client = new Flagsmith({
+        environmentKey: process.env.FLAGSMITH_ENVIRONMENT_KEY ?? '',
+        enableLocalEvaluation: true,
+      });
+      this.#provider = new FlagsmithOpenFeatureProvider(this.#client, {
+        // Reads the value of boolean flags instead of the enabled state
+        useBooleanConfigValue: true,
+      });
+    }
+    return this.#provider;
+  }
+
+  initialize(context?: EvaluationContext) {
+    return this.#getProvider().initialize(context);
+  }
+
+  async onClose() {
+    await this.#client?.close();
+  }
+
+  resolveBooleanEvaluation(flagKey: string, defaultValue: boolean, context: EvaluationContext, logger: Logger) {
+    return this.#getProvider().resolveBooleanEvaluation(flagKey, defaultValue, context, logger);
+  }
+
+  // resolveStringEvaluation, resolveNumberEvaluation and resolveObjectEvaluation forward the same way
+}
+
+// To target identities, return a `targetingKey` (the identifier) and `traits`
+export const flagsmith = defineSource({ provider: new LazyFlagsmithProvider() });
+```
+
+### Statsig
+
+```sh
+pnpm add flags @openfeature/server-sdk @statsig/statsig-node-core @flags-sdk/statsig
+```
+
+```ts
+import { StatsigProvider } from '@flags-sdk/statsig/openfeature';
+import { bindFlag, defineSource } from 'flags';
+
+const statsig = defineSource({
+  // Creating it does not open a connection: it fetches the rules in initialize()
+  provider: new StatsigProvider(process.env.STATSIG_SERVER_API_KEY ?? ''),
+  // targetingKey becomes the userID
+  getEvaluationContext: () => ({ targetingKey: 'demo-user' }),
+});
+
+// The feature gate `show_banner`
+export const showBanner = bindFlag({ key: 'show_banner', source: statsig, defaultValue: false });
+
+// The `text` parameter of the dynamic config `welcome_message_text`
+export const welcomeMessage = bindFlag({
+  key: 'config:welcome_message_text.text',
+  source: statsig,
+  type: 'string',
+  defaultValue: 'Welcome',
+});
+```
+
+| Key                                   | Reads                                                  |
+| ------------------------------------- | ------------------------------------------------------ |
+| `my_gate` or `gate:my_gate`           | a feature gate (boolean)                               |
+| `config:my_config`                    | the value object of a dynamic config (`type: 'object'`) |
+| `experiment:my_experiment`            | the value object of an experiment (`type: 'object'`)   |
+| `layer:my_layer.param`                | one parameter of a layer (a layer key needs a parameter) |
+
+- `.<param>` reads one parameter, e.g. `experiment:pricing.price`. String and number flags need a parameter. A missing parameter returns the default value.
+- `targetingKey` (or `userID`) becomes `userID`. `email`, `ip`, `userAgent`, `country`, `locale`, `appVersion`, `custom`, `customIDs`, `privateAttributes`, `statsigEnvironment` keep their names. Other primitive attributes go to `custom`.
+- `new StatsigProvider(sdkKey, { statsigOptions })`, or `new StatsigProvider(statsig)` with your own instance (initialized, not shut down). `disableExposureLogging: true` turns off exposure logging.
+- A key that Statsig rejects (401 or 403) is fatal (`PROVIDER_FATAL`). The SDK does not retry, and the flags return their default values until the process restarts. Network errors are retried on the next evaluation.
+- `track` calls `logEvent`.
+- Node.js runtime only (native SDK).
+
+### PostHog
+
+```sh
+pnpm add flags @openfeature/server-sdk posthog-node @flags-sdk/posthog
+```
+
+```ts
+import { PostHogProvider } from '@flags-sdk/posthog/openfeature';
+import { bindFlag, defineSource } from 'flags';
+import { PostHog } from 'posthog-node';
+
+// The application creates the client. The provider does not open a connection itself.
+const posthog = new PostHog(process.env.POSTHOG_PROJECT_API_KEY ?? '', {
+  host: process.env.POSTHOG_HOST,
+  // Optional: local evaluation with a feature flags secret key (phs_...)
+  secretKey: process.env.POSTHOG_SECRET_KEY,
+});
+
+const source = defineSource({
+  provider: new PostHogProvider(posthog),
+  // targetingKey is the distinct ID
+  getEvaluationContext: () => ({ targetingKey: 'demo-user' }),
+});
+
+export const showBanner = bindFlag({ key: 'show_banner', source, defaultValue: false });
+```
+
+| `type`    | Value                                                                         |
+| --------- | ----------------------------------------------------------------------------- |
+| `boolean` | Whether the flag is enabled for the user.                                     |
+| `string`  | The variant key of a multivariate flag.                                       |
+| `number`  | The JSON payload; must be a number, else `TYPE_MISMATCH`.                     |
+| `object`  | The JSON payload, any JSON value.                                             |
+
+- `targetingKey` is required (else `TARGETING_KEY_MISSING`). `distinctId` also works.
+- `groups`, `personProperties` and `groupProperties` keep their names. Other primitive attributes are person properties.
+- Options (second argument): `onlyEvaluateLocally`, `sendFeatureFlagEvents`, `disableGeoip`, `shutdownOnClose` (default `false`).
+
+### Other providers
+
+| System             | Package                                             | Provider                                                     |
+| ------------------ | --------------------------------------------------- | ------------------------------------------------------------ |
+| flagd              | `@openfeature/flagd-provider`                       | `new FlagdProvider()`                                        |
+| ConfigCat          | `@openfeature/config-cat-provider`                  | `ConfigCatProvider.create('<sdk_key>')`                      |
+| Flipt              | `@openfeature/flipt-provider`                       | `new FliptProvider('namespace', { url })`                    |
+| GO Feature Flag    | `@openfeature/go-feature-flag-provider`             | `new GoFeatureFlagProvider({ endpoint })`                    |
+| AB Tasty           | `@flagship-io/openfeature-provider-js`              | `new ABTastyProvider('<ENV_ID>', '<API_KEY>')`               |
+| CloudBees          | `cloudbees-openfeature-provider-node`               | `await CloudbeesProvider.build('<app-key>')` (connects at import) |
+| Confidence         | `@spotify-confidence/openfeature-server-provider`   | `createConfidenceServerProvider({ clientSecret, fetchImplementation: fetch, timeout })` |
+| DevCycle           | `@devcycle/nodejs-server-sdk`                       | `new DevCycleProvider(process.env.DEVCYCLE_SERVER_SDK_KEY!)` |
+| FeatBit            | `@featbit/openfeature-provider-node-server`         | `new FbProvider({ sdkKey, streamingUri, eventsUri })`        |
+| Hypertune          | `@hypertune/openfeature-server-provider`            | `new HypertuneProvider({ token })`                           |
+| Kameleoon          | `@kameleoon/openfeature-server`                     | `new KameleoonProvider({ siteCode, credentials })`           |
+| Split              | `@splitsoftware/openfeature-js-split-provider` + `@splitsoftware/splitio` | `new OpenFeatureSplitProvider({ splitClient })` (the client connects at creation) |
+| Tggl               | `openfeature-server-tggl-provider`                  | `new TgglServerProvider(process.env.TGGL_API_KEY!)`          |
+
+Check the provider docs for production options. More: https://openfeature.dev/ecosystem (server-side JavaScript). Full snippets: https://flags-sdk.dev/docs/providers/openfeature
+
+### Reflag
+
+Reflag's OpenFeature provider cannot be bundled (its package has require-only exports). Stay on v4 with `@flags-sdk/reflag` for Reflag (see `examples/providers/reflag`).
+
+## Custom providers
+
+### In-memory providers
+
+For development, tests and demos. `TypedInMemoryProvider` checks the variant types; `InMemoryProvider` does not.
+
+```ts
+import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { defineSource } from 'flags';
+
+export const shop = defineSource({
+  provider: new TypedInMemoryProvider({
+    'summer-sale': {
+      variants: { on: true, off: false },
+      defaultVariant: 'off',
+      disabled: false,
+      // On for alice only
+      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+    },
+    checkout: {
+      variants: { control: 'control', express: 'express' },
+      defaultVariant: 'express',
+      disabled: false,
+    },
+  } as const),
+  project: { system: 'in-memory' },
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+```
+
+With the file system API: `export default new TypedInMemoryProvider({ ... })` in `provider.ts`, plus a static catalog.
+
+### A provider object
+
+Any object with the shape of the `Provider` type of `flags` works. Only `metadata` and `resolveBooleanEvaluation` are required. No base class, no dependency on `@openfeature/server-sdk`.
+
+```ts
+import type { EvaluationContext, Provider, ResolutionDetails } from 'flags';
+
+type Values = Record<string, unknown>;
+
+// A provider which loads the flags of each user from a JSON endpoint
+export function createJsonProvider(url: string): Provider {
+  let values: Record<string, Values> = {};
+
+  function resolve<T>(
+    key: string,
+    defaultValue: T,
+    type: 'boolean' | 'string' | 'number',
+    context: EvaluationContext,
+  ): ResolutionDetails<T> {
+    const user = String(context.targetingKey ?? 'default');
+    const flags = values[user] ?? values.default ?? {};
+    if (!(key in flags)) {
+      return { value: defaultValue, reason: 'ERROR', errorCode: 'FLAG_NOT_FOUND' };
+    }
+    const value = flags[key];
+    if (typeof value !== type) {
+      return { value: defaultValue, reason: 'ERROR', errorCode: 'TYPE_MISMATCH' };
+    }
+    return { value: value as T, reason: 'TARGETING_MATCH' };
+  }
+
+  return {
+    metadata: { name: 'json-provider' },
+
+    // Called once, before the first evaluation. Not in the constructor:
+    // importing a module with this provider must not open connections.
+    async initialize() {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`json-provider: Could not load ${url} (${response.status})`);
+      }
+      values = await response.json();
+    },
+
+    async resolveBooleanEvaluation(key, defaultValue, context) {
+      return resolve(key, defaultValue, 'boolean', context);
+    },
+    async resolveStringEvaluation(key, defaultValue, context) {
+      return resolve(key, defaultValue, 'string', context);
+    },
+    async resolveNumberEvaluation(key, defaultValue, context) {
+      return resolve(key, defaultValue, 'number', context);
+    },
+  };
+}
+```
+
+- `value` becomes the flag value, after the type check. A value outside `options` is still used.
+- `errorCode` fails the evaluation: the flag returns its `defaultValue`, or throws a `FlagEvaluationError` with this code. Use OpenFeature codes (`FLAG_NOT_FOUND`, `TYPE_MISMATCH`, `GENERAL`).
+- `reason`, `variant` and `flagMetadata` reach the hooks.
+- A method that throws fails with `GENERAL`. A missing method for a type fails.
+- Optional members: `initialize`, `onClose`, the other resolve methods (`resolveObjectEvaluation` returns any JSON value), `hooks` (also run for overrides), `events`, `track`.
+
+### A reusable OpenFeature provider
+
+For other teams or apps, write a class that implements `Provider` of `@openfeature/server-sdk` (with `metadata`, `runsOn = 'server'`, and the four resolve methods). Rules:
+
+- No I/O in the constructor. Connect in `initialize()`.
+- No per-request state in the provider: several sources can share it.
+- The context comes complete from the chain.
+- Return an `errorCode` for known problems. Throw only for unexpected errors.
+
+Dashboard links for a new system: open a pull request to the SDK with the fields of its projects and the URL of its system manifest.

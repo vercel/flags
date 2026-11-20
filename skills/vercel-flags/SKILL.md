@@ -7,8 +7,9 @@ description: >
   users, even before a library or provider is chosen. Covers choosing an integration (Flags SDK,
   `@vercel/flags-core`, OpenFeature), the Vercel dashboard, the `vercel flags` CLI (create, inspect,
   set, split, rollout, rules, segments, evaluations, archive, connections), Project Connections, OIDC vs SDK keys, `FLAGS_SECRET`, and
-  Flags Explorer overrides. For `flag()` declarations, adapters, precompute, and the Flags Explorer
-  endpoint in Next.js or SvelteKit code, load the `flags-sdk` skill.
+  Flags Explorer overrides. For Flags SDK v5 code (`defineFlag`, `bindFlag`, `defineSource`,
+  `flags/sources` and `flags:<source>`, `VercelProvider`, `withFlags`, precompute, the Flags Explorer
+  manifest) in any framework, load the `flags-sdk` skill.
 ---
 
 # Vercel Flags
@@ -33,10 +34,10 @@ Use this skill to decide how a feature should be flagged, to create and change f
 
 Check the project before writing code.
 
-- **Already using another flag provider** (Statsig, LaunchDarkly, PostHog, GrowthBook, and so on): keep it. On Next.js or SvelteKit, the Flags SDK connects to it through an adapter; load the `flags-sdk` skill. On any other stack, use the provider's own SDK. Rollouts, targeting, and experiments for that provider are configured in its own dashboard, not with `vercel flags`; the CLI and lifecycle sections of this skill do not apply.
+- **Already using another flag provider** (Statsig, LaunchDarkly, PostHog, GrowthBook, and so on): keep it. The Flags SDK connects to it through its OpenFeature server provider; load the `flags-sdk` skill. On a stack without the Flags SDK, use the provider's own SDK. Rollouts, targeting, and experiments for that provider are configured in its own dashboard, not with `vercel flags`; the CLI and lifecycle sections of this skill do not apply.
 - **No provider yet**: use Vercel Flags. Pick the integration by stack ([SDKs](https://vercel.com/docs/flags/vercel-flags/sdks)):
-  - **Next.js or SvelteKit**: the Flags SDK (`flags` + `@flags-sdk/vercel`). It adds Flags Explorer integration and precompute for static pages. Load the `flags-sdk` skill. If it is not available, suggest `npx skills add vercel/flags@flags-sdk` (do not auto-install).
-  - **Any other framework or a plain server** (for example Express): `@vercel/flags-core`. See [Other frameworks](#other-frameworks).
+  - **Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, or a plain Node.js server**: the Flags SDK v5 (`flags`, the framework package such as `@flags-sdk/next`, and `VercelProvider` of `@vercel/flags-core/openfeature`). It adds Flags Explorer integration, and precompute for static pages in Next.js. Load the `flags-sdk` skill. If it is not available, suggest `npx skills add vercel/flags@flags-sdk` (do not auto-install).
+  - **Any other stack, or when the user wants no SDK**: `@vercel/flags-core` directly. See [Other frameworks](#other-frameworks).
   - **The user wants provider portability or already uses OpenFeature**: the Vercel Flags OpenFeature provider ([Using OpenFeature with Vercel Flags](https://vercel.com/docs/flags/vercel-flags/sdks/openfeature)).
 
 The dashboard and the `vercel flags` CLI work the same for every integration.
@@ -47,7 +48,7 @@ Decide these before creating the flag; the kind cannot be changed later.
 
 - **Kind**: `boolean` for on/off and kill switches; `string`, `number`, or `json` when the flag selects a variant or carries configuration ([Flag types](https://vercel.com/docs/flags/vercel-flags/dashboard/feature-flag#flag-types)).
 - **Variants**: name them after the behavior (`control`, `new-checkout`), not after the rollout step.
-- **Key**: kebab-case, stable, and the same string in the CLI, the dashboard, and the code (`key` in `flag()` or the first argument of `evaluate()`).
+- **Key**: kebab-case, stable, and the same string in the CLI, the dashboard, and the code (`key` in `bindFlag()`, the export name in `flags:<source>`, or the first argument of `evaluate()` of `@vercel/flags-core`).
 - **Environments**: each environment serves its own value or targeting. Plan what Development, Preview, and Production serve at launch.
 - **Targeting**: a percentage rollout or A/B split needs a stable identity to bucket by, such as `user.id`. Define the entity and attribute under Flags → Entities first; the app must return the same names from its evaluation context ([Entities](https://vercel.com/docs/flags/vercel-flags/dashboard/entities)).
 - **Fallback**: the value the app serves when the flag is archived, not yet created, or evaluation fails. This becomes `defaultValue` in code.
@@ -85,15 +86,15 @@ Always `inspect` first so you know what each environment serves today, and match
 - **OIDC**: on Vercel, the app authenticates with the project's OIDC token and evaluates the configuration of the current environment. `vercel env pull` writes the Development token to `.env.local` for local development ([Getting started](https://vercel.com/docs/flags/vercel-flags/quickstart#pull-local-openid-connect-credentials)).
 - **Project Connections**: read another same-team project's flags with the consumer project's OIDC token, without an SDK key. Follow [Project Connections](references/cli.md#project-connections) for setup and minimum versions.
 - **SDK keys (`FLAGS`)**: for apps outside Vercel, selecting an environment explicitly, or reading flags across teams. Each key is scoped to one environment and shown once, at creation ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). Not a recovery path for failed CLI authentication.
-- **`FLAGS_SECRET`**: created per environment when Vercel Flags is activated for a project. It signs Flags Explorer overrides and precompute codes, and `vercel flags override` reads it from the environment or `.env.local`. Preserve existing values and never rotate them as part of routine setup; a missing local value does not mean the remote value is missing, so check the target environment before generating one. The `flags-sdk` skill documents how to generate a missing value. Do not print secrets to the terminal, logs, or chat.
+- **`FLAGS_SECRET`**: created per environment when Vercel Flags is activated for a project. Flags SDK v5 does not need it on Vercel: Vercel signs the Flags Explorer override cookies. The SDK still accepts override tokens encrypted with it (tests, CI, apps outside Vercel), and `vercel flags override` reads it from the environment or `.env.local`. Precompute in v5 uses a per-build secret or `FLAGS_PRECOMPUTE_SECRET`, not `FLAGS_SECRET`. Preserve existing values and never rotate them as part of routine setup; a missing local value does not mean the remote value is missing, so check the target environment before generating one. The `flags-sdk` skill documents how to generate a missing value. Do not print secrets to the terminal, logs, or chat.
 
 ## Flags Explorer
 
-Flags Explorer is the Vercel Toolbar panel that lists the app's flags and lets you override them per browser through a cookie signed with `FLAGS_SECRET` ([Flags Explorer](https://vercel.com/docs/flags/flags-explorer)). The app exposes its flags through a discovery endpoint; the Flags SDK generates it (`flags-sdk` skill). `vercel flags override <key>=<value>` produces the same cookie token from the terminal.
+Flags Explorer is the Vercel Toolbar panel that lists the app's flags and lets you override them per browser through the `flag-overrides` cookie, signed by Vercel or encrypted with `FLAGS_SECRET` ([Flags Explorer](https://vercel.com/docs/flags/flags-explorer)). With Flags SDK v5, the app lists its flags in a flags manifest of its `'use flags'` modules; the v4 discovery endpoint is gone (`flags-sdk` skill). `vercel flags override <key>=<value>` produces a `FLAGS_SECRET`-encrypted token for the v4 cookie `vercel-flag-overrides`, which v5 still reads.
 
 ## Other frameworks
 
-For frameworks without a Flags SDK entrypoint, use `@vercel/flags-core` directly ([Core SDK](https://vercel.com/docs/flags/vercel-flags/sdks/core)). Create one client at module scope and call `evaluate()` or `bulkEvaluate()` inside a request handler; both initialize the client on first use. Do not add a module-scope `client.initialize()` call or cache its promise for handlers to await.
+For stacks without the Flags SDK, or when the user wants no SDK, use `@vercel/flags-core` directly ([Core SDK](https://vercel.com/docs/flags/vercel-flags/sdks/core)). Create one client at module scope and call `evaluate()` or `bulkEvaluate()` inside a request handler; both initialize the client on first use. Do not add a module-scope `client.initialize()` call or cache its promise for handlers to await.
 
 ```ts
 // src/flags.ts
