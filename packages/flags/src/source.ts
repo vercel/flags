@@ -65,15 +65,15 @@ export type Project<N extends FlagManagementSystem = FlagManagementSystem> = {
 
 /**
  * A step in the chain which creates the evaluation context. It receives the
- * context of the step before, and the current request. `request` is
+ * current request and the context of the step before. `request` is
  * `undefined` outside of `runtime.onInvoke`.
  *
  * The chain runs from the call side, through the flag, to the source.
  * The result of the source goes to the provider.
  */
 export type GetEvaluationContext<In = unknown, Out = EvaluationContext> = (
-  context: In,
   request: FlagsRequest | undefined,
+  context: In,
 ) => Out | Promise<Out>;
 
 /**
@@ -105,8 +105,9 @@ export interface SourceOptions<
    */
   hooks?: readonly Hook[];
   /**
-   * The last step of the chain. Receives the context which the flag creates,
-   * and returns the context for the provider. The type of `context` defines
+   * The last step of the chain. Receives the current request and the
+   * context which the flag creates, and returns the context for the
+   * provider. The type of `context` defines
    * what the flags of this source must give. The return type defines
    * what the provider receives.
    *
@@ -116,15 +117,15 @@ export interface SourceOptions<
    *
    * @example
    * ```ts
-   * getEvaluationContext: async (context: { teamId: string }, request) => ({
+   * getEvaluationContext: async (request, context: { teamId: string }) => ({
    *   team: await loadTeam(context.teamId),
    *   user: request?.headers.get('x-user') ?? null,
    * }),
    * ```
    */
   getEvaluationContext?(
-    context: In,
     request: FlagsRequest | undefined,
+    context: In,
   ): C | Promise<C>;
 }
 
@@ -145,8 +146,8 @@ export interface Source<
   readonly project?: Project<N>;
   readonly hooks?: readonly Hook[];
   getEvaluationContext?(
-    context: In,
     request: FlagsRequest | undefined,
+    context: In,
   ): C | Promise<C>;
 }
 

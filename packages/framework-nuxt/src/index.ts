@@ -18,17 +18,14 @@
  *   with `useEvent()`, and `flags/config.ts`. The module sets
  *   `experimental.asyncContext` of Nitro for it.
  * - A Nitro plugin calls `runtime.onInit` and `runtime.onShutdown`.
- * - The default provider of the platform: during a build on Vercel, the
- *   provider of `@vercel/flags-core`, if the project has it, or the module
- *   of the option `defaultProvider`.
+ * - With `codeGeneration`, the modules of `flags:<source>`, generated from
+ *   the catalogs of `flags/sources`, for Vite and Nitro.
  *
  * It is a plain function and uses only hooks of Nuxt, so that the SDK does
  * not depend on `@nuxt/kit`.
  */
-import { createRequire } from 'node:module';
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { flags, platformDefaultProvider } from '@flags-sdk/vite';
+import { flags, resolveAliases, startCodeGeneration } from '@flags-sdk/vite';
 import { findConfigFile } from 'flags/tooling';
 
 type Plugins = unknown[] | unknown;
@@ -41,27 +38,33 @@ interface NitroConfig {
   plugins?: string[];
 }
 
+interface ViteConfig {
+  plugins?: unknown[];
+  resolve?: { alias?: unknown };
+}
+
 interface Nuxt {
-  readonly options: { readonly rootDir: string; readonly dev: boolean };
-  hook(
-    name: 'vite:extendConfig',
-    callback: (config: { plugins?: unknown[] }) => void,
-  ): void;
+  readonly options: {
+    readonly rootDir: string;
+    readonly dev: boolean;
+    alias?: Record<string, string>;
+  };
+  hook(name: 'vite:extendConfig', callback: (config: ViteConfig) => void): void;
   hook(name: 'nitro:config', callback: (config: NitroConfig) => void): void;
+  hook(name: 'close', callback: () => void): void;
 }
 
 export interface FlagsNuxtOptions {
   /**
-   * The module of the default provider, e.g. of a platform, instead of the
-   * built-in default provider, which throws for now. A path is relative to the project. During a
-   * build on Vercel, the default is `@vercel/flags-core/default-provider`,
-   * if the project has it. `false` turns this off.
+   * Generates the modules of `flags:<source>` from the catalogs of
+   * `flags/sources/<source>`: one time for a build, and again after each
+   * change of a catalog for `nuxt dev`.
    *
    * ```ts
-   * modules: [['@flags-sdk/nuxt', { defaultProvider: './provider.ts' }]]
+   * modules: [['@flags-sdk/nuxt', { codeGeneration: true }]]
    * ```
    */
-  readonly defaultProvider?: string | false;
+  readonly codeGeneration?: boolean;
 }
 
 /**
@@ -78,30 +81,49 @@ function asArray(plugins: Plugins): unknown[] {
   return Array.isArray(plugins) ? plugins : [plugins];
 }
 
-export default function flagsNuxtModule(
+/**
+ * Adds an alias to the aliases of Vite, which can be an object or an array.
+ */
+function withAliases(
+  existing: unknown,
+  aliases: Record<string, string>,
+): unknown {
+  if (Array.isArray(existing)) {
+    return [
+      ...existing,
+      ...Object.entries(aliases).map(([find, replacement]) => ({
+        find,
+        replacement,
+      })),
+    ];
+  }
+  return { ...(existing as Record<string, string> | undefined), ...aliases };
+}
+
+export default async function flagsNuxtModule(
   options: FlagsNuxtOptions | undefined,
   nuxt: Nuxt,
-): void {
+): Promise<void> {
   const root = nuxt.options.rootDir;
-  // A module of the project or of a package of the project, as a path for
-  // the aliases of Nitro
-  const resolve = (id: string) =>
-    id.startsWith('.')
-      ? join(root, id)
-      : createRequire(join(root, 'package.json')).resolve(id);
-  const defaultProvider =
-    options?.defaultProvider === false
-      ? undefined
-      : (options?.defaultProvider ??
-        platformDefaultProvider(root, !nuxt.options.dev));
+  let aliases: Record<string, string> = {};
+  if (options?.codeGeneration) {
+    const generation = startCodeGeneration(root, nuxt.options.dev);
+    nuxt.hook('close', () => generation.stop());
+    aliases = resolveAliases(root, await generation.ready);
+    // Also for the types: Nuxt writes its aliases into its tsconfig
+    nuxt.options.alias = { ...nuxt.options.alias, ...aliases };
+  }
 
   nuxt.hook('vite:extendConfig', (config) => {
     config.plugins = [
       ...(config.plugins ?? []),
-      // Nitro bundles the server code again, with the binding and the
-      // default provider
-      flags({ root, manifest: false, defaultProvider: false }),
+      // Nitro bundles the server code again, with the binding
+      flags({ root, manifest: false }),
     ];
+    config.resolve = {
+      ...config.resolve,
+      alias: withAliases(config.resolve?.alias, aliases),
+    };
   });
   const configFile = findConfigFile(root);
   nuxt.hook('nitro:config', (config) => {
@@ -116,16 +138,14 @@ export default function flagsNuxtModule(
       ...config.alias,
       'flags/framework': ownModule('binding'),
       ...(configFile ? { 'flags/config': configFile } : {}),
-      ...(defaultProvider
-        ? { 'flags/default-provider': resolve(defaultProvider) }
-        : {}),
+      ...aliases,
     };
     config.plugins = [...(config.plugins ?? []), ownModule('plugin')];
     config.rollupConfig ??= {};
     config.rollupConfig.plugins = [
       ...asArray(config.rollupConfig.plugins),
       // In development, Nitro also builds, but without a manifest
-      flags({ root, manifest: !nuxt.options.dev, defaultProvider: false }),
+      flags({ root, manifest: !nuxt.options.dev }),
     ];
   });
 }

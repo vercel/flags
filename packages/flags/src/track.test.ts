@@ -14,7 +14,7 @@ function createSource() {
   return defineSource({
     provider,
     project: { system: 'in-memory' },
-    getEvaluationContext: (context: { userId: string }, request) => ({
+    getEvaluationContext: (request, context: { userId: string }) => ({
       user: context.userId,
       country: request?.headers?.get('x-country') ?? null,
     }),
@@ -59,16 +59,19 @@ describe('track', () => {
     });
   });
 
-  it('uses the default source', async () => {
-    const source = createSource();
-    runtime.configure({ defaultSource: source });
+  it('throws without a source, because there is no default source', () => {
+    expect(() =>
+      // @ts-expect-error track needs a source
+      track('signup', { evaluationContext: { userId: 'bob' } }),
+    ).toThrow('flags: track expects a source and an event name.');
+  });
 
-    await track('signup', { evaluationContext: { userId: 'bob' } });
-    expect(source.provider.track).toHaveBeenCalledWith(
-      'signup',
-      { user: 'bob', country: null },
-      {},
-    );
+  it('requires the name of the event', () => {
+    const source = createSource();
+    expect(() =>
+      // @ts-expect-error the name of the event is a string
+      track(source, 1),
+    ).toThrow('flags: The name of a tracking event must be a string.');
   });
 
   it('ignores the event for a provider without track', async () => {
@@ -103,8 +106,6 @@ describe('track', () => {
     expect(() =>
       // @ts-expect-error a number is not a source
       track(1, 'purchase'),
-    ).toThrow(
-      'flags: track expects an event name, or a source and an event name.',
-    );
+    ).toThrow('flags: track expects a source and an event name.');
   });
 });

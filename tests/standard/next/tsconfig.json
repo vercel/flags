@@ -24,11 +24,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    ".next-platform/types/**/*.ts",
-    ".next-platform/dev/types/**/*.ts",
-    ".next-webpack/types/**/*.ts",
-    ".next-webpack/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

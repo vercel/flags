@@ -50,7 +50,7 @@ function createSource() {
       },
     } as const),
     project: { system: 'in-memory' },
-    getEvaluationContext: (_context, request) => ({
+    getEvaluationContext: (request) => ({
       user: request?.cookies?.get('user')?.value ?? 'anonymous',
     }),
   });

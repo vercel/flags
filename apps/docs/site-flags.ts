@@ -22,7 +22,7 @@ export const enableBannerFlag = defineFlag({
   description: 'Full-width callout at the top',
   options: [false, true],
   // On by default
-  decide: (_context, request) => cookie(request, 'enable-banner-flag') !== '0',
+  decide: (request) => cookie(request, 'enable-banner-flag') !== '0',
 });
 
 export const enableDitheredHeroFlag = defineFlag({
@@ -30,8 +30,7 @@ export const enableDitheredHeroFlag = defineFlag({
   description: 'Keep it dithered',
   options: [false, true],
   // Off by default
-  decide: (_context, request) =>
-    cookie(request, 'enable-dithered-hero-flag') === '1',
+  decide: (request) => cookie(request, 'enable-dithered-hero-flag') === '1',
 });
 
 export const enableHeroTextFlag = defineFlag({
@@ -39,7 +38,7 @@ export const enableHeroTextFlag = defineFlag({
   type: 'string',
   description: 'Toggle between headline options for A/B testing',
   options: heroTexts,
-  decide: (_context, request) => {
+  decide: (request) => {
     const value = cookie(request, 'swap-hero-text');
     const known = heroTexts.find((text) => text === value);
     if (known) {
@@ -54,7 +53,7 @@ export const installAudienceFlag = defineFlag({
   type: 'string',
   description: 'Default tab of the hero install-command switcher',
   options: ['humans', 'agents'],
-  decide: (_context, request) => {
+  decide: (request) => {
     const value = cookie(request, 'install-audience');
     if (value === 'humans') {
       return 'humans';

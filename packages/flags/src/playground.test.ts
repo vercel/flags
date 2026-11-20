@@ -146,8 +146,7 @@ describe('1. Sources and flags', () => {
     // request. Overrides, hooks and the cache of the request still apply.
     const betaBanner = defineFlag({
       key: 'beta-banner',
-      decide: (_context, request) =>
-        request?.cookies?.get('beta')?.value === '1',
+      decide: (request) => request?.cookies?.get('beta')?.value === '1',
       options: [false, true] as const, // optional, e.g. for Flags Explorer
     });
 
@@ -244,7 +243,7 @@ describe('4. The evaluation context chain', () => {
       provider: createProvider(),
       project: { system: 'in-memory' },
       // The source decides what its flags must give
-      getEvaluationContext: (context: { user: string }) => ({
+      getEvaluationContext: (_request, context: { user: string }) => ({
         user: context.user,
       }),
     });
@@ -268,9 +267,12 @@ describe('4. The evaluation context chain', () => {
       provider: createProvider(),
       project: { system: 'in-memory' },
       // The source loads the team, e.g. from a database
-      getEvaluationContext: async (context: {
-        teamId: keyof typeof teams;
-      }) => ({
+      getEvaluationContext: async (
+        _request,
+        context: {
+          teamId: keyof typeof teams;
+        },
+      ) => ({
         team: teams[context.teamId],
       }),
     });
@@ -289,7 +291,7 @@ describe('4. The evaluation context chain', () => {
     const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
-      getEvaluationContext: (context: { teamId: string }) => ({
+      getEvaluationContext: (_request, context: { teamId: string }) => ({
         team: { plan: context.teamId === 'id-of-acme' ? 'enterprise' : 'free' },
       }),
     });
@@ -298,7 +300,7 @@ describe('4. The evaluation context chain', () => {
     const teamInsights = bindFlag({
       key: 'team-insights',
       source,
-      getEvaluationContext: (context: { slug: string }) => ({
+      getEvaluationContext: (_request, context: { slug: string }) => ({
         teamId: `id-of-${context.slug}`,
       }),
     });
@@ -312,7 +314,7 @@ describe('4. The evaluation context chain', () => {
     const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
-      getEvaluationContext: (context: { teamId: string }) => ({
+      getEvaluationContext: (_request, context: { teamId: string }) => ({
         team: context.teamId,
       }),
     });
@@ -335,7 +337,7 @@ describe('5. Requests', () => {
     const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
-      getEvaluationContext: (_context, request) => {
+      getEvaluationContext: (request) => {
         calls.count++;
         return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
       },
@@ -361,7 +363,7 @@ describe('5. Requests', () => {
     const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
-      getEvaluationContext: (_context, request) => {
+      getEvaluationContext: (request) => {
         seen = {
           header: request?.headers?.get('accept-language'),
           cookie: request?.cookies?.get('user')?.value,
@@ -548,7 +550,7 @@ describe('8. One runtime for each process', () => {
     const source = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
-      getEvaluationContext: (_context, request) => ({
+      getEvaluationContext: (request) => ({
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
     });
@@ -719,39 +721,40 @@ describe('9. Overrides', () => {
   });
 });
 
-describe('10. Zero configuration and flags/config.ts', () => {
-  // A flag without a source uses the default source. Without
-  // configuration, that will be Vercel Flags, but for now the built-in
-  // default source throws. When a framework builds for Vercel, it can
-  // replace its provider with a fast one (see default-provider-alias.test.ts).
-  //
-  // To get more, e.g. an evaluation context, the application writes one
-  // file, flags/config.ts. The flags do not change.
+describe('10. Explicit sources and the optional flags/config.ts', () => {
+  // Each flag names its source: there is no default source. The
+  // configuration is optional. flags/config.ts only adds settings for all
+  // flags, e.g. hooks and overrides.
 
-  it('tells what to do without a source', async () => {
-    const summerSale = bindFlag({ key: 'summer-sale' });
-
-    await expect(summerSale()).rejects.toThrow(
-      'Pass a source to bindFlag, or set defaultSource in flags/config.ts.',
-    );
+  it('needs a source for each flag of a provider', () => {
+    expect(() =>
+      // @ts-expect-error bindFlag needs the source of the provider
+      bindFlag({ key: 'summer-sale' }),
+    ).toThrow('flags: Flag "summer-sale" has no source.');
   });
 
-  it('upgrades all flags with one default source in flags/config.ts', async () => {
-    // The flags of the application, without a source
-    const newCheckout = bindFlag({ key: 'new-checkout' });
-    const summerSale = bindFlag({ key: 'summer-sale' });
-
-    // flags/config.ts: e.g. VercelProvider of @vercel/flags-core/openfeature.
-    // Here, a
-    // source with an evaluation context from a cookie.
-    const config = defineConfig({
-      defaultSource: defineSource({
-        provider: createProvider(),
-        project: { system: 'in-memory' },
-        getEvaluationContext: (_context, request) => ({
-          user: request?.cookies?.get('user')?.value ?? 'anonymous',
-        }),
+  it('adds hooks for all flags in flags/config.ts', async () => {
+    // flags/sources/shop.ts: a source with an evaluation context from a cookie
+    const shop = defineSource({
+      provider: createProvider(),
+      project: { system: 'in-memory' },
+      getEvaluationContext: (request) => ({
+        user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
+    });
+    const newCheckout = bindFlag({ key: 'new-checkout', source: shop });
+    const summerSale = bindFlag({ key: 'summer-sale', source: shop });
+
+    // flags/config.ts: a hook which logs each evaluation
+    const evaluated: string[] = [];
+    const config = defineConfig({
+      hooks: [
+        {
+          after: (hookContext, details) => {
+            evaluated.push(`${hookContext.flagKey}=${details.value}`);
+          },
+        },
+      ],
     });
     // The framework binding does this
     runtime.configure(config);
@@ -766,7 +769,18 @@ describe('10. Zero configuration and flags/config.ts', () => {
     // new-checkout is on for alice only
     expect(checkout).toBe(true);
     expect(sale).toBe(true);
-    expect(newCheckout.source).toBe(config.defaultSource);
+    expect(evaluated).toEqual(['new-checkout=true', 'summer-sale=true']);
+  });
+
+  it('rejects a defaultSource in the configuration', () => {
+    const shop = defineSource({
+      provider: createProvider(),
+      project: { system: 'in-memory' },
+    });
+    expect(() =>
+      // @ts-expect-error the configuration has no defaultSource
+      runtime.configure({ defaultSource: shop }),
+    ).toThrow('Give each flag its source');
   });
 });
 
@@ -845,11 +859,21 @@ describe('11. Flag value types', () => {
   });
 
   it('shows a type error for a value which does not fit the type', () => {
+    const c = source();
     void (() => {
-      // @ts-expect-error without a type, a flag is a boolean
-      bindFlag({ key: 'banner-text', defaultValue: 'Welcome' });
-      // @ts-expect-error a number flag needs a number
-      bindFlag({ key: 'max-items', type: 'number', defaultValue: 'many' });
+      bindFlag({
+        key: 'banner-text',
+        // @ts-expect-error without a type, a flag is a boolean
+        defaultValue: 'Welcome',
+        source: c,
+      });
+      bindFlag({
+        key: 'max-items',
+        type: 'number',
+        // @ts-expect-error a number flag needs a number
+        defaultValue: 'many',
+        source: c,
+      });
     });
   });
 });
@@ -867,15 +891,16 @@ describe('12. What a framework binding does', () => {
     // Next.js: headers() and cookies() of the current request
     runtime.setGetRequest(async () => ({ headers }));
     // flags/config.ts. In development, the runtime loads it again.
+    const evaluated: string[] = [];
     runtime.setLoadConfig(() =>
       defineConfig({
-        defaultSource: defineSource({
-          provider: createProvider(),
-          project: { system: 'in-memory' },
-          getEvaluationContext: (_context, request) => ({
-            user: request?.cookies?.get('user')?.value ?? 'anonymous',
-          }),
-        }),
+        hooks: [
+          {
+            after: (hookContext) => {
+              evaluated.push(hookContext.flagKey);
+            },
+          },
+        ],
       }),
     );
     // Errors which the framework must receive, e.g. unstable_rethrow
@@ -883,8 +908,18 @@ describe('12. What a framework binding does', () => {
       if (error instanceof RenderSignal) throw error;
     });
 
-    const newCheckout = bindFlag({ key: 'new-checkout' });
+    const newCheckout = bindFlag({
+      key: 'new-checkout',
+      source: defineSource({
+        provider: createProvider(),
+        project: { system: 'in-memory' },
+        getEvaluationContext: (request) => ({
+          user: request?.cookies?.get('user')?.value ?? 'anonymous',
+        }),
+      }),
+    });
     expect(await newCheckout()).toBe(true);
+    expect(evaluated).toEqual(['new-checkout']);
   });
 });
 
@@ -968,7 +1003,7 @@ describe('13. Hooks, events and tracking', () => {
     const shop = defineSource({
       provider,
       project: { system: 'in-memory' },
-      getEvaluationContext: (context: { user: string }) => context,
+      getEvaluationContext: (_request, context: { user: string }) => context,
     });
 
     await track(shop, 'purchase', {
@@ -992,9 +1027,14 @@ describe('14. Discovery for Flags Explorer', () => {
   it('creates the manifest from the exports of a use flags module', () => {
     // flags.ts starts with 'use flags': it exports only flags, and importing
     // it has no side effects
+    const vercel = defineSource({
+      provider: createProvider(),
+      project: { system: 'vercel-flags' },
+    });
     const flagsModule = {
       checkout: bindFlag({
         key: 'checkout',
+        source: vercel,
         type: 'string',
         options: ['control', 'express'],
         defaultValue: 'control',
@@ -1013,7 +1053,7 @@ describe('14. Discovery for Flags Explorer', () => {
       defaultValue: 'control',
       description: 'The checkout flow',
       declaredInCode: true,
-      // Without a source: the default source, here Vercel Flags
+      // The id of the source in manifest.sources
       source: 'vercel-flags',
       declarations: [{ module: 'flags.ts', export: 'checkout' }],
     });
@@ -1110,7 +1150,7 @@ describe('15. Code generation from catalogs', () => {
       await writeFile(
         join(shop, 'context.ts'),
         `import type { FlagsRequest } from 'flags';
-        export default (_input: unknown, request: FlagsRequest | undefined) => ({
+        export default (request: FlagsRequest | undefined) => ({
           user: request?.cookies?.get('user')?.value ?? 'anonymous',
         });`,
       );

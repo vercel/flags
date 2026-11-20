@@ -1,30 +1,12 @@
-import { defineConfig, defineSource } from 'flags';
-import { createError } from '#imports';
+import { defineConfig } from 'flags';
 
+// Optional: settings for all flags
 export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: {
-      metadata: { name: 'app' },
-      resolveBooleanEvaluation: async (_key, _defaultValue, context) => ({
-        value: context.user === 'alice',
-      }),
-      resolveStringEvaluation: async () => ({
-        value: 'Hello from flags/config.ts',
-      }),
+  hooks: [
+    {
+      // Marks each evaluation, so that the tests see that the binding loaded
+      // this file
+      before: () => ({ fromConfig: true }),
     },
-    project: { system: 'in-memory' },
-    getEvaluationContext: (_context, request) => {
-      // A signal of Nitro must reach Nitro
-      if (request?.cookies?.get('blocked')) {
-        throw createError({ statusCode: 403, statusMessage: 'Blocked' });
-      }
-      return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
-    },
-  }),
+  ],
 });
-
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}

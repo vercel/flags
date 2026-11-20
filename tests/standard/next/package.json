@@ -5,10 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "FLAGS_SECRET=dGhpcy1pcy1hLXRlc3Qtc2VjcmV0LWZvci1mbGFncyE next build",
-    "build:platform": "NEXT_DIST_DIR=.next-platform TEST_VARIANT=platform NEXT_ADAPTER_PATH=\"$PWD/adapter.mjs\" next build",
     "start": "next start --port 4310",
-    "start:platform": "NEXT_DIST_DIR=.next-platform TEST_VARIANT=platform next start --port 4311",
-    "test:e2e": "pnpm build && pnpm build:platform && playwright test"
+    "test:e2e": "pnpm build && playwright test"
   },
   "dependencies": {
     "@flags-sdk/conformance": "workspace:*",

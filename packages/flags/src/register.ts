@@ -59,9 +59,7 @@ export function registerFlags(moduleExports: Record<string, unknown>): void {
   });
   for (const flag of flags) {
     const { source } = flag;
-    // A flag without a source uses the default source, which the
-    // runtime selects at each evaluation
-    if (!isSource(source) || source === runtime.defaultSource) {
+    if (!isSource(source)) {
       continue;
     }
     runtime.registerSource(source);

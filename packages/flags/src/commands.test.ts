@@ -22,7 +22,7 @@ describe('flags manifest', () => {
     writeFileSync(join(dir, 'package.json'), '{ "type": "module" }');
     writeFileSync(
       join(dir, 'flags.js'),
-      `'use flags';\nexport const sale = { key: 'sale', type: 'boolean', defaultValue: false };\n`,
+      `'use flags';\nconst source = { project: { system: 'vercel-flags' } };\nexport const sale = { key: 'sale', type: 'boolean', defaultValue: false, source };\n`,
     );
 
     const output = await runCommand(['manifest', dir]);

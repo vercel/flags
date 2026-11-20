@@ -14,6 +14,16 @@ const source = () =>
     project: { system: 'in-memory' },
   });
 
+// A source of Vercel Flags, which takes its project from the environment
+const vercelSource = () =>
+  defineSource({
+    provider: {
+      metadata: { name: 'vercel' },
+      resolveBooleanEvaluation: async () => ({ value: true }),
+    },
+    project: { system: 'vercel-flags' },
+  });
+
 beforeEach(() => {
   runtime.reset();
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -39,9 +49,10 @@ describe('createManifest', () => {
       {
         id: 'flags.ts',
         exports: {
-          summerSale: bindFlag({ key: 'summer-sale' }),
+          summerSale: bindFlag({ key: 'summer-sale', source: vercelSource() }),
           checkout: bindFlag({
             key: 'checkout',
+            source: vercelSource(),
             type: 'string',
             options: ['control', { value: 'express', label: 'Express' }],
             defaultValue: 'control',
@@ -53,7 +64,7 @@ describe('createManifest', () => {
 
     expect(manifest).toEqual({
       version: 1,
-      // Without a source, the flags use the default source
+      // Two source objects with the same project are one source
       sources: { 'vercel-flags': vercel },
       definitions: {
         checkout: {
@@ -92,9 +103,11 @@ describe('createManifest', () => {
       type: 'string',
       options: [{ value: 'light' }, { value: 'dark' }],
       declaredInCode: true,
-      source: 'vercel-flags',
       declarations: [{ module: 'other.ts', export: 'theme' }],
     });
+    // The object has no source, so the definition has none
+    expect(manifest.definitions.theme).not.toHaveProperty('source');
+    expect(manifest.sources).toEqual({});
   });
 
   it('gives each source its system and the variables of its flag project', () => {
@@ -191,7 +204,11 @@ describe('createManifest', () => {
   });
 
   it('keeps all declarations of a flag which two modules export', () => {
-    const flag = bindFlag({ key: 'summer-sale', defaultValue: false });
+    const flag = bindFlag({
+      key: 'summer-sale',
+      defaultValue: false,
+      source: source(),
+    });
     const manifest = createManifest([
       { id: 'a.ts', exports: { summerSale: flag } },
       { id: 'b.ts', exports: { sale: flag } },
@@ -208,11 +225,15 @@ describe('createManifest', () => {
       createManifest([
         {
           id: 'a.ts',
-          exports: { a: bindFlag({ key: 'sale', defaultValue: false }) },
+          exports: {
+            a: bindFlag({ key: 'sale', defaultValue: false, source: source() }),
+          },
         },
         {
           id: 'b.ts',
-          exports: { b: bindFlag({ key: 'sale', defaultValue: true }) },
+          exports: {
+            b: bindFlag({ key: 'sale', defaultValue: true, source: source() }),
+          },
         },
       ]),
     ).toThrow(
@@ -255,6 +276,7 @@ describe('createManifest', () => {
             key: 'a',
             type: 'object',
             defaultValue: { color: 'blue' },
+            source: source(),
           }),
         },
       },
@@ -270,12 +292,6 @@ describe('registerFlags', () => {
     registerFlags({ a: { key: 'a', source: c } });
 
     expect(runtime.sources.has(c)).toBe(true);
-  });
-
-  it('does not register the default connection of a flag without one', () => {
-    registerFlags({ a: bindFlag({ key: 'a' }) });
-
-    expect(runtime.sources.size).toBe(0);
   });
 
   it('throws for an export which is not a flag, and registers nothing', () => {
@@ -295,8 +311,13 @@ describe('validateFlagsManifest', () => {
       {
         id: 'flags.ts',
         exports: {
-          a: bindFlag({ key: 'a', defaultValue: false }),
-          b: bindFlag({ key: 'b', type: 'string', options: ['x', 'y'] }),
+          a: bindFlag({ key: 'a', defaultValue: false, source: source() }),
+          b: bindFlag({
+            key: 'b',
+            type: 'string',
+            options: ['x', 'y'],
+            source: source(),
+          }),
           c: bindFlag({ key: 'c', source: source() }),
         },
       },

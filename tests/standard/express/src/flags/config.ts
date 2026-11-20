@@ -1,23 +1,4 @@
-import { defineConfig, defineSource } from 'flags';
+import { defineConfig } from 'flags';
 
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: {
-      metadata: { name: 'app' },
-      resolveBooleanEvaluation: async (_key, _defaultValue, context) => ({
-        value: context.user === 'alice',
-      }),
-    },
-    project: { system: 'in-memory' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-      path: request?.url?.pathname ?? null,
-    }),
-  }),
-});
-
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
+// Optional: settings for all flags
+export const config = defineConfig({});

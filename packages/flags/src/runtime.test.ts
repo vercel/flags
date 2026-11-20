@@ -388,7 +388,7 @@ describe('runtime', () => {
       const source = defineSource({
         provider,
         project: { system: 'in-memory' },
-        getEvaluationContext: (_context, request) => ({
+        getEvaluationContext: (request) => ({
           targetingKey: request?.headers?.get('x-user') ?? 'anonymous',
         }),
       });
@@ -431,6 +431,14 @@ describe('runtime', () => {
         name: 'FlagEvaluationError',
         message: 'flags: Could not evaluate flag "a": Oops',
       });
+    });
+
+    it('requires a source, because there is no default source', async () => {
+      await expect(
+        runtime.evaluate({ key: 'a', defaultValue: false }),
+      ).rejects.toThrow(
+        'flags: Flag "a" has no source. Give it a source, e.g. with bindFlag({ key, source }).',
+      );
     });
 
     it('requires a source returned by defineSource', async () => {
@@ -498,6 +506,24 @@ describe('runtime', () => {
     });
   });
 
+  describe('configure', () => {
+    it('rejects a defaultSource, because each flag has its source', () => {
+      expect(() =>
+        // @ts-expect-error the configuration has no defaultSource
+        runtime.configure({ defaultSource: createSource() }),
+      ).toThrow(
+        'flags: The configuration has no defaultSource. Give each flag its source, e.g. with flags/sources/self.',
+      );
+    });
+
+    it('rejects hooks which are not an array', () => {
+      expect(() =>
+        // @ts-expect-error hooks is an array
+        runtime.configure({ hooks: {} }),
+      ).toThrow('flags: The hooks of the configuration must be an array.');
+    });
+  });
+
   describe('setLoadConfig', () => {
     const sourceWith = (value: boolean) =>
       defineSource({
@@ -508,30 +534,46 @@ describe('runtime', () => {
         project: { system: 'in-memory' },
       });
 
-    it('loads the configuration before the first evaluation', async () => {
-      const config = { defaultSource: sourceWith(true) };
-      runtime.setLoadConfig(() => config);
+    // A configuration with a hook which records the name of the configuration
+    const configNamed = (name: string, seen: string[]) => ({
+      hooks: [
+        {
+          after: () => {
+            seen.push(name);
+          },
+        },
+      ],
+    });
 
-      await expect(bindFlag({ key: 'a' })()).resolves.toBe(true);
+    it('loads the configuration before the first evaluation', async () => {
+      const seen: string[] = [];
+      runtime.setLoadConfig(() => configNamed('config', seen));
+
+      await expect(
+        bindFlag({ key: 'a', source: sourceWith(true) })(),
+      ).resolves.toBe(true);
+      expect(seen).toEqual(['config']);
     });
 
     it('loads a changed configuration in development', async () => {
       vi.stubEnv('NODE_ENV', 'development');
-      let config = { defaultSource: sourceWith(true) };
+      const seen: string[] = [];
+      let config = configNamed('first', seen);
       runtime.setLoadConfig(() => config);
-      const flag = bindFlag({ key: 'a' });
+      const flag = bindFlag({ key: 'a', source: sourceWith(true) });
 
-      await expect(flag()).resolves.toBe(true);
-      config = { defaultSource: sourceWith(false) };
-      await expect(flag()).resolves.toBe(false);
+      await flag();
+      config = configNamed('second', seen);
+      await flag();
+      expect(seen).toEqual(['first', 'second']);
       vi.unstubAllEnvs();
     });
 
     it('loads the configuration one time in production', async () => {
       vi.stubEnv('NODE_ENV', 'production');
-      const loadConfig = vi.fn(() => ({ defaultSource: sourceWith(true) }));
+      const loadConfig = vi.fn(() => configNamed('config', []));
       runtime.setLoadConfig(loadConfig);
-      const flag = bindFlag({ key: 'a' });
+      const flag = bindFlag({ key: 'a', source: sourceWith(true) });
 
       await flag();
       await flag();

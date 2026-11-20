@@ -18,7 +18,7 @@
  * default is the current directory) with Node.js, and writes the manifest of
  * their flags, by default to `flags-manifest.json` in `dir`. If it finds
  * `flags/config.ts` (in `dir`, its `src`, or the current directory), it
- * loads it for the default source. Run it after the
+ * loads it. Run it after the
  * build, on the output of the build, or on the source if Node.js can run it,
  * e.g. TypeScript with type stripping.
  */
@@ -62,8 +62,7 @@ export async function manifest(args: string[]): Promise<string> {
     const exports = await import(pathToFileURL(join(root, id)).href);
     modules.push({ id, exports: { ...exports } });
   }
-  // Flags without a source use the default source of
-  // flags/config.ts, if the project has one
+  // The configuration of the project, if it has one
   const configFile = findConfigFile(root) ?? findConfigFile(process.cwd());
   if (configFile) {
     const { config } = (await import(pathToFileURL(configFile).href)) as {

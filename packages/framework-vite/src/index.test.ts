@@ -1,60 +1,66 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { flags, platformDefaultProvider } from './index';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { flags } from './index';
 
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
-
-describe('the default provider of the platform', () => {
-  it('is the provider of @vercel/flags-core for a build on Vercel', () => {
-    vi.stubEnv('VERCEL', '1');
-
-    expect(platformDefaultProvider('/app', true, () => 'found')).toBe(
-      '@vercel/flags-core/default-provider',
-    );
-    // Development uses OFREP
-    expect(
-      platformDefaultProvider('/app', false, () => 'found'),
-    ).toBeUndefined();
-  });
-
-  it('is not set without @vercel/flags-core, or outside of Vercel', () => {
-    const notInstalled = () => {
-      throw new Error('Cannot find module');
-    };
-    vi.stubEnv('VERCEL', '1');
-    expect(platformDefaultProvider('/app', true, notInstalled)).toBeUndefined();
-    vi.stubEnv('VERCEL', '');
-    expect(
-      platformDefaultProvider('/app', true, () => 'found'),
-    ).toBeUndefined();
-  });
-});
+type ConfigHook = (
+  config: { root?: string },
+  env: { command: 'build' | 'serve' },
+) => Promise<
+  | {
+      ssr?: { noExternal?: string[] };
+      resolve?: { alias?: { find: string | RegExp; replacement: string }[] };
+    }
+  | undefined
+>;
+const configOf = (plugin: ReturnType<typeof flags>) =>
+  plugin.config as unknown as ConfigHook;
 
 describe('flags', () => {
-  type ConfigHook = (
-    config: { root?: string },
-    env: { command: 'build' | 'serve' },
-  ) => { ssr?: { noExternal?: string[] } } | undefined;
-  const configOf = (plugin: ReturnType<typeof flags>) =>
-    plugin.config as unknown as ConfigHook;
-
-  it('bundles the SDK and the package of the binding', () => {
+  it('bundles the SDK and the package of the binding', async () => {
     const plugin = flags({
       binding: '@flags-sdk/example/binding',
       bundle: ['@flags-sdk/example'],
-      defaultProvider: false,
     });
-    const config = configOf(plugin)({ root: '/app' }, { command: 'build' });
+    const config = await configOf(plugin)(
+      { root: '/app' },
+      { command: 'build' },
+    );
 
     expect(config?.ssr?.noExternal).toEqual(['flags', '@flags-sdk/example']);
   });
 
-  it('changes nothing without a binding and without a default provider', () => {
-    const plugin = flags({ defaultProvider: false });
+  it('changes nothing without a binding and without code generation', async () => {
+    const plugin = flags();
 
     expect(
-      configOf(plugin)({ root: '/app' }, { command: 'build' }),
+      await configOf(plugin)({ root: '/app' }, { command: 'build' }),
     ).toBeUndefined();
+  });
+});
+
+describe('code generation of flags:<source>', () => {
+  it('generates the modules for a build, and adds the aliases', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'flags-vite-'));
+    const source = join(dir, 'flags/sources/self');
+    mkdirSync(source, { recursive: true });
+    writeFileSync(
+      join(source, 'catalog.ts'),
+      'export default () => ({ flags: { enableSale: { variants: [false, true] } } });',
+    );
+    // The generation must not run them
+    writeFileSync(join(source, 'provider.ts'), "throw new Error('no');");
+    writeFileSync(join(source, 'context.ts'), "throw new Error('no');");
+
+    const plugin = flags({ codeGeneration: true });
+    const config = await configOf(plugin)({ root: dir }, { command: 'build' });
+
+    expect(config?.resolve?.alias).toEqual([
+      { find: 'flags:self', replacement: join(dir, '.flags/self.ts') },
+    ]);
+    expect(readFileSync(join(dir, '.flags/self.ts'), 'utf8')).toContain(
+      'key: "enableSale"',
+    );
   });
 });

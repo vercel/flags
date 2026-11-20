@@ -2,12 +2,10 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import stringify from 'fast-json-stable-stringify';
 import { type SetupFramework, setupFramework } from 'flags/framework';
 import type { Config } from './config';
-import { getBuiltInSource } from './default-source';
 import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
 import { DECIDE_REASON, HookRun, OVERRIDE_REASON } from './hooks';
 import { logger } from './logger';
-import { codeDefault } from './ofrep';
 import {
   createOverridesReader,
   type OverridesReader,
@@ -52,8 +50,8 @@ export interface FlagDefinition {
    * `defineFlag`.
    */
   getEvaluationContext?(
-    context: unknown,
     request: FlagsRequest | undefined,
+    context: unknown,
   ): unknown;
   /**
    * Returned when the evaluation fails, after logging the error. If not set,
@@ -74,8 +72,7 @@ export interface FlagDefinition {
    */
   readonly description?: string;
   /**
-   * A source returned by `defineSource`. Without it, the flag uses
-   * the default source.
+   * A source returned by `defineSource`. An evaluation without it fails.
    */
   readonly source?: Source;
   /**
@@ -83,8 +80,8 @@ export interface FlagDefinition {
    * source.
    */
   readonly decide?: (
-    context: unknown,
     request: FlagsRequest | undefined,
+    context: unknown,
   ) => FlagValue | Promise<FlagValue>;
 }
 
@@ -125,7 +122,7 @@ export type GetRequest = () =>
   | undefined
   | Promise<FlagsRequestInit | undefined>;
 
-type Step = (context: unknown, request: FlagsRequest | undefined) => unknown;
+type Step = (request: FlagsRequest | undefined, context: unknown) => unknown;
 
 type ResolveMethod = (
   flagKey: string,
@@ -306,7 +303,7 @@ function callStep(
   input: unknown,
   request: FlagsRequest | undefined,
 ): Promise<unknown> {
-  return new Promise((resolve) => resolve(step.call(owner, input, request)));
+  return new Promise((resolve) => resolve(step.call(owner, request, input)));
 }
 
 /**
@@ -323,9 +320,6 @@ class RuntimeImpl {
   #requestGetter: GetRequest | undefined;
   #readOverrides: OverridesReader = createOverridesReader();
   #config: Config = {};
-  // Whether a flag uses the default source. Only then does the runtime
-  // initialize its provider.
-  #usesDefaultSource = false;
   #framework: Promise<void> | undefined;
   #rethrow: ((error: unknown) => void) | undefined;
   #configLoader: LoadConfig | undefined;
@@ -463,9 +457,8 @@ class RuntimeImpl {
    * it at startup.
    *
    * A new call replaces the configuration, e.g. after a reload in
-   * development. A replaced default source is closed, if no other
-   * source uses its provider. Validates the configuration at once, and
-   * throws before it changes anything.
+   * development. Validates the configuration at once, and throws before it
+   * changes anything.
    *
    * @example
    * ```ts
@@ -475,10 +468,9 @@ class RuntimeImpl {
    * ```
    */
   configure(config: Config): void {
-    const defaultSource = config.defaultSource;
-    if (defaultSource !== undefined && !isSource(defaultSource)) {
+    if (Object.hasOwn(config, 'defaultSource')) {
       throw new Error(
-        'flags: The defaultSource of the configuration must be returned by defineSource.',
+        'flags: The configuration has no defaultSource. Give each flag its source, e.g. with flags/sources/self.',
       );
     }
     if (config.hooks !== undefined && !Array.isArray(config.hooks)) {
@@ -488,39 +480,14 @@ class RuntimeImpl {
     }
     const readOverrides = createOverridesReader(config.overrides);
 
-    const previous = this.#config.defaultSource;
     this.#config = config;
     this.#readOverrides = readOverrides;
-    // A replaced default source, e.g. after a reload in development,
-    // must not keep its client open
-    if (previous && previous !== defaultSource) {
-      this.#closeUnusedProvider(previous.provider);
-    }
-  }
-
-  /**
-   * The source of flags without a source: the `defaultSource` of
-   * the configuration, or the built-in default source.
-   *
-   * @internal
-   */
-  get defaultSource(): Source {
-    return this.#config.defaultSource ?? getBuiltInSource();
-  }
-
-  /**
-   * Marks that a flag uses the default source.
-   *
-   * @internal
-   */
-  markDefaultSourceUsed(): void {
-    this.#usesDefaultSource = true;
   }
 
   /**
    * Sets up the framework binding and loads the configuration, without
    * the initialization of providers. For tools, e.g. the route of the
-   * manifest, which need the default source of the configuration.
+   * manifest.
    */
   async prepare(): Promise<void> {
     await this.#setUpFramework();
@@ -700,7 +667,12 @@ class RuntimeImpl {
     try {
       await this.#setUpFramework();
       await this.#loadConfig();
-      const target = source ?? this.defaultSource;
+      if (!isSource(source)) {
+        throw new Error(
+          'flags: track needs a source returned by defineSource.',
+        );
+      }
+      const target = source;
       const { provider } = target;
       // A provider without track ignores the event, as in OpenFeature
       if (!provider.track) return;
@@ -758,8 +730,8 @@ class RuntimeImpl {
     flag: FlagDefinition,
     call: CallOptions | undefined,
   ): Promise<FlagValue> {
-    // The integration can configure the default source and the function
-    // which gets the request, so it must run first
+    // The integration can configure the runtime and set the function which
+    // gets the request, so it must run first
     let setupError: unknown;
     let scope: RequestScope | undefined;
     try {
@@ -782,7 +754,12 @@ class RuntimeImpl {
   ): Promise<FlagValue> {
     const { key, defaultValue } = flag;
     const type = flag.type ?? 'boolean';
-    const source = flag.source ?? this.defaultSource;
+    const { source } = flag;
+    if (source === undefined) {
+      throw new Error(
+        `flags: Flag "${key}" has no source. Give it a source, e.g. with bindFlag({ key, source }).`,
+      );
+    }
     if (!isSource(source)) {
       throw new Error(
         `flags: The source of flag "${key}" must be returned by defineSource.`,
@@ -920,7 +897,7 @@ class RuntimeImpl {
     // decide receives the context of the call side as it is, not the
     // context for a provider
     return async () => ({
-      value: await decide(call?.evaluationContext, scope?.request),
+      value: await decide(scope?.request, call?.evaluationContext),
       reason: DECIDE_REASON,
     });
   }
@@ -954,7 +931,7 @@ class RuntimeImpl {
     fallback: FlagValue,
     context: EvaluationContext,
   ): Promise<EvaluationDetails<FlagValue>> {
-    const { key, defaultValue } = flag;
+    const { key } = flag;
     const resolution = await resolve.call(
       provider,
       key,
@@ -975,14 +952,6 @@ class RuntimeImpl {
         key,
         'GENERAL',
         resolution.errorMessage ?? 'The provider reported an error.',
-      );
-    }
-    // Without a defaultValue, the default of the code is only a placeholder
-    if (defaultValue === undefined && codeDefault in resolution) {
-      throw new FlagEvaluationError(
-        key,
-        'GENERAL',
-        'The provider asks for the default value, but the flag has no defaultValue.',
       );
     }
     if (!hasType(resolution.value, type)) {
@@ -1014,7 +983,6 @@ class RuntimeImpl {
     this.#requestGetter = undefined;
     this.#readOverrides = createOverridesReader();
     this.#config = {};
-    this.#usesDefaultSource = false;
     this.#framework = undefined;
     this.#rethrow = undefined;
     this.#configLoader = undefined;
@@ -1166,40 +1134,11 @@ class RuntimeImpl {
   }
 
   /**
-   * The providers which `onInit` and `onInvoke` initialize. The default
-   * source of the configuration always counts, the built-in one only when
-   * a flag uses it. Thus, a new configuration replaces the old default.
+   * The providers which `onInit` and `onInvoke` initialize: the providers of
+   * the registered sources.
    */
   #registeredProviders(): Provider[] {
-    const sources = [...this.#sources];
-    const configured = this.#config.defaultSource;
-    if (configured) {
-      sources.push(configured);
-    } else if (this.#usesDefaultSource) {
-      sources.push(getBuiltInSource());
-    }
-    return [...new Set(sources.map((c) => c.provider))];
-  }
-
-  /**
-   * Closes a provider which was initialized, if no registered source
-   * uses it any more.
-   */
-  #closeUnusedProvider(provider: Provider): void {
-    const initialization = this.#initializations.get(provider);
-    if (!initialization || this.#registeredProviders().includes(provider)) {
-      return;
-    }
-    this.#initializations.delete(provider);
-    this.#unsubscribe(provider);
-    initialization
-      .then(() => provider.onClose?.())
-      .catch((error: unknown) => {
-        logger.error(
-          `flags: Could not close provider "${provider.metadata.name}".`,
-          error,
-        );
-      });
+    return [...new Set([...this.#sources].map((c) => c.provider))];
   }
 }
 

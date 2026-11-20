@@ -50,7 +50,7 @@ describe('defineFlag with decide', () => {
 
   it('gives decide the context of the call side and the request', async () => {
     const decide = vi.fn(
-      (context: { teamId: string }, request: FlagsRequest | undefined) =>
+      (request: FlagsRequest | undefined, context: { teamId: string }) =>
         context.teamId === 'acme' &&
         request?.cookies?.get('beta') !== undefined,
     );
@@ -60,8 +60,8 @@ describe('defineFlag with decide', () => {
       beta({ evaluationContext: { teamId: 'acme' } }),
     );
     expect(value).toBe(true);
-    expect(decide.mock.calls[0]?.[0]).toEqual({ teamId: 'acme' });
-    expect(decide.mock.calls[0]?.[1]?.cookies?.get('beta')?.value).toBe('1');
+    expect(decide.mock.calls[0]?.[0]?.cookies?.get('beta')?.value).toBe('1');
+    expect(decide.mock.calls[0]?.[1]).toEqual({ teamId: 'acme' });
   });
 
   it('gives decide no request outside of a request', async () => {
@@ -229,7 +229,7 @@ describe('defineFlag with decide', () => {
       key: 'plan',
       type: 'string',
       options: ['free', 'pro'] as const,
-      decide: (context: { teamId: string }) =>
+      decide: (_request, context: { teamId: string }) =>
         context.teamId === 'acme' ? 'pro' : 'free',
     });
     expectTypeOf(plan).returns.resolves.toEqualTypeOf<
@@ -270,10 +270,13 @@ describe('bindFlag', () => {
     expectTypeOf(enableDashboard).returns.resolves.toEqualTypeOf<boolean>();
   });
 
-  it('uses the default source without a source', () => {
-    const flag = bindFlag({ key: 'a' });
-
-    expect(flag.source).toBe(runtime.defaultSource);
+  it('needs a source', () => {
+    expect(() =>
+      // @ts-expect-error a flag of a source needs its source
+      bindFlag({ key: 'a' }),
+    ).toThrow(
+      'flags: Flag "a" has no source. Pass the source of its provider, e.g. of flags/sources/self.',
+    );
   });
 
   it('rejects decide', () => {

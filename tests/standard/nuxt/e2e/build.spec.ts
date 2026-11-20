@@ -46,6 +46,13 @@ test('writes the manifest of the flags into the server output', () => {
         source: 'in-memory',
         declarations: [{ module: 'lib/flags.ts', export: 'bannerText' }],
       },
+      enableSale: {
+        type: 'boolean',
+        options: [{ value: false }, { value: true }],
+        defaultValue: false,
+        declaredInCode: true,
+        declarations: [{ module: '.flags/self.ts', export: 'enableSale' }],
+      },
       greeting: {
         type: 'string',
         defaultValue: 'Hi',
@@ -108,4 +115,15 @@ test('lets an error of Nitro through', async ({ request }) => {
   });
 
   expect(response.status()).toBe(403);
+});
+
+test('evaluates a flag of code generation through flags:self', async ({
+  request,
+}) => {
+  const alice = await request.get('/api/generated', {
+    headers: { cookie: 'user=alice' },
+  });
+  expect(await alice.json()).toEqual({ sale: true });
+  const bob = await request.get('/api/generated');
+  expect(await bob.json()).toEqual({ sale: false });
 });

@@ -61,7 +61,7 @@ export const conformanceSource = defineSource({
     }),
   },
   project: { system: 'in-memory' },
-  getEvaluationContext: (_context, request) => {
+  getEvaluationContext: (request) => {
     if (request?.headers?.get('x-conformance-signal') && state.signal) {
       throw state.signal();
     }

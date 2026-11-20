@@ -1,4 +1,3 @@
-import type { ConfiguredSource } from './config';
 import type { EvaluationArgs } from './flag';
 import { type FlagDefinition, runtime } from './runtime';
 import type { Source, SourceInput } from './source';
@@ -20,8 +19,8 @@ type UnionToIntersection<U> = (
  */
 export type FlagEvaluationContext<F extends FlagDefinition> = F extends {
   getEvaluationContext?(
-    context: infer In,
     request: FlagsRequest | undefined,
+    context: infer In,
   ): unknown;
 }
   ? unknown extends In
@@ -30,14 +29,13 @@ export type FlagEvaluationContext<F extends FlagDefinition> = F extends {
   : SourceInput<SourceOf<F>>;
 
 /**
- * The source of a flag. Without a source, the configured default
- * source.
+ * The source of a flag.
  */
 type SourceOf<F extends FlagDefinition> = F extends {
   readonly source: infer C extends Source;
 }
   ? C
-  : ConfiguredSource;
+  : Source;
 
 /**
  * The evaluation context which `evaluate` accepts for a list of flags.

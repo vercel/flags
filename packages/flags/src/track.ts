@@ -1,4 +1,3 @@
-import type { ConfiguredSource } from './config';
 import { runtime } from './runtime';
 import { isSource, type Source, type SourceInput } from './source';
 import type { TrackingEventDetails } from './types';
@@ -24,24 +23,12 @@ export type TrackArgs<In> = undefined extends In
   : [options: TrackOptions<In>];
 
 /**
- * Records a tracking event with the provider of the default source, e.g.
- * a purchase for an experiment. The provider gets the evaluation context of
- * the source, as for a flag.
+ * Records a tracking event with the provider of a source, e.g. a purchase
+ * for an experiment. The provider gets the evaluation context of the
+ * source, as for a flag.
  *
  * Waits for the initialization of the provider. A provider without `track`
  * ignores the event. Errors are logged, not thrown.
- *
- * @example
- * ```ts
- * await track('purchase', { details: { value: 99 } });
- * ```
- */
-export function track(
-  eventName: string,
-  ...args: TrackArgs<SourceInput<ConfiguredSource>>
-): Promise<void>;
-/**
- * Records a tracking event with the provider of a source.
  *
  * @example
  * ```ts
@@ -55,13 +42,8 @@ export function track<C extends Source>(
 ): Promise<void>;
 export function track(...args: unknown[]): Promise<void> {
   const [first, ...rest] = args;
-  if (typeof first === 'string') {
-    return runtime.track(undefined, first, rest[0] as never);
-  }
   if (!isSource(first)) {
-    throw new Error(
-      'flags: track expects an event name, or a source and an event name.',
-    );
+    throw new Error('flags: track expects a source and an event name.');
   }
   if (typeof rest[0] !== 'string') {
     throw new TypeError(

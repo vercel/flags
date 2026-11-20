@@ -6,9 +6,7 @@ export type {
 } from './catalog';
 export {
   type Config,
-  type ConfiguredSource,
   defineConfig,
-  type Register,
 } from './config';
 export { FlagEvaluationError } from './errors';
 export {

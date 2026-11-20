@@ -218,8 +218,8 @@ export default async function Home() {
 import type { FlagsRequest } from 'flags';
 
 export default function getEvaluationContext(
-  _input: unknown,
   request: FlagsRequest | undefined,
+  _input: unknown,
 ) {
   const id = request?.cookies?.get('demo-visitor')?.value
     ?? 'visitor-1';

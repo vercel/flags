@@ -30,10 +30,6 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./default-provider": {
-      "import": "./dist/default-provider.js",
-      "require": "./dist/default-provider.cjs"
-    },
     "./framework": {
       "import": "./dist/framework.js",
       "require": "./dist/framework.cjs"

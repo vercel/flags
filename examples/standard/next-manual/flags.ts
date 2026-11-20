@@ -33,7 +33,7 @@ const shop = defineSource({
     },
   } as const),
   project: { system: 'in-memory' },
-  getEvaluationContext: (_context, request) => ({
+  getEvaluationContext: (request) => ({
     user: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
 });
@@ -56,7 +56,7 @@ export const checkout = bindFlag({
 // An inline flag: the code decides its value, without a provider
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
 });

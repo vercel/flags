@@ -45,7 +45,7 @@ describe('context chain', () => {
     const source = defineSource({
       provider,
       project: { system: 'in-memory' },
-      getEvaluationContext: (context: { teamId: string }) => ({
+      getEvaluationContext: (_request, context: { teamId: string }) => ({
         team: { id: context.teamId },
       }),
     });
@@ -61,7 +61,7 @@ describe('context chain', () => {
     const source = defineSource({
       provider,
       project: { system: 'in-memory' },
-      getEvaluationContext: (context: { teamId: string }) => {
+      getEvaluationContext: (_request, context: { teamId: string }) => {
         order.push(`source:${context.teamId}`);
         return { team: { id: context.teamId } };
       },
@@ -69,7 +69,7 @@ describe('context chain', () => {
     const flag = bindFlag({
       key: 'a',
       source,
-      getEvaluationContext: (context: { slug: string }) => {
+      getEvaluationContext: (_request, context: { slug: string }) => {
         order.push(`flag:${context.slug}`);
         return { teamId: `id-of-${context.slug}` };
       },
@@ -87,8 +87,8 @@ describe('context chain', () => {
       provider,
       project: { system: 'in-memory' },
       getEvaluationContext: async (
-        context: { teamId: keyof typeof teams },
         request,
+        context: { teamId: keyof typeof teams },
       ) => ({
         user: request?.headers?.get('x-user') ?? null,
         team: { id: context.teamId, ...teams[context.teamId] },
@@ -111,7 +111,7 @@ describe('context chain', () => {
     const source = defineSource({
       provider,
       project: { system: 'in-memory' },
-      getEvaluationContext: (context: { country: string }, request) => ({
+      getEvaluationContext: (request, context: { country: string }) => ({
         ...context,
         user: request?.headers?.get('x-user') ?? null,
       }),
@@ -172,7 +172,7 @@ describe('context chain', () => {
       const source = defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
-        getEvaluationContext: (_context, request) => {
+        getEvaluationContext: (request) => {
           received.push(request);
           return {};
         },
@@ -180,7 +180,7 @@ describe('context chain', () => {
       const flag = bindFlag({
         key: 'a',
         source,
-        getEvaluationContext: (_context: undefined, request) => {
+        getEvaluationContext: (request) => {
           received.push(request);
           return undefined;
         },
@@ -197,7 +197,7 @@ describe('context chain', () => {
       const source = defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
-        getEvaluationContext: (_context, request) => {
+        getEvaluationContext: (request) => {
           received.push(request);
           return {};
         },
@@ -211,9 +211,11 @@ describe('context chain', () => {
 
   describe('cache', () => {
     function countingSource() {
-      const step = vi.fn((context: { teamId: string } | undefined) => ({
-        team: context?.teamId ?? 'none',
-      }));
+      const step = vi.fn(
+        (_request: unknown, context: { teamId: string } | undefined) => ({
+          team: context?.teamId ?? 'none',
+        }),
+      );
       const source = defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
@@ -296,9 +298,11 @@ describe('context chain', () => {
     });
 
     it('caches the step of a flag once per request for the same input', async () => {
-      const flagStep = vi.fn((context: { slug: string }) => ({
-        teamId: context.slug,
-      }));
+      const flagStep = vi.fn(
+        (_request: unknown, context: { slug: string }) => ({
+          teamId: context.slug,
+        }),
+      );
       const { source } = countingSource();
       const a = bindFlag({
         key: 'a',
@@ -357,14 +361,17 @@ describe('context chain', () => {
     const teamSource = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
-      getEvaluationContext: (context: { teamId: string }) => ({
+      getEvaluationContext: (_request, context: { teamId: string }) => ({
         team: context.teamId,
       }),
     });
     const optionalSource = defineSource({
       provider: createProvider(),
       project: { system: 'in-memory' },
-      getEvaluationContext: (context: { teamId: string } | undefined) => ({
+      getEvaluationContext: (
+        _request,
+        context: { teamId: string } | undefined,
+      ) => ({
         team: context?.teamId ?? null,
       }),
     });
@@ -415,7 +422,7 @@ describe('context chain', () => {
       const flag = bindFlag({
         key: 'a',
         source: teamSource,
-        getEvaluationContext: (context: { slug: string }) => ({
+        getEvaluationContext: (_request, context: { slug: string }) => ({
           teamId: context.slug,
         }),
       });
@@ -445,7 +452,7 @@ describe('context chain', () => {
       defineSource({
         provider: createProvider(),
         project: { system: 'in-memory' },
-        getEvaluationContext: (context, request) => {
+        getEvaluationContext: (request, context) => {
           expectTypeOf(context).toEqualTypeOf<DefaultSourceInput>();
           expectTypeOf(request).toEqualTypeOf<FlagsRequest | undefined>();
           return {};
@@ -469,7 +476,7 @@ describe('context chain', () => {
       const slug = bindFlag({
         key: 'b',
         source: teamSource,
-        getEvaluationContext: (context: { slug: string }) => ({
+        getEvaluationContext: (_request, context: { slug: string }) => ({
           teamId: context.slug,
         }),
       });

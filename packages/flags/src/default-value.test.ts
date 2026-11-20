@@ -1,7 +1,6 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bindFlag } from './flag';
-import { createOfrepProvider } from './ofrep';
 import { runtime } from './runtime';
 import { defineSource } from './source';
 
@@ -107,31 +106,5 @@ describe('a provider which reports an issue', () => {
         source: reportsError(),
       })(),
     ).resolves.toBe(true);
-  });
-
-  describe('OFREP without a value: the default of the code', () => {
-    const ofrep = () =>
-      defineSource({
-        provider: createOfrepProvider({
-          baseUrl: 'https://flags.example.com',
-          fetch: async () => Response.json({ key: 'a', reason: 'DEFAULT' }),
-        }),
-        project: { system: 'in-memory' },
-      });
-
-    it('throws without defaultValue', async () => {
-      await expect(
-        bindFlag({ key: 'a', source: ofrep() })(),
-      ).rejects.toMatchObject({
-        message:
-          'flags: Could not evaluate flag "a": The provider asks for the default value, but the flag has no defaultValue.',
-      });
-    });
-
-    it('returns the defaultValue', async () => {
-      await expect(
-        bindFlag({ key: 'a', defaultValue: true, source: ofrep() })(),
-      ).resolves.toBe(true);
-    });
   });
 });

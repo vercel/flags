@@ -192,7 +192,7 @@ describe('FlagsRequest', () => {
         resolveBooleanEvaluation: async () => ({ value: true }),
       },
       project: { system: 'in-memory' },
-      getEvaluationContext: (_context, request) => {
+      getEvaluationContext: (request) => {
         received.push(request);
         return {};
       },
@@ -200,7 +200,7 @@ describe('FlagsRequest', () => {
     const flag = bindFlag({
       key: 'a',
       source,
-      getEvaluationContext: (_context: undefined, request) => {
+      getEvaluationContext: (request) => {
         received.push(request);
         return undefined;
       },

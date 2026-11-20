@@ -11,7 +11,6 @@ interface SharedState {
   readonly sources: WeakSet<object>;
   readonly flags: WeakSet<object>;
   runtime?: unknown;
-  defaultSource?: unknown;
   decideSource?: unknown;
   /**
    * The framework binding of the first copy which has one. A copy without

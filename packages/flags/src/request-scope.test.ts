@@ -38,7 +38,7 @@ function request(user: string): FlagsRequestInit {
   return { headers: new Headers({ 'x-user': user }) };
 }
 
-const getUserContext = vi.fn<GetEvaluationContext>((_context, request) => ({
+const getUserContext = vi.fn<GetEvaluationContext>((request) => ({
   targetingKey: request?.headers?.get('x-user') ?? 'anonymous',
 }));
 
@@ -97,7 +97,7 @@ describe('request scope', () => {
   describe('requests of frameworks', () => {
     async function receivedRequest(init: FlagsRequestInit) {
       let received: FlagsRequest | undefined;
-      const { source } = createSource((_context, incoming) => {
+      const { source } = createSource((incoming, _context) => {
         received = incoming;
         return {};
       });
@@ -155,8 +155,8 @@ describe('request scope', () => {
 
       await flag();
       expect(getUserContext).toHaveBeenCalledWith(
-        undefined,
         expect.objectContaining({ headers: current.headers }),
+        undefined,
       );
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
         'a',
@@ -173,8 +173,8 @@ describe('request scope', () => {
 
       await bindFlag({ key: 'a', source })();
       expect(getUserContext).toHaveBeenCalledWith(
-        undefined,
         expect.objectContaining({ headers: current.headers }),
+        undefined,
       );
     });
 
@@ -269,8 +269,8 @@ describe('request scope', () => {
 
       await runtime.onInvoke(request('alice'), () => flag());
       expect(getUserContext).toHaveBeenCalledWith(
-        undefined,
         expect.objectContaining({ headers: expect.any(Headers) }),
+        undefined,
       );
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
         'a',

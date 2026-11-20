@@ -63,14 +63,14 @@ describe('flags/framework replaced by a framework', () => {
   });
 
   it('can configure the runtime before the evaluation', async () => {
-    const configured = source();
+    const after = vi.fn();
     setup.mockImplementation((r: typeof runtime) => {
-      r.configure({ defaultSource: configured });
+      r.configure({ hooks: [{ after }] });
     });
 
-    const flag = bindFlag({ key: 'a' });
+    const flag = bindFlag({ key: 'a', source: source() });
     await flag();
-    expect(flag.source).toBe(configured);
+    expect(after).toHaveBeenCalledTimes(1);
   });
 
   it('fails the evaluation and tries again after an error', async () => {

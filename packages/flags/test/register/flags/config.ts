@@ -1,22 +1,18 @@
-import { defineConfig, defineSource } from 'flags';
+import { defineConfig } from 'flags';
 
-// The pattern of flags/config.ts: the configuration and the registration of
-// its type in one file
+// The pattern of flags/config.ts: optional settings for all flags, e.g. hooks
 export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: {
-      metadata: { name: 'test' },
-      resolveBooleanEvaluation: async () => ({ value: true }),
+  hooks: [
+    {
+      after: (hookContext, details) => {
+        console.log(`${hookContext.flagKey}=${String(details.value)}`);
+      },
     },
-    project: { system: 'in-memory' },
-    getEvaluationContext: (context: { teamId: string }) => ({
-      team: context.teamId,
-    }),
-  }),
+  ],
 });
 
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
+// The configuration has no default source: each flag names its source
+defineConfig({
+  // @ts-expect-error defaultSource is removed
+  defaultSource: {},
+});

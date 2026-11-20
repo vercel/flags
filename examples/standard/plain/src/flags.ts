@@ -37,8 +37,8 @@ export const shop = defineSource({
   provider,
   project: { system: 'in-memory' },
   getEvaluationContext: (
-    input: { team?: { plan: string } } | undefined,
     request,
+    input: { team?: { plan: string } } | undefined,
   ) => ({
     user: request?.cookies?.get('user')?.value ?? 'anonymous',
     ...(input?.team ? { team: input.team } : {}),
@@ -64,7 +64,7 @@ const teams: Record<string, { plan: string }> = {
 export const teamInsights = bindFlag({
   key: 'team-insights',
   source: shop,
-  getEvaluationContext: (context: { teamSlug: string }) => ({
+  getEvaluationContext: (_request, context: { teamSlug: string }) => ({
     team: teams[context.teamSlug] ?? { plan: 'unknown' },
   }),
 });
@@ -73,6 +73,6 @@ export const teamInsights = bindFlag({
 // the context of the call side and the request.
 export const betaBanner = defineFlag({
   key: 'beta-banner',
-  decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
 });

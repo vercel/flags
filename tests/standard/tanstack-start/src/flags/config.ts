@@ -1,28 +1,12 @@
-import { redirect } from '@tanstack/react-router';
-import { defineConfig, defineSource } from 'flags';
+import { defineConfig } from 'flags';
 
+// Optional: settings for all flags
 export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: {
-      metadata: { name: 'app' },
-      resolveBooleanEvaluation: async (_key, _defaultValue, context) => ({
-        value: context.user === 'alice',
-      }),
-      resolveStringEvaluation: async () => ({
-        value: 'Hello from flags/config.ts',
-      }),
+  hooks: [
+    {
+      // Marks each evaluation, so that the tests see that the binding loaded
+      // this file
+      before: () => ({ fromConfig: true }),
     },
-    project: { system: 'in-memory' },
-    getEvaluationContext: (_context, request) => {
-      // A signal of TanStack Start must reach TanStack Start
-      if (request?.cookies?.get('blocked')) throw redirect({ to: '/blocked' });
-      return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
-    },
-  }),
+  ],
 });
-
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}

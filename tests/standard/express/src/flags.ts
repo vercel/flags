@@ -1,11 +1,13 @@
 'use flags';
 
 import { bindFlag } from 'flags';
+import { self } from './flags/self.ts';
 
-// No source: the flags use the default source of flags/config.ts
-export const newCheckout = bindFlag({ key: 'new-checkout' });
+// The flags of the source of this app (flags/self.ts)
+export const newCheckout = bindFlag({ key: 'new-checkout', source: self });
 export const greeting = bindFlag({
   key: 'greeting',
+  source: self,
   type: 'string',
   defaultValue: 'Hi',
 });

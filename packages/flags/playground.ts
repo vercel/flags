@@ -49,7 +49,7 @@ const source = defineSource({
   project: { system: 'in-memory' },
   // The last step of the chain: receives the context of the flag or of the
   // call side, and the request
-  getEvaluationContext: (context: { teamId?: string } | undefined, request) => {
+  getEvaluationContext: (request, context: { teamId?: string } | undefined) => {
     console.log('source getEvaluationContext', context);
     const team = context?.teamId ? teams[context.teamId] : undefined;
     return {
@@ -71,7 +71,7 @@ const teamInsights = bindFlag({
   key: 'team-insights',
   defaultValue: false,
   source,
-  getEvaluationContext: (context: { slug: string }) => ({
+  getEvaluationContext: (_request, context: { slug: string }) => ({
     teamId: context.slug,
   }),
 });

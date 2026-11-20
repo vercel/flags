@@ -8,7 +8,6 @@
  */
 import stringify from 'fast-json-stable-stringify';
 import { findPlatformProject } from './overrides/vercel';
-import { runtime } from './runtime';
 import { systemManifestUrls } from './source';
 import { isSafeUrl } from './system-manifest';
 import {
@@ -160,11 +159,10 @@ function definitionOf(
 }
 
 /**
- * The source of a flag in the manifest. A flag without a source uses the
- * default source.
+ * The source of a flag in the manifest, if it has a source with a project.
  */
 function sourceOf(flag: ExportedFlag): FlagManifestSource | undefined {
-  const source = (flag.source ?? runtime.defaultSource) as {
+  const source = flag.source as {
     project?: unknown;
   };
   const project = source?.project as Record<string, unknown> | undefined;

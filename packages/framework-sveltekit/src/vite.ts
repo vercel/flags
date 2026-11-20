@@ -12,19 +12,17 @@
  *
  * It points `flags/framework` to the binding of this package, and does the
  * rest of `@flags-sdk/vite`: `flags/config.ts`, `'use flags'` modules, the
- * manifest of the flags, and the default provider of the platform. The
- * adapter of SvelteKit runs after the build of Vite, so it is too late for
- * the alias of the default provider. Thus, the plugin sets it.
+ * manifest of the flags, and the code generation of `flags:<source>`.
  */
 import { flags as flagsVite } from '@flags-sdk/vite';
 import type { Plugin } from 'vite';
 
 export interface FlagsSvelteKitOptions {
   /**
-   * The module of the default provider, e.g. of a platform. See
-   * `@flags-sdk/vite`.
+   * Generates the modules of `flags:<source>` from the catalogs of
+   * `flags/sources/<source>`. See `@flags-sdk/vite`.
    */
-  readonly defaultProvider?: string | false;
+  readonly codeGeneration?: boolean;
 }
 
 export function flags(options: FlagsSvelteKitOptions = {}): Plugin {

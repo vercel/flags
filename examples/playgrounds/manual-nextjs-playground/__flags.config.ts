@@ -6,7 +6,7 @@ export const config = defineConfig({
   defaultSource: defineSource({
     provider: new VercelProvider(),
     project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({}),
+    getEvaluationContext: (request) => ({}),
   }),
 });
 

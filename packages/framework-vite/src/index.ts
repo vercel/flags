@@ -10,13 +10,13 @@
  * - The manifest of the flags, e.g. for Flags Explorer: in development at
  *   `/.well-known/flags/manifest.json`, and after a build as
  *   `flags-manifest.json` in the directory of the server output.
- * - The default provider of the platform, e.g. on Vercel.
+ * - With `codeGeneration`, the modules of `flags:<source>`, generated from
+ *   the catalogs of `flags/sources`.
  *
  * It is also a Rollup plugin, e.g. for the server build of Nitro.
  */
 import { createHash } from 'node:crypto';
 import { rmSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { basename, join, resolve } from 'node:path';
 import { runtime } from 'flags';
 import { createManifest } from 'flags/manifest';
@@ -29,6 +29,13 @@ import {
   writeManifestFromBuild,
 } from 'flags/tooling';
 import type { Plugin, ViteDevServer } from 'vite';
+import {
+  type CodeGeneration,
+  resolveAliases,
+  startCodeGeneration,
+} from './code-generation';
+
+export { resolveAliases, startCodeGeneration } from './code-generation';
 
 export interface FlagsVitePluginOptions {
   /**
@@ -70,38 +77,12 @@ export interface FlagsVitePluginOptions {
    */
   readonly projectModules?: Readonly<Record<string, readonly string[]>>;
   /**
-   * The module of the default provider, e.g. of a platform, instead of the
-   * built-in default provider (see `flags/default-provider`), which throws
-   * for now. A path is
-   * relative to the project. During a build on Vercel (`VERCEL` is set),
-   * the default is `@vercel/flags-core/default-provider`, if the project
-   * has `@vercel/flags-core`. `false` turns this off.
+   * Generates the modules of `flags:<source>` from the catalogs of
+   * `flags/sources/<source>`: one time for a build, and again after each
+   * change of a catalog for the dev server. The aliases `flags:<source>`
+   * point to the modules.
    */
-  readonly defaultProvider?: string | false;
-}
-
-const VERCEL_DEFAULT_PROVIDER = '@vercel/flags-core/default-provider';
-
-/**
- * The default provider of the platform of the build: on Vercel, the fast
- * provider of `@vercel/flags-core`, if the project has it. Development uses
- * the built-in default provider, as with the deployment adapters of
- * Next.js.
- */
-export function platformDefaultProvider(
-  dir: string,
-  isBuild: boolean,
-  // Throws if the project does not have the module
-  resolveModule: (id: string) => unknown = (id) =>
-    createRequire(join(dir, 'package.json')).resolve(id),
-): string | undefined {
-  if (!isBuild || !process.env.VERCEL) return undefined;
-  try {
-    resolveModule(VERCEL_DEFAULT_PROVIDER);
-    return VERCEL_DEFAULT_PROVIDER;
-  } catch {
-    return undefined;
-  }
+  readonly codeGeneration?: boolean;
 }
 
 /**
@@ -189,7 +170,7 @@ function devImporter(server: ViteDevServer): Promise<DevImporter> {
 
 export function flags(options: FlagsVitePluginOptions = {}): Plugin {
   let root = options.root ?? process.cwd();
-  let defaultProvider: string | undefined;
+  let generation: CodeGeneration | undefined;
   // Vite calls configResolved. Rollup does not, and then it is a build.
   let vite = false;
   let isBuild = true;
@@ -198,14 +179,14 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
 
   return {
     name: 'flags',
-    config(config, env) {
-      const dir = options.root ?? config.root ?? process.cwd();
-      defaultProvider =
-        options.defaultProvider === false
-          ? undefined
-          : (options.defaultProvider ??
-            platformDefaultProvider(dir, env.command === 'build'));
-      if (!options.binding && !defaultProvider) return;
+    async config(config, env) {
+      const dir = resolve(options.root ?? config.root ?? process.cwd());
+      let aliases: Record<string, string> = {};
+      if (options.codeGeneration) {
+        generation = startCodeGeneration(dir, env.command === 'serve');
+        aliases = resolveAliases(dir, await generation.ready);
+      }
+      if (!options.binding && Object.keys(aliases).length === 0) return;
       const configFile = options.binding ? findConfigFile(dir) : undefined;
       // The modules behind the aliases only reach the SDK when it is bundled
       // into the server code, not when Node.js loads it from node_modules.
@@ -215,9 +196,15 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       const bundled = ['flags', ...(options.bundle ?? [])];
       return {
         resolve: {
-          alias: configFile
-            ? [{ find: /^flags\/config$/, replacement: configFile }]
-            : [],
+          alias: [
+            ...(configFile
+              ? [{ find: /^flags\/config$/, replacement: configFile }]
+              : []),
+            ...Object.entries(aliases).map(([find, replacement]) => ({
+              find,
+              replacement,
+            })),
+          ],
           dedupe: [...(options.dedupe ?? [])],
         },
         ssr: { noExternal: bundled, optimizeDeps: { exclude: bundled } },
@@ -225,19 +212,15 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       };
     },
     // Resolves the modules which the SDK imports, but which only the project
-    // has: the binding, the modules of the framework, and the default
-    // provider. Before
-    // the resolver of Vite, which resolves flags/default-provider through
-    // the exports of the package.
+    // has: the binding, and the modules of the framework. Before the
+    // resolver of Vite, which resolves flags/framework through the exports
+    // of the package.
     resolveId: {
       order: 'pre',
       async handler(id) {
         const importer = join(root, 'package.json');
         if (id === 'flags/framework' && options.binding) {
           return this.resolve(options.binding, importer, { skipSelf: true });
-        }
-        if (id === 'flags/default-provider' && defaultProvider) {
-          return this.resolve(defaultProvider, importer, { skipSelf: true });
         }
         for (const candidate of options.projectModules?.[id] ?? []) {
           const resolved = await this.resolve(candidate, importer, {
@@ -311,6 +294,8 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
     configureServer: {
       order: 'pre',
       handler(server) {
+        // The watch of the catalogs ends with the dev server
+        server.httpServer?.once('close', () => generation?.stop());
         server.middlewares.use(async (request, response, next) => {
           if (request.url?.split('?')[0] !== MANIFEST_PATH) return next();
           try {
@@ -318,8 +303,7 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
             load.refresh?.();
             if (options.binding) {
               // The SDK in the server code has the framework binding, so the
-              // runtime can load flags/config.ts, which gives the default
-              // connection of the flags without a connection
+              // runtime can load flags/config.ts
               await load.import('flags');
               await runtime.prepare();
             }

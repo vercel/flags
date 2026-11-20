@@ -1,4 +1,3 @@
-import type { ConfiguredSource } from './config';
 import { type DecideSource, getDecideSource } from './decide';
 import { logger } from './logger';
 import { type FlagDefinition, runtime } from './runtime';
@@ -88,27 +87,27 @@ export interface FlagOptions<
    */
   readonly description?: string;
   /**
-   * A source returned by `defineSource`. Without it, the flag uses
-   * the default source.
+   * A source returned by `defineSource`, e.g. of `flags/sources/self`.
    */
-  readonly source?: C;
+  readonly source: C;
   /**
-   * The middle step of the chain. Receives the evaluation context of the call
-   * side, and returns the context for the source. The type of `context`
+   * The middle step of the chain. Receives the current request and the
+   * evaluation context of the call side, and returns the context for the
+   * source. The type of `context`
    * defines what the call side must give.
    *
    * Without it, the call side gives its context directly to the source.
    *
    * @example
    * ```ts
-   * getEvaluationContext: (context: { teamId: string }) => ({
+   * getEvaluationContext: (_request, context: { teamId: string }) => ({
    *   teamId: context.teamId,
    * }),
    * ```
    */
   getEvaluationContext?(
-    context: In,
     request: FlagsRequest | undefined,
+    context: In,
   ): SourceInput<C> | Promise<SourceInput<C>>;
 }
 
@@ -124,19 +123,20 @@ export interface InlineFlagOptions<
 > {
   readonly key: K;
   /**
-   * Decides the value of the flag. Receives the evaluation context of the
-   * call side, and the current request, or `undefined` outside of a request.
+   * Decides the value of the flag. Receives the current request, or
+   * `undefined` outside of a request, and the evaluation context of the
+   * call side.
    * The type of `context` defines what the call side must give.
    *
    * @example
    * ```ts
-   * decide: (_context, request) =>
+   * decide: (request) =>
    *   request?.cookies?.get('beta')?.value === '1',
    * ```
    */
   decide(
-    context: In,
     request: FlagsRequest | undefined,
+    context: In,
   ): NoInfer<FlagValueFrom<T, O>> | Promise<NoInfer<FlagValueFrom<T, O>>>;
   /**
    * The type of the value. The default is `boolean`. Each other type must be
@@ -175,8 +175,8 @@ export type Flag<
   readonly description?: string;
   readonly source: C;
   getEvaluationContext?(
-    context: In,
     request: FlagsRequest | undefined,
+    context: In,
   ): SourceInput<C> | Promise<SourceInput<C>>;
 };
 
@@ -219,8 +219,8 @@ export function defineFlag<
 
 /**
  * Declares a flag of a source: the provider of the source decides its
- * value. Call the returned function to evaluate it. Without a source, the
- * flag uses the default source. For an inline flag, use `defineFlag`.
+ * value. Call the returned function to evaluate it. For an inline flag,
+ * use `defineFlag`.
  *
  * @example
  * ```ts
@@ -237,13 +237,18 @@ export function bindFlag<
   const K extends string,
   const T extends FlagType = 'boolean',
   const O extends FlagOptionsOf<T> = FlagOptionsOf<T>,
-  C extends Source = ConfiguredSource,
+  C extends Source = Source,
   In = SourceInput<C>,
 >(options: FlagOptions<C, K, In, T, O>): Flag<C, K, In, FlagValueFrom<T, O>> {
   const checked = checkOptions('bindFlag', options);
   if (checked.decide !== undefined) {
     throw new TypeError(
       `flags: Flag "${String(checked.key)}" has decide. Use defineFlag for inline flags.`,
+    );
+  }
+  if (checked.source === undefined) {
+    throw new TypeError(
+      `flags: Flag "${String(checked.key)}" has no source. Pass the source of its provider, e.g. of flags/sources/self.`,
     );
   }
   return defineFromOptions(checked) as unknown as Flag<
@@ -254,7 +259,11 @@ export function bindFlag<
   >;
 }
 
-type AnyFlagOptions = FlagOptions<Source, string, unknown, FlagType, never> & {
+type AnyFlagOptions = Omit<
+  FlagOptions<Source, string, unknown, FlagType, never>,
+  'source'
+> & {
+  readonly source?: Source;
   readonly decide?: unknown;
 };
 
@@ -314,8 +323,9 @@ function defineFromOptions(
   const flagOptions = normalizeOptions(key, type, options.options);
   warnAboutValues(key, type, options.type, defaultValue, flagOptions);
 
-  if (explicit) runtime.registerSource(explicit);
-  else runtime.markDefaultSourceUsed();
+  if (explicit) {
+    runtime.registerSource(explicit);
+  }
 
   // The flag gives itself to the runtime, so that flag() and evaluate(flag)
   // share the cache of the request
@@ -333,10 +343,8 @@ function defineFromOptions(
         // Not enumerable, so that the manifest and tools see the same fields
         // as for the flags of a provider
         decide: { value: decide },
-        // Without a source, the default source at the time of the
-        // evaluation, so the configuration can come later than the flag
         source: {
-          get: () => explicit ?? runtime.defaultSource,
+          get: () => explicit,
           enumerable: true,
         },
       },

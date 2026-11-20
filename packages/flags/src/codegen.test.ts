@@ -86,8 +86,8 @@ describe('the types of a generated module', () => {
       path.join(source, 'context.ts'),
       `import type { FlagsRequest } from 'flags';
       export default function getEvaluationContext(
-        input: { teamId: string },
         request: FlagsRequest | undefined,
+        input: { teamId: string },
       ) {
         return { teamId: input.teamId, user: request?.cookies?.get('user')?.value ?? null };
       }`,
