@@ -48,7 +48,7 @@
   },
   "devDependencies": {
     "@types/node": "22.14.0",
-    "flags": "workspace:*",
+    "flags": "4.5.0",
     "rimraf": "6.1.2",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",

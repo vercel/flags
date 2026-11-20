@@ -19,7 +19,10 @@ const postHogClientMock = {
 vi.mock('posthog-node', () => ({
   // PostHog is called with `new`, so the implementation must be a function
   // rather than an arrow — Vitest 4 throws "is not a constructor" otherwise.
-  PostHog: vi.fn(() => postHogClientMock),
+  // biome-ignore lint/complexity/useArrowFunction: new needs a function
+  PostHog: vi.fn(function () {
+    return postHogClientMock;
+  }),
 }));
 
 const headers = {} as ReadonlyHeaders;
