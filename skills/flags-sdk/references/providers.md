@@ -331,7 +331,6 @@ Tools import `'use flags'` modules and `provider.ts` to read the flags, e.g. whe
 - Most providers connect in `initialize()`. They are fine.
 - Some connect when you create them: LaunchDarkly (`new LaunchDarklyProvider(...)`), Split (`SplitFactory(...).client()`), CloudBees (`await CloudbeesProvider.build(...)`). Create them once, in a module of their own (`provider.ts` or `flags/<name>.ts`), and check the provider docs for a lazy option.
 - Some throw without a key at creation, e.g. the Flagsmith client. Create them lazily, on the first `initialize()` (see [Flagsmith](#flagsmith)).
-- Native or Node-only SDKs (Statsig Server Core, `posthog-node`) do not run in the Edge runtime. Use the Node.js runtime.
 
 ### LaunchDarkly
 
@@ -521,7 +520,6 @@ export const showBanner = bindFlag({ key: 'show_banner', source, defaultValue: f
 - `targetingKey` is required (else `TARGETING_KEY_MISSING`). `distinctId` also works.
 - `groups`, `personProperties` and `groupProperties` keep their names. Other primitive attributes are person properties.
 - Options (second argument): `onlyEvaluateLocally`, `sendFeatureFlagEvents`, `disableGeoip`, `shutdownOnClose` (default `false`).
-- `posthog-node` does not run in the Edge runtime.
 
 ### Other providers
 

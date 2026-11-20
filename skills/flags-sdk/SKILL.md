@@ -275,7 +275,7 @@ Precompute keeps pages static while flags vary per visitor. The proxy calls `pre
 - **App code in `catalog.ts`.** The catalog runs in plain Node.js at build and dev time, not in the app. Do not import app code, path aliases (`@/...`) or framework modules. Use packages and relative imports of the files of the source. `context.ts` and `provider.ts` run in the app, so they may import app code, e.g. the session.
 - **A flag inside `'use cache'`.** It throws `FlagInCacheError`, also with a `defaultValue`. Evaluate the flag outside the cached function, and pass the value in as an argument.
 - **Expecting `request` everywhere.** At build time, in prerendered pages and in scripts, `request` is `undefined`. Always write `request?.cookies?.get(...)`. Next.js server components give no URL, so `request.url` is `undefined` there.
-- **Edge runtime.** Run flags in the Node.js runtime. The Edge runtime is not tested, and providers on native or Node-only SDKs (Statsig Server Core, `posthog-node`) do not run there.
+- **Runtime.** Flags run in the Node.js runtime, which is the default in Next.js, also in `proxy.ts`. The Edge runtime is not tested.
 - **Restart after source changes.** Restart the dev server after you add or remove a source, or change `provider.ts` or `context.ts`.
 - **Generated types in CI.** `flags/generated.d.ts` must exist before `tsc`. Commit it, or run `flags sync && tsc --noEmit`.
 - **Registering the provider with OpenFeature too.** Do not call `OpenFeature.setProvider()` with an instance that a source uses. It would be initialized and closed twice.
