@@ -52,6 +52,20 @@ const read = (directory: string, file: string) =>
   readFile(path.join(directory, '.flags', file), 'utf8');
 
 describe('generateFlags', () => {
+  it('generates a source without context.ts', async () => {
+    const directory = await app();
+    const source = await addSource(directory, 'site');
+    await rm(path.join(source, 'context.ts'));
+
+    await generateFlags(directory);
+
+    const site = await read(directory, 'site.ts');
+    expect(site).not.toContain('context.ts');
+    expect(
+      await readFile(path.join(directory, 'flags/generated.d.ts'), 'utf8'),
+    ).toContain('type Input = undefined;');
+  });
+
   it('loads a catalog with relative imports without an extension', async () => {
     const directory = await app();
     const source = await addSource(directory, 'site');
@@ -117,14 +131,14 @@ describe('generateFlags', () => {
   it('checks the files of the sources before it runs a catalog', async () => {
     const directory = await app();
     const source = await addSource(directory, 'site');
-    await rm(path.join(source, 'context.ts'));
+    await rm(path.join(source, 'provider.ts'));
     await writeFile(
       path.join(source, 'catalog.ts'),
       "throw new Error('The catalog must not run');",
     );
 
     await expect(generateFlags(directory)).rejects.toThrow(
-      'flags: The source "site" needs flags/sources/site/context.ts.',
+      'flags: The source "site" needs flags/sources/site/provider.ts.',
     );
   });
 

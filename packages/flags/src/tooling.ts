@@ -6,7 +6,7 @@
  * Flags SDK itself uses them in the same way.
  */
 export { MANIFEST_FILE, writeManifestFromBuild } from './build-manifest';
-export { renderSourceModule } from './codegen';
+export { renderSourceModule, type SourceFiles } from './codegen';
 export { findConfigFile } from './config-file';
 export { hasUseFlagsDirective } from './directive';
 export { findFlagsModules } from './find-flags-modules';

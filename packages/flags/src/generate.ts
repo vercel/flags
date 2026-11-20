@@ -37,7 +37,14 @@ export { GENERATED_DIRECTORY };
  */
 export type FlagsAliases = Record<string, string>;
 
-const SOURCE_FILES = ['catalog.ts', 'provider.ts', 'context.ts'] as const;
+// context.ts is optional: without it, the source has no evaluation context
+const SOURCE_FILES = ['catalog.ts', 'provider.ts'] as const;
+const CONTEXT_FILE = 'context.ts';
+
+async function isFile(file: string): Promise<boolean> {
+  const info = await stat(file).catch(() => null);
+  return info?.isFile() ?? false;
+}
 
 async function writeIfChanged(
   directory: string,
@@ -245,12 +252,26 @@ async function writeModules(
     .join('/');
   // Render all files before a file changes, so that an error changes
   // nothing
-  const modules = [...catalogs].map(([name, catalog]) => ({
-    name,
-    catalog,
-    code: renderSourceModule(name, catalog, sourcesPath),
-  }));
-  const declarations = renderDeclarations([...catalogs]);
+  const modules = await Promise.all(
+    [...catalogs].map(async ([name, catalog]) => {
+      // Checked for each write, so a catalog change after a new context.ts
+      // picks it up
+      const files = {
+        context: await isFile(
+          path.join(flagsDirectory, 'sources', name, CONTEXT_FILE),
+        ),
+      };
+      return {
+        name,
+        catalog,
+        files,
+        code: renderSourceModule(name, catalog, sourcesPath, files),
+      };
+    }),
+  );
+  const declarations = renderDeclarations(
+    modules.map(({ name, catalog, files }) => [name, catalog, files] as const),
+  );
   await mkdir(output, { recursive: true });
   // Git ignores the folder without a change to the .gitignore of the app
   await writeIfChanged(output, '.gitignore', '*\n');

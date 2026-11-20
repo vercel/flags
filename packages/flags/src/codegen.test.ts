@@ -62,6 +62,18 @@ describe('renderSourceModule', () => {
     expect(code).toContain('key: "empty",\n  source,\n  type: "object",');
   });
 
+  it('writes a source without a context, without context.ts', () => {
+    const code = renderSourceModule('site', catalog, undefined, {
+      context: false,
+    });
+
+    expect(code).not.toContain('context.ts');
+    expect(code).not.toContain('getEvaluationContext');
+    expect(code).toContain(
+      "import provider from '../flags/sources/site/provider.ts';",
+    );
+  });
+
   it('rejects a name which can not be a directory', () => {
     expect(() => renderSourceModule('../outside', { flags: {} })).toThrow(
       'flags: Invalid name of a source',
@@ -111,11 +123,25 @@ describe('the types of a generated module', () => {
         return { user: request?.cookies?.get('user')?.value ?? null };
       }`,
     );
+    // A source without context.ts
+    const bare = path.join(directory, 'flags/sources/bare');
+    await mkdir(bare, { recursive: true });
+    await writeFile(
+      path.join(bare, 'provider.ts'),
+      `import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+      export default new TypedInMemoryProvider({});`,
+    );
+    const bareCatalog = { flags: { banner: { variants: ['a', 'b'] } } };
+    await writeFile(
+      path.join(directory, '.flags/bare.ts'),
+      renderSourceModule('bare', bareCatalog, undefined, { context: false }),
+    );
     await writeFile(
       path.join(directory, 'flags/generated.d.ts'),
       renderDeclarations([
         ['site', catalog],
         ['self', { flags: { enableSale: { variants: [false, true] } } }],
+        ['bare', bareCatalog, { context: false }],
       ]),
     );
   });
@@ -198,6 +224,16 @@ describe('the types of a generated module', () => {
     ).toEqual([]);
   });
 
+  it('needs no context.ts: the flags take no input', () => {
+    expect(
+      check(`
+        import { banner } from 'flags:bare';
+        const value: Promise<'a' | 'b' | (string & {})> = banner();
+        void value;
+      `),
+    ).toEqual([]);
+  });
+
   it('rejects an unknown flag and a missing context', () => {
     const errors = check(`
       import { missing, checkout } from 'flags:site';
@@ -244,6 +280,15 @@ describe('the types of a generated module', () => {
   it('writes a module which compiles', () => {
     expect(
       check(`import { checkout } from './.flags/site.ts';\nvoid checkout;`, {
+        ...compilerOptions(),
+        allowImportingTsExtensions: true,
+      }),
+    ).toEqual([]);
+  });
+
+  it('writes a module without context.ts which compiles', () => {
+    expect(
+      check(`import { banner } from './.flags/bare.ts';\nvoid banner();`, {
         ...compilerOptions(),
         allowImportingTsExtensions: true,
       }),
