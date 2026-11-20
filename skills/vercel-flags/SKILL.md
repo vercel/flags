@@ -2,11 +2,11 @@
 name: vercel-flags
 description: >
   Feature flags, A/B tests, and gradual rollouts with Vercel Flags, in any app or framework.
-  Use whenever the user is planning, adding, or changing a feature flag, toggle, kill switch,
+  Use whenever the user is planning, adding, changing, or cleaning up a feature flag, toggle, kill switch,
   experiment, percentage rollout, or targeting rule, or wants to gate or hide a feature for some
   users, even before a library or provider is chosen. Covers choosing an integration (Flags SDK,
   `@vercel/flags-core`, OpenFeature), the Vercel dashboard, the `vercel flags` CLI (create, inspect,
-  set, split, rollout, rules, segments, evaluations, archive), OIDC vs SDK keys, `FLAGS_SECRET`, and
+  set, split, rollout, rules, segments, evaluations, archive, connections), Project Connections, OIDC vs SDK keys, `FLAGS_SECRET`, and
   Flags Explorer overrides. For `flag()` declarations, adapters, precompute, and the Flags Explorer
   endpoint in Next.js or SvelteKit code, load the `flags-sdk` skill.
 ---
@@ -24,6 +24,8 @@ Use this skill to decide how a feature should be flagged, to create and change f
 
 - **Planning** ("put this behind a flag", "roll this out to 10%", "A/B test the pricing page", "add a kill switch"): follow [Plan a flag](#plan-a-flag), then [Choose an approach](#choose-an-approach).
 - **Create or manage a flag with no code change** (create, inspect, enable, set, split, rollout, rules, archive): follow [Manage flags with the CLI](#manage-flags-with-the-cli). This needs an authenticated CLI, not SDK packages, Toolbar, Flags Explorer, or `.env.local` (except `vercel flags override`, which reads `FLAGS_SECRET`).
+- **Share flags between projects**: follow [Project Connections](references/cli.md#project-connections) to connect projects in the same team, then configure the consumer application.
+- **Clean up or remove a flag** ("remove this flag", "clean up stale flags", "inline this flag"): follow [references/cleanup.md](references/cleanup.md), then [Lifecycle and safety](references/cli.md#lifecycle-and-safety) before archiving.
 - **Add a flag to an app that already uses the Flags SDK** (`flags` in `package.json`): load the `flags-sdk` skill right away; it creates the flag on Vercel and declares it in code.
 - **Implement in code otherwise**: follow [Choose an approach](#choose-an-approach) and load the matching skill or reference. Inside an app repository, treat an ambiguous request as plan, create, and implement.
 
@@ -71,16 +73,18 @@ Always `inspect` first so you know what each environment serves today, and match
 - **Turn on or off**: `enable` / `disable` for boolean flags, `set <key>` to serve one variant of any kind. These put the environment in static value mode.
 - **Gradual rollout**: `rollout <key> --by user.id ...` ([Roll out a feature](https://vercel.com/docs/flags/vercel-flags/cli/roll-out-feature)).
 - **A/B test**: `split <key> --by user.id ...` ([Run an A/B test](https://vercel.com/docs/flags/vercel-flags/cli/run-ab-test)).
-- **Targeting rules and segments**: `rules`, `segments`, and `use-targeting <key>` to switch an environment from a static value back to targets and rules.
+- **Targeting rules and segments**: `rules`, `segments`, and `targeting enable <key>` to switch an environment from a static value back to targets and rules (CLI versions before 65 call it `use-targeting <key>`).
 - **Verify**: `inspect` for the served state, `versions` for history, `evaluations` to confirm traffic reaches the new variant.
-- **Retire**: remove the code first, verify no evaluations, then `archive`; `rm` only for archived flags. Follow [Lifecycle and safety](references/cli.md#lifecycle-and-safety).
+- **Datafile**: `datafile --environment <production|preview|development> --json` shows the current datafile used by SDKs for debugging.
+- **Retire**: remove the code first ([references/cleanup.md](references/cleanup.md)), verify no evaluations, then `archive`; `rm` only for archived flags. Follow [Lifecycle and safety](references/cli.md#lifecycle-and-safety).
 
 `archive`, `unarchive`, `rm`, and `update --remove-variant` prompt for confirmation. Pass `--yes` when the user has approved the action.
 
 ## Credentials
 
 - **OIDC**: on Vercel, the app authenticates with the project's OIDC token and evaluates the configuration of the current environment. `vercel env pull` writes the Development token to `.env.local` for local development ([Getting started](https://vercel.com/docs/flags/vercel-flags/quickstart#pull-local-openid-connect-credentials)).
-- **SDK keys (`FLAGS`)**: only for apps outside Vercel, custom environments, or flags owned by another project. Each key is scoped to one environment and shown once, at creation ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). Not a recovery path for failed CLI authentication.
+- **Project Connections**: read another same-team project's flags with the consumer project's OIDC token, without an SDK key. Follow [Project Connections](references/cli.md#project-connections) for setup and minimum versions.
+- **SDK keys (`FLAGS`)**: for apps outside Vercel, selecting an environment explicitly, or reading flags across teams. Each key is scoped to one environment and shown once, at creation ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). Not a recovery path for failed CLI authentication.
 - **`FLAGS_SECRET`**: created per environment when Vercel Flags is activated for a project. It signs Flags Explorer overrides and precompute codes, and `vercel flags override` reads it from the environment or `.env.local`. Preserve existing values and never rotate them as part of routine setup; a missing local value does not mean the remote value is missing, so check the target environment before generating one. The `flags-sdk` skill documents how to generate a missing value. Do not print secrets to the terminal, logs, or chat.
 
 ## Flags Explorer
@@ -93,13 +97,13 @@ For frameworks without a Flags SDK entrypoint, use `@vercel/flags-core` directly
 
 ```ts
 // src/flags.ts
-import { createClient } from '@vercel/flags-core';
+import { createClient } from "@vercel/flags-core";
 
 const client = createClient();
 
 // Call from a request handler, not during module loading.
 export async function showNewCheckout(userId: string): Promise<boolean> {
-  const result = await client.evaluate<boolean>('new-checkout', false, {
+  const result = await client.evaluate<boolean>("new-checkout", false, {
     user: { id: userId },
   });
   return result.value;
@@ -112,4 +116,5 @@ The third argument to `evaluate()` is the evaluation context; its entity and att
 
 ## References
 
-- **[references/cli.md](references/cli.md)**: how `vercel flags` concepts map to the app (key, kind, variants, fallback, targeting attributes, timestamp conditions, authentication, overrides, embedded definitions), and the lifecycle and safety checklist for promoting, verifying, removing, and archiving flags.
+- **[references/cli.md](references/cli.md)**: how `vercel flags` concepts map to the app (key, kind, variants, fallback, targeting attributes, timestamp conditions, authentication, overrides, embedded definitions, datafiles), and the lifecycle and safety checklist for promoting, verifying, removing, and archiving flags.
+- **[references/cleanup.md](references/cleanup.md)**: removing a flag from code: the repository rules to follow, the evidence to gather, which value to inline, when to stop, what to delete, and what the cleanup PR should contain.

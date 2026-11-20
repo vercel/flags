@@ -1,0 +1,148 @@
+---
+title: Inline flags
+description: Define a flag that decides its value in your code, with defineFlag and decide.
+---
+
+An inline flag decides its value in your code, with a `decide` function. It needs no provider, no account and no configuration. Use it for rules that a developer owns, e.g. a beta cookie, an internal header or a setting in your database.
+
+```ts title="flags.ts"
+import { defineFlag } from 'flags';
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+  description: 'Shows the beta banner to testers',
+});
+```
+
+```ts title="app/page.tsx"
+import { betaBanner } from '../flags';
+
+const showBanner = await betaBanner(); // boolean
+```
+
+This code is the same in every framework. The framework package gives the SDK the current request, so `decide` can read its cookies (see [Frameworks](/docs/frameworks)).
+
+## What `decide` receives
+
+`decide(request, context)` receives two arguments:
+
+- `request`: the current request, as a `FlagsRequest` with `headers`, `cookies` and `url`. Outside of a request, e.g. in a script or at build time, it is `undefined`.
+- `context`: the evaluation context that the call side gives, as it is. Without one, it is `undefined`.
+
+The request comes first because most flags need only the request. Leave out `context` if you do not use it: `decide: (request) => ...`.
+
+`decide` can be `async`, e.g. to read from a database.
+
+### A context from the call side
+
+The type of `context` defines what the call side must give. TypeScript then requires it at each call:
+
+```ts title="flags.ts"
+import { defineFlag } from 'flags';
+import { db } from './db';
+
+export const teamInsights = defineFlag({
+  key: 'team-insights',
+  decide: async (_request, context: { teamId: string }) => {
+    const team = await db.teams.find(context.teamId);
+    return team?.plan === 'enterprise';
+  },
+  defaultValue: false,
+});
+```
+
+```ts title="app/api/teams/[teamId]/insights/route.ts"
+// The route knows the team from its path
+const enabled = await teamInsights({ evaluationContext: { teamId } });
+
+// Type error: the flag needs a teamId
+await teamInsights();
+```
+
+During one request, `decide` runs once for each input, so calling `teamInsights` with the same `teamId` in several components reads the database once. See [Evaluating flags](/docs/flags/evaluating-flags#one-value-per-request).
+
+## Other types
+
+Without `type`, an inline flag is a boolean. Set `type` for strings, numbers and JSON values:
+
+```ts title="flags.ts"
+import { defineFlag } from 'flags';
+
+export const checkout = defineFlag({
+  key: 'checkout',
+  type: 'string',
+  options: ['control', 'express'],
+  decide: (request) => {
+    if (request?.cookies?.get('checkout')?.value === 'express') {
+      return 'express';
+    }
+    return 'control';
+  },
+});
+
+export const limits = defineFlag({
+  key: 'limits',
+  type: 'object',
+  decide: () => ({ items: 3, uploads: 10 }),
+});
+```
+
+`options` are optional. They tell Flags Explorer and precompute which values the flag can have. See [Types and options](/docs/flags/types-and-options).
+
+## What inline flags get for free
+
+An inline flag goes through the same steps as a flag of a provider:
+
+- **Overrides.** Flags Explorer can override it for your browser (see [Overrides](/docs/tooling/overrides)). An override skips `decide`.
+- **One value per request.** `decide` runs once per request and input.
+- **Hooks.** The hooks of your configuration run for each evaluation. The evaluation details have the reason `DECIDE` (exported as `DECIDE_REASON`).
+- **Type checks.** If `decide` returns a value of a different type, the evaluation fails with `TYPE_MISMATCH`.
+- **Discovery.** In a `'use flags'` module, the flag is in the [flags manifest](/docs/tooling/flags-manifest), so Flags Explorer lists it.
+
+## When `decide` fails
+
+If `decide` throws and the flag has a `defaultValue`, the flag returns it and logs one line. Without a `defaultValue`, the call throws a `FlagEvaluationError`:
+
+```ts title="flags.ts"
+import { defineFlag } from 'flags';
+import { db } from './db';
+
+export const newSearch = defineFlag({
+  key: 'new-search',
+  defaultValue: false,
+  decide: async () => {
+    // If the database is down, the flag returns false
+    return (await db.settings.get('new-search')) === 'on';
+  },
+});
+```
+
+See [Errors and default values](/docs/flags/errors-and-default-values).
+
+## Rules
+
+- `defineFlag` needs `decide`. For a flag of a provider, use [`bindFlag`](/docs/flags/provider-flags).
+- An inline flag has no `source` and no `getEvaluationContext`. `decide` receives the context of the call side directly.
+- Like all flags, inline flags run only on the server.
+
+## From an inline flag to a provider
+
+When a flag outgrows your code, e.g. because a product manager wants to change it without a deployment, replace `defineFlag` with `bindFlag` and keep the key:
+
+```ts title="flags.ts"
+// Before
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+});
+
+// After: the provider of the source decides
+export const betaBanner = bindFlag({
+  key: 'beta-banner',
+  source: self,
+  defaultValue: false,
+});
+```
+
+The code that calls `betaBanner()` does not change. `self` is a source of `defineSource`, see [Flags of a source](/docs/flags/provider-flags). With [code generation](/docs/flags/code-generation), remove the inline flag, and import the flag of the same key from `flags:self` instead. Only the import changes.

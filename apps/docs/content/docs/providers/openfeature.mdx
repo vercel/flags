@@ -1,0 +1,489 @@
+---
+title: OpenFeature providers
+navTitle: OpenFeature
+description: Use the OpenFeature server provider of your flag management system with the Flags SDK.
+---
+
+Any [OpenFeature](https://openfeature.dev/) server provider works with the Flags SDK, as it is. This page lists providers which we know, with the package to install and a `defineSource` snippet for each. For providers which are not on this page, see the [OpenFeature ecosystem](https://openfeature.dev/ecosystem) (filter for server-side JavaScript providers).
+
+<Callout>
+The setup of each provider is a short summary of the documentation of the vendor. Options and package names can change. Check the documentation of the provider, linked in each section, for the options which you need in production.
+</Callout>
+
+## How to use a provider
+
+The setup is the same for each provider. With a framework with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), use the file system API: the provider goes into the folder of a source, and [code generation](/docs/flags/code-generation) writes the flags. By convention, the main source of an app is `self`.
+
+### 1. Install the packages
+
+Install `flags`, `@openfeature/server-sdk` (the peer dependency of most OpenFeature providers), and the provider:
+
+```bash
+npm install flags @openfeature/server-sdk @openfeature/flagd-provider
+```
+
+### 2. Export the provider
+
+The default export of `provider.ts` is the provider:
+
+```ts title="flags/sources/self/provider.ts"
+import { FlagdProvider } from '@openfeature/flagd-provider';
+
+export default new FlagdProvider();
+```
+
+### 3. Create the evaluation context
+
+Most OpenFeature providers identify the user by the `targetingKey` of the evaluation context. The default export of `context.ts` creates it once per request:
+
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
+
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return {
+    targetingKey: request?.cookies?.get('user-id')?.value ?? 'anonymous',
+  };
+}
+```
+
+The SDK gives no field a special meaning. Return what your provider needs, e.g. more attributes for its targeting rules. See [Evaluation context](/docs/flags/evaluation-context).
+
+### 4. List the flags
+
+The default export of `catalog.ts` lists the flags of the source, for the code generation. For a start, it can return a static list:
+
+```ts title="flags/sources/self/catalog.ts"
+import type { CatalogLoader } from 'flags';
+
+const loadCatalog: CatalogLoader = () => ({
+  flags: {
+    checkout: {
+      variants: ['control', 'express'],
+      defaultValue: 'control',
+      description: 'The checkout flow',
+    },
+  },
+});
+
+export default loadCatalog;
+```
+
+### 5. Import the flags
+
+After you enable code generation for your framework (see [Code generation](/docs/flags/code-generation)), import the flags from `flags:self`:
+
+```ts
+import { checkout } from 'flags:self';
+
+const variant = await checkout();
+```
+
+### Without code generation
+
+Without a bundler, e.g. with Hono, Express or plain Node.js, or if you prefer to write the code, define the source and the flags by hand. The provider snippets below use this form:
+
+```ts title="flags/context.ts"
+import type { FlagsRequest } from 'flags';
+
+export function getEvaluationContext(request: FlagsRequest | undefined) {
+  return {
+    targetingKey: request?.cookies?.get('user-id')?.value ?? 'anonymous',
+  };
+}
+```
+
+```ts title="flags/self.ts"
+import { FlagdProvider } from '@openfeature/flagd-provider';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const self = defineSource({
+  provider: new FlagdProvider(),
+  getEvaluationContext,
+});
+```
+
+Name the source in each flag. `bindFlag` requires it:
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag } from 'flags';
+import { self } from './flags/self';
+
+export const checkout = bindFlag({
+  key: 'checkout',
+  source: self,
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+});
+```
+
+With the file system API, take the `provider` of a snippet below as the default export of `flags/sources/self/provider.ts`.
+
+Do not call `OpenFeature.setProvider()`: the SDK calls the provider directly, and initializes it before the first evaluation. See [Providers](/docs/providers) for the lifecycle, and [OpenFeature compatibility](/docs/flags/openfeature) for hooks, events and tracking.
+
+<Callout title="Providers which connect when you create them">
+Tools import your `'use flags'` modules to read your flags, so creating a source must not open network connections. Most providers connect in `initialize()`. If a provider connects in its constructor or factory (below: CloudBees and Split), it also connects when a tool imports your flags, e.g. when a build writes the flags manifest. Create such a provider once, in a module of its own like `flags/sources/self/provider.ts` or `flags/self.ts`, and check the documentation of the provider for a lazy option.
+</Callout>
+
+## Providers of the OpenFeature project
+
+These providers are maintained in the [OpenFeature JavaScript contributions](https://github.com/open-feature/js-sdk-contrib) repository.
+
+### ConfigCat
+
+```bash
+npm install flags @openfeature/server-sdk @openfeature/config-cat-provider
+```
+
+```ts title="flags/self.ts"
+import { ConfigCatProvider } from '@openfeature/config-cat-provider';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const configcat = defineSource({
+  provider: ConfigCatProvider.create('<sdk_key>'),
+  getEvaluationContext,
+});
+```
+
+[ConfigCat provider documentation](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/config-cat)
+
+### flagd
+
+```bash
+npm install flags @openfeature/server-sdk @openfeature/flagd-provider
+```
+
+```ts title="flags/self.ts"
+import { FlagdProvider } from '@openfeature/flagd-provider';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const flagd = defineSource({
+  provider: new FlagdProvider(/* options */),
+  getEvaluationContext,
+});
+```
+
+[flagd provider documentation](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/flagd)
+
+### Flipt
+
+```bash
+npm install flags @openfeature/server-sdk @openfeature/flipt-provider
+```
+
+```ts title="flags/self.ts"
+import { FliptProvider } from '@openfeature/flipt-provider';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const flipt = defineSource({
+  provider: new FliptProvider('namespace-of-choice', {
+    url: 'http://your.upstream.flipt.host',
+  }),
+  getEvaluationContext,
+});
+```
+
+[Flipt provider documentation](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/flipt)
+
+### GO Feature Flag
+
+```bash
+npm install flags @openfeature/server-sdk @openfeature/go-feature-flag-provider
+```
+
+```ts title="flags/self.ts"
+import { GoFeatureFlagProvider } from '@openfeature/go-feature-flag-provider';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const goFeatureFlag = defineSource({
+  provider: new GoFeatureFlagProvider({ endpoint: 'http://localhost:1031/' }),
+  getEvaluationContext,
+});
+```
+
+[GO Feature Flag provider documentation](https://gofeatureflag.org/docs/sdk/server_providers/openfeature_javascript)
+
+### GrowthBook
+
+```bash
+npm install flags @openfeature/server-sdk @growthbook/growthbook @openfeature/growthbook-provider
+```
+
+```ts title="flags/self.ts"
+import { GrowthbookProvider } from '@openfeature/growthbook-provider';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const growthbook = defineSource({
+  provider: new GrowthbookProvider(
+    {
+      apiHost: 'https://cdn.growthbook.io',
+      clientKey: 'sdk-abc123',
+      // Only if you enabled feature encryption in GrowthBook
+      decryptionKey: 'key_abc123',
+    },
+    // Optional init options
+    { timeout: 2000, streaming: true },
+  ),
+  getEvaluationContext,
+});
+```
+
+[GrowthBook provider documentation](https://github.com/open-feature/js-sdk-contrib/blob/main/libs/providers/growthbook/README.md)
+
+## Providers of vendors
+
+These providers are maintained by the vendor of the flag management system.
+
+### AB Tasty
+
+```bash
+npm install flags @openfeature/server-sdk @flagship-io/openfeature-provider-js
+```
+
+```ts title="flags/self.ts"
+import { ABTastyProvider } from '@flagship-io/openfeature-provider-js';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const abTasty = defineSource({
+  provider: new ABTastyProvider('<ENV_ID>', '<API_KEY>'),
+  getEvaluationContext,
+});
+```
+
+[AB Tasty provider documentation](https://github.com/flagship-io/openfeature-provider-js)
+
+### CloudBees
+
+```bash
+npm install flags @openfeature/server-sdk cloudbees-openfeature-provider-node
+```
+
+```ts title="flags/self.ts"
+import { CloudbeesProvider } from 'cloudbees-openfeature-provider-node';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const cloudbees = defineSource({
+  // build() connects to CloudBees when this module is imported
+  provider: await CloudbeesProvider.build('<app-key>'),
+  getEvaluationContext,
+});
+```
+
+[CloudBees provider documentation](https://github.com/rollout/cloudbees-openfeature-provider-node)
+
+### Confidence by Spotify
+
+```bash
+npm install flags @openfeature/server-sdk @spotify-confidence/openfeature-server-provider
+```
+
+```ts title="flags/self.ts"
+import { createConfidenceServerProvider } from '@spotify-confidence/openfeature-server-provider';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const confidence = defineSource({
+  provider: createConfidenceServerProvider({
+    clientSecret: process.env.CONFIDENCE_CLIENT_SECRET!,
+    fetchImplementation: fetch,
+    timeout: 1000,
+  }),
+  getEvaluationContext,
+});
+```
+
+[Confidence documentation](https://github.com/spotify/confidence-sdk-js)
+
+### DevCycle
+
+```bash
+npm install flags @openfeature/server-sdk @devcycle/nodejs-server-sdk
+```
+
+```ts title="flags/self.ts"
+import { DevCycleProvider } from '@devcycle/nodejs-server-sdk';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const devcycle = defineSource({
+  provider: new DevCycleProvider(process.env.DEVCYCLE_SERVER_SDK_KEY!),
+  getEvaluationContext,
+});
+```
+
+[DevCycle provider documentation](https://docs.devcycle.com/sdk/server-side-sdks/node/node-openfeature)
+
+### FeatBit
+
+```bash
+npm install flags @openfeature/server-sdk @featbit/node-server-sdk @featbit/openfeature-provider-node-server
+```
+
+```ts title="flags/self.ts"
+import { FbProvider } from '@featbit/openfeature-provider-node-server';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const featbit = defineSource({
+  provider: new FbProvider({
+    sdkKey: '<your-sdk-key>',
+    streamingUri: '<your-streaming-uri>',
+    eventsUri: '<your-events-uri>',
+  }),
+  getEvaluationContext,
+});
+```
+
+[FeatBit provider documentation](https://github.com/featbit/openfeature-provider-node-server)
+
+### Hypertune
+
+```bash
+npm install flags @openfeature/server-sdk @hypertune/openfeature-server-provider
+```
+
+```ts title="flags/self.ts"
+import { HypertuneProvider } from '@hypertune/openfeature-server-provider';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const hypertune = defineSource({
+  provider: new HypertuneProvider({ token: process.env.HYPERTUNE_TOKEN! }),
+  getEvaluationContext,
+});
+```
+
+[Hypertune provider documentation](https://www.npmjs.com/package/@hypertune/openfeature-server-provider)
+
+### Kameleoon
+
+```bash
+npm install flags @openfeature/server-sdk @kameleoon/openfeature-server
+```
+
+```ts title="flags/self.ts"
+import { KameleoonProvider } from '@kameleoon/openfeature-server';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const kameleoon = defineSource({
+  provider: new KameleoonProvider({
+    siteCode: process.env.KAMELEOON_SITE_CODE!,
+    credentials: {
+      clientId: process.env.KAMELEOON_CLIENT_ID!,
+      clientSecret: process.env.KAMELEOON_CLIENT_SECRET!,
+    },
+  }),
+  getEvaluationContext,
+});
+```
+
+[Kameleoon provider documentation](https://github.com/Kameleoon/openfeature-nodejs)
+
+### Split
+
+```bash
+npm install flags @openfeature/server-sdk @splitsoftware/splitio @splitsoftware/openfeature-js-split-provider
+```
+
+```ts title="flags/self.ts"
+import { OpenFeatureSplitProvider } from '@splitsoftware/openfeature-js-split-provider';
+import { SplitFactory } from '@splitsoftware/splitio';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+// The Split client connects when it is created, i.e. when this module is
+// imported
+const splitClient = SplitFactory({
+  core: { authorizationKey: process.env.SPLIT_SDK_KEY! },
+}).client();
+
+export const split = defineSource({
+  provider: new OpenFeatureSplitProvider({ splitClient }),
+  getEvaluationContext,
+});
+```
+
+[Split provider documentation](https://github.com/splitio/split-openfeature-provider-js)
+
+### Tggl
+
+```bash
+npm install flags @openfeature/server-sdk openfeature-server-tggl-provider
+```
+
+```ts title="flags/self.ts"
+import { TgglServerProvider } from 'openfeature-server-tggl-provider';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const tggl = defineSource({
+  provider: new TgglServerProvider(process.env.TGGL_API_KEY!),
+  getEvaluationContext,
+});
+```
+
+[Tggl provider documentation](https://tggl.io/developers/sdks/open-feature/node)
+
+## Community providers
+
+These providers are maintained by the community, not by the vendor.
+
+### PostHog
+
+```bash
+npm install flags @openfeature/server-sdk @tapico/node-openfeature-posthog
+```
+
+```ts title="flags/self.ts"
+import { PostHogProvider } from '@tapico/node-openfeature-posthog';
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+
+export const posthog = defineSource({
+  provider: new PostHogProvider(/* options */),
+  getEvaluationContext,
+});
+```
+
+[PostHog provider documentation](https://www.npmjs.com/package/@tapico/node-openfeature-posthog)
+
+## LaunchDarkly
+
+LaunchDarkly publishes an OpenFeature server provider; find it in the [OpenFeature ecosystem](https://openfeature.dev/ecosystem). The SDK knows the LaunchDarkly system, so a source can name its project. The [flags manifest](/docs/tooling/flags-manifest) then has the variables which tools need to link each flag to its targeting page in LaunchDarkly:
+
+```ts title="flags/self.ts"
+import { defineSource } from 'flags';
+import { getEvaluationContext } from './context';
+import { launchDarklyProvider } from './launchdarkly-provider';
+
+export const launchdarkly = defineSource({
+  // The OpenFeature server provider of LaunchDarkly
+  provider: launchDarklyProvider,
+  project: {
+    system: 'launchdarkly',
+    projectId: 'shop', // the key of the project
+    teamId: 'acme',
+    environment: 'production', // the key of the environment, for links
+  },
+  getEvaluationContext,
+});
+```
+
+## Other providers
+
+Many more flag management systems have an OpenFeature server provider for JavaScript. Search for your vendor in the [OpenFeature ecosystem](https://openfeature.dev/ecosystem), and use its provider as shown in [How to use a provider](#how-to-use-a-provider). Use a server provider (for Node.js), not a web provider: the Flags SDK evaluates flags on the server.
+
+Your system has no OpenFeature provider? You can write one, see [Custom providers](/docs/providers/custom-providers).

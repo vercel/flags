@@ -1,10 +1,12 @@
 // flags.ts
 'use flags';
 
-import { defineFlag } from 'flags';
+import { bindFlag } from 'flags';
+import { self } from '@/flags/self';
 
-export const testBooleanFlag = defineFlag('test-boolean');
-export const myTestFlag = defineFlag({
+export const testBooleanFlag = bindFlag({ key: 'test-boolean', source: self });
+export const myTestFlag = bindFlag({
   key: 'my-test-flag',
+  source: self,
   description: 'a boolean test flag',
 });

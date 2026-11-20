@@ -1,6 +1,6 @@
 {
   "name": "@vercel/flags-core",
-  "version": "1.10.1",
+  "version": "1.11.0",
   "description": "A server-side client for Vercel Flags",
   "keywords": [
     "vercel",
@@ -59,6 +59,16 @@
         "types": "./dist/default-provider.default.d.cts",
         "default": "./dist/default-provider.default.cjs"
       }
+    },
+    "./catalog": {
+      "import": {
+        "types": "./dist/catalog.d.ts",
+        "default": "./dist/catalog.js"
+      },
+      "require": {
+        "types": "./dist/catalog.d.cts",
+        "default": "./dist/catalog.cjs"
+      }
     }
   },
   "main": "./dist/index.default.js",
@@ -100,11 +110,11 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@types/node": "22.14.0",
-    "next": "16.3.8",
+    "next": "16.4.6",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
-    "vite": "8.1.5",
-    "vitest": "4.1.11"
+    "vite": "8.1.6",
+    "vitest": "4.1.12"
   },
   "peerDependencies": {
     "@openfeature/server-sdk": "1.18.0",

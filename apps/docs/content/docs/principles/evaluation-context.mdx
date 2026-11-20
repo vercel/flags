@@ -1,170 +1,145 @@
 ---
 title: Evaluation Context
-description: Segment by any criteria, using an evaluation context.
+description: Why the Flags SDK creates the evaluation context in a typed chain, once per request, instead of at each call site.
 ---
 
-import Link from 'next/link';
+It is common for a feature to be on for some users and off for others. For
+example, the team that works on a new setting needs to see it, while everyone
+else should not. To make that decision, the provider needs data about the
+user: the **evaluation context**.
 
-It is common for features to be on for some users, but off for others.
-For example team members working on a new setting might need to see and
-use the setting, while the rest of the team need the setting to be
-hidden.
+The Flags SDK separates two steps that most SDKs mix at the call site:
 
-The `flag` declaration accepts an `identify`
-function. The entities returned from the `identify` function
-are passed as an argument to the `decide` function.
+1. **Identifying** who or what the flag is evaluated for.
+2. **Deciding** the value of the flag for them.
 
-## Example
+The provider (or the `decide` function of an inline flag) decides. The
+evaluation context chain identifies.
 
-A trivial case to illustrate the concept:
+## The chain
 
-```tsx title="flags.tsx#next"
-import { flag } from 'flags/next';
+The evaluation context is created in a chain of up to three steps. Each step
+receives the current request first, and then the result of the step before:
 
-export const exampleFlag = flag<boolean>({
-  key: 'identify-example-flag',
-  identify() {
-    return { user: { id: 'user1' } };
-  },
-  decide({ entities }) {
-    return entities?.user?.id === 'user1';
-  },
+```mermaid
+flowchart LR
+  A["Call side<br/>evaluationContext"] --> B["Flag<br/>getEvaluationContext"]
+  B --> C["Source<br/>getEvaluationContext"]
+  C --> D["Provider"]
+```
+
+1. **The call side** can pass what it alone knows, for example the team of the
+   current URL: `teamInsights({ evaluationContext: { teamSlug } })`.
+2. **The flag** can convert it with its own `getEvaluationContext`, for example
+   load the team for the slug.
+3. **The source** creates the context for the provider. It usually reads the
+   user from the request: its headers, cookies and URL.
+
+A step that is missing passes its input on as it is. Most flags need only the
+last step: the source reads the request, and the call site passes nothing.
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag, defineSource } from 'flags';
+import { provider } from './provider';
+
+const shop = defineSource({
+  provider,
+  // Runs once per request and input, for all flags of the source
+  getEvaluationContext: (
+    request,
+    input: { team?: { plan: string } } | undefined,
+  ) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+    ...(input?.team ? { team: input.team } : {}),
+  }),
+});
+
+const teams: Record<string, { plan: string }> = {
+  acme: { plan: 'enterprise' },
+};
+
+// The call side gives a team slug. The flag loads the team.
+export const teamInsights = bindFlag({
+  key: 'team-insights',
+  source: shop,
+  defaultValue: false,
+  getEvaluationContext: (_request, context: { teamSlug: string }) => ({
+    team: teams[context.teamSlug] ?? { plan: 'unknown' },
+  }),
+});
+
+// No flag step: the source reads the user from the request
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: shop,
+  defaultValue: false,
 });
 ```
 
-<IframeBrowser
-  src="snippets:/concepts/identify/basic"
-  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/identify/basic"
-/>
+```ts
+await summerSale();
+await teamInsights({ evaluationContext: { teamSlug: 'acme' } });
+```
 
-Having first-class support for an evaluation context allows decoupling
-the identifying step from the decision making step.
+## Why a chain
 
-## Type safety
+**Call sites stay small.** Most call sites pass nothing. The source knows how
+to find the user, so pages do not rebuild the context, and they can not get it
+wrong.
 
-The entities can be typed using the `flag` function.
+**One value per request.** Each step runs once per request and input, and each
+flag is evaluated once per request and input. Two components of one page get
+the same value, even when both call the flag. Plain data is compared by its
+content, so `{ teamSlug: 'acme' }` from two components counts as one input. You
+do not need a `dedupe` helper.
 
-```tsx title="flags.tsx#next"
-import { flag } from 'flags/next';
+**Types connect the steps.** The type of the `context` parameter of each step
+defines what the step before must give. If `teamInsights` needs a
+`teamSlug`, calling it without one is a type error.
 
-interface Entities {
-  user?: { id: string };
-}
+**The request is the same in every framework.** Each step receives a
+`FlagsRequest` with `headers`, `cookies` and `url`. The framework package
+creates it, so the same source works in Next.js, SvelteKit, Hono or a plain
+Node.js server. `request` is `undefined` outside of a request, for example at
+build time, so handle that case.
 
-export const exampleFlag = flag<boolean, Entities>({
-  key: 'identify-example-flag',
-  identify() {
-    return { user: { id: 'user1' } };
-  },
-  decide({ entities }) {
-    return entities?.user?.id === 'user1';
-  },
+## Inline flags
+
+An inline flag has no source and no provider. Its `decide` function receives
+the request, and the evaluation context of the call side as it is:
+
+```ts title="flags.ts"
+import { defineFlag } from 'flags';
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
 });
 ```
 
-## Headers and cookies
+## Passing context from the call side
 
-The `identify` function is called with `headers`{" "}
-and `cookies` arguments, which is useful when dealing with
-anonymous or authenticated users.
+The call side context is useful for data that only the call site has, such as
+a route parameter. Use it for that, and let the source derive everything else
+from the request. If many call sites build the same context, move that work
+into the flag's or the source's `getEvaluationContext`, so the flag evaluates
+the same way everywhere.
 
-The arguments are normalized to a common format so the same flag can be
-used in Routing Middleware, App Router, and Pages Router without having to
-worry about the differences in how `headers` and{" "}
-`cookies` are represented there.
+`evaluate([a, b], { evaluationContext })` gives one context to several flags.
+TypeScript then requires a context that fits all of them.
 
-```tsx title="flags.tsx#next"
-import { flag } from 'flags/next';
+## Precompute and targeting
 
-export const exampleFlag = flag<boolean, Entities>({
-  // ...
-  identify({ headers, cookies }) {
-    // access to normalized headers and cookies here
-    headers.get('auth');
-    cookies.get('auth')?.value;
-    // ...
-  },
-  // ...
-});
-```
+[Precompute](/docs/principles/precompute) evaluates flags in Routing
+Middleware. There, the evaluation context should come from the request
+itself, for example a cookie, so that no database request is needed. See
+[Data Locality](/docs/principles/data-locality).
 
-## Deduplication
+## Learn more
 
-The `dedupe` function is a helper to prevent duplicate work.
-
-Any function wrapped in `dedupe` will only ever run once for
-the same request within the same runtime and given the same arguments.
-
-This helper is useful in combination with the{" "}
-`identify` function, as it allows the identification to only
-happen once per request. This is useful in preventing overhead when
-passing the same `identify` function to multiple feature
-flags.
-
-<LearnMore href="/frameworks/next/dedupe" icon="arrow">
-  Learn more about `dedupe`
-</LearnMore>
-
-## Precomputing and targeting
-
-The [Marketing Pages](/docs/guides/marketing-pages) example which shows how to identify and target users using cookies when
-precomputing pages.
-
-## Custom evaluation context
-
-While it is best practice to let the `identify` function
-determine the evaluation context, it is possible to provide a custom
-evaluation context.
-
-```tsx
-// pass a custom evaluation context from the call site
-await exampleFlag.run({ identify: { user: { id: 'user1' } } });
-
-// pass a custom evaluation context function from the call site
-await exampleFlag.run({ identify: () => ({ user: { id: 'user1' } }) });
-```
-
-This should be used sparsely, as custom evaluation context can make
-feature flags less predictable across your code base.
-
-### Full example
-
-The example below shows how to use the `identify` function to
-display different content to different users.
-
-<IframeBrowser
-  src="snippets:/concepts/identify/full"
-  codeSrc="https://github.com/vercel/flags/tree/main/examples/snippets/app/concepts/identify/full"
-/>
-
-The above example is implemented using this feature flag:
-
-```tsx title="flags.tsx#next"
-import type { ReadonlyRequestCookies } from 'flags';
-import { dedupe, flag } from 'flags/next';
-
-interface Entities {
-  user?: { id: string };
-}
-
-const identify = dedupe(
-  ({ cookies }: { cookies: ReadonlyRequestCookies }): Entities => {
-    // This could read a JWT instead
-    const userId = cookies.get('identify-example-user-id')?.value;
-    return { user: userId ? { id: userId } : undefined };
-  },
-);
-
-export const identifyExampleFlag = flag<boolean, Entities>({
-  key: 'identify-example-flag',
-  identify,
-  decide({ entities }) {
-    if (!entities?.user) return false;
-    return entities.user.id === 'user1';
-  },
-});
-```
-
-<LearnMore href="/frameworks/next/guides/marketing-pages" icon="arrow">
-  See the Marketing Pages example
-</LearnMore>
+- [Evaluation context](/docs/flags/evaluation-context): the full API of the
+  chain.
+- [Evaluating flags](/docs/flags/evaluating-flags): calling flags and
+  `evaluate()`.

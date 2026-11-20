@@ -1,5 +1,8 @@
 import { getVercelOidcToken } from '@vercel/oidc';
-import { parseSdkKeyFromFlagsConnectionString } from '../utils/sdk-keys';
+import {
+  isValidProjectId,
+  parseSdkKeyFromFlagsConnectionString,
+} from '../utils/sdk-keys';
 
 export type BundledDefinitionsLookup =
   | { type: 'sdk-key'; sdkKey: string }
@@ -17,6 +20,8 @@ export interface Auth {
   sourceProjectId?: string;
   resolveToken(): Promise<string>;
   resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup>;
+  /** Returns the lookup when it is known without resolving a token. */
+  getStaticBundledDefinitionsLookup(): BundledDefinitionsLookup | undefined;
 }
 
 export function authHeaders(
@@ -33,20 +38,41 @@ export function unauthorizedMessage(sourceProjectId?: string): string {
   if (!sourceProjectId) {
     return 'unauthorized (401)';
   }
-  return `unauthorized (401): this deployment is not allowed to read the flags of project "${sourceProjectId}". Check that the project is connected.`;
+  return `unauthorized (401): this deployment is not allowed to read the flags of project "${sourceProjectId}". Check that the project is connected. See https://vercel.com/docs/flags/vercel-flags/project-connections`;
+}
+
+const oidcTokenMessage = [
+  '@vercel/flags-core: Failed to get OIDC token.',
+  'Are you running in a Vercel Environment where OIDC tokens are available?',
+  'Did you mean to use an SDK Key instead? Use the environment variable FLAGS or pass it directly to the client.',
+].join(' ');
+
+/**
+ * `@vercel/oidc` refreshes a missing or expired token over the network, so it
+ * can also fail transiently. It flattens every failure into one message, and
+ * these parts mean there are no credentials at all: the project is not linked,
+ * the CLI is not logged in, or (on the edge) the token header is missing.
+ */
+const missingCredentials =
+  /`vc link|vercel login|^The 'x-vercel-oidc-token' header is missing from the request\.$/;
+
+/** No OIDC credentials are available, so requests cannot authenticate. */
+export class OidcTokenError extends Error {
+  constructor(cause: unknown) {
+    super(oidcTokenMessage, { cause });
+    this.name = 'OidcTokenError';
+  }
 }
 
 async function getOidcToken(): Promise<string> {
   try {
     return await getVercelOidcToken();
-  } catch {
-    throw new Error(
-      [
-        '@vercel/flags-core: Failed to get OIDC token.',
-        'Are you running in a Vercel Environment where OIDC tokens are available?',
-        'Did you mean to use an SDK Key instead? Use the environment variable FLAGS or pass it directly to the client.',
-      ].join(' '),
-    );
+  } catch (error) {
+    if (error instanceof Error && missingCredentials.test(error.message)) {
+      throw new OidcTokenError(error);
+    }
+    // Refreshing the token failed, which a retry can fix.
+    throw new Error(oidcTokenMessage, { cause: error });
   }
 }
 
@@ -69,11 +95,40 @@ function getProjectIdFromOidcToken(oidcToken: string): string {
   return payload.project_id;
 }
 
+export interface AuthenticationOptions {
+  /**
+   * Reads the flags of another project in the same team with this
+   * deployment's OIDC token. Requires a connection on that project.
+   */
+  projectId?: string;
+}
+
 export class Authentication implements Auth {
   public readonly sdkKey?: string;
   public readonly sourceProjectId?: string;
 
-  constructor(sdkKeyOrConnectionString: string | undefined) {
+  constructor(
+    sdkKeyOrConnectionString: string | undefined,
+    options: AuthenticationOptions = {},
+  ) {
+    if (options.projectId !== undefined) {
+      if (
+        typeof options.projectId !== 'string' ||
+        !isValidProjectId(options.projectId)
+      ) {
+        throw new Error(
+          `@vercel/flags-core: Invalid projectId "${options.projectId}". Expected a project id like "prj_…" (letters, digits and underscores, up to 64 characters)`,
+        );
+      }
+      if (sdkKeyOrConnectionString !== undefined) {
+        throw new Error(
+          '@vercel/flags-core: projectId cannot be combined with an SDK key. Connected projects are read with the OIDC token of this deployment.',
+        );
+      }
+      this.sourceProjectId = options.projectId;
+      return;
+    }
+
     // validate sdk key format
     if (sdkKeyOrConnectionString !== undefined) {
       if (typeof sdkKeyOrConnectionString !== 'string') {
@@ -102,13 +157,30 @@ export class Authentication implements Auth {
     return await getOidcToken();
   }
 
-  public async resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup> {
+  public getStaticBundledDefinitionsLookup():
+    | BundledDefinitionsLookup
+    | undefined {
     if (this.sdkKey) {
       return { type: 'sdk-key', sdkKey: this.sdkKey };
     }
 
     if (this.sourceProjectId) {
       return { type: 'project-id', projectId: this.sourceProjectId };
+    }
+
+    // The OIDC token belongs to the deployment's own project.
+    const projectId = process.env.VERCEL_PROJECT_ID;
+    if (projectId) {
+      return { type: 'project-id', projectId };
+    }
+
+    return undefined;
+  }
+
+  public async resolveBundledDefinitionsLookup(): Promise<BundledDefinitionsLookup> {
+    const lookup = this.getStaticBundledDefinitionsLookup();
+    if (lookup) {
+      return lookup;
     }
 
     const oidcToken = await this.resolveToken();

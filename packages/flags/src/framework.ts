@@ -1,7 +1,7 @@
 import type { Runtime } from './runtime';
 
 /**
- * Sets up the framework binding, e.g. the request source and the
+ * Sets up the framework binding, e.g. the request getter and the
  * configuration. The runtime calls it one time, before the first
  * evaluation.
  */

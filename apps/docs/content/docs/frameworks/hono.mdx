@@ -1,0 +1,188 @@
+---
+title: Hono
+description: Use the Flags SDK in a Hono app with one middleware.
+---
+
+`@flags-sdk/hono` is a Hono middleware. It runs each request in `runtime.onInvoke`, so that flags know the request, and it configures the SDK with your optional `flags/config.ts`. An `HTTPException` reaches Hono unchanged. Your route handlers import only `flags`.
+
+## Setup
+
+### 1. Install the packages
+
+```sh title="Terminal"
+npm install flags @flags-sdk/hono
+```
+
+### 2. Define your flags
+
+Without a bundler, nothing generates `flags:self`, so you write the source and its flags by hand. By convention, the main source of an application is `self`. Create `src/flags/self.ts`:
+
+```ts title="src/flags/self.ts"
+import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { defineSource } from 'flags';
+
+// The source of the flags of this app. The in-memory provider needs no
+// account. Any OpenFeature server provider works.
+export const self = defineSource({
+  provider: new TypedInMemoryProvider({
+    enableSale: {
+      variants: { on: true, off: false },
+      defaultVariant: 'off',
+      disabled: false,
+      // On for alice only
+      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+    },
+  } as const),
+  project: { system: 'in-memory' },
+  // Runs one time for each request
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+```
+
+Then create `src/flags.ts` with the flags. It is the same file as in the [other frameworks](/docs/frameworks#without-a-bundler-sources-by-hand):
+
+```ts title="src/flags.ts"
+'use flags';
+
+import { bindFlag, defineFlag } from 'flags';
+import { self } from './flags/self.ts';
+
+// A flag of the source: the provider decides the value
+export const enableSale = bindFlag({
+  key: 'enableSale',
+  source: self,
+  defaultValue: false,
+  description: 'Shows the summer sale',
+});
+
+// An inline flag: your code decides the value
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
+});
+```
+
+`'use flags'` marks a module that exports only flags, for the [flags manifest](/docs/tooling/flags-manifest). That is why the source has its own module. To try the example, install `@openfeature/server-sdk`. For a real project, use the provider of your flag management system, for example `new VercelProvider()` of [Vercel Flags](/docs/providers/vercel).
+
+<Callout type="info">
+  You can also use the folder `flags/sources/self` of the [file system API](/docs/flags/code-generation) without a bundler: `flags sync` writes `.flags/self.ts`, and you import it by its path, e.g. `import { enableSale } from '../.flags/self.ts'`. See [Code generation](/docs/flags/code-generation#without-a-framework-plugin).
+</Callout>
+
+### 3. Add the middleware
+
+```ts title="src/server.ts"
+import { flags } from '@flags-sdk/hono';
+import { serve } from '@hono/node-server';
+import { evaluate } from 'flags';
+import { Hono } from 'hono';
+import { betaBanner, enableSale } from './flags.ts';
+
+const app = new Hono();
+
+// Each request runs in runtime.onInvoke
+app.use(flags());
+
+app.get('/', async (c) => {
+  const [sale, beta] = await evaluate([enableSale, betaBanner]);
+  return c.json({ sale, beta });
+});
+
+serve({ fetch: app.fetch, port: 3000 });
+```
+
+Send the cookie `user=alice` to see the sale, and `beta=1` to see the beta banner. Flags evaluated in a later step of an async handler still belong to the same request, and each flag is evaluated one time for each request.
+
+Node.js 22.18 or newer runs the TypeScript source directly with `node src/server.ts`.
+
+## Optional: `flags/config.ts`
+
+You do not need a configuration file. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
+
+Add `flags/config.ts` when you want settings for all flags: OpenFeature hooks for every flag, or the options of overrides. Hono often runs without a bundler, so nothing loads the file for you. Pass the configuration to the middleware: `app.use(flags({ config }))`.
+
+```ts title="flags/config.ts"
+import { defineConfig } from 'flags';
+
+export const config = defineConfig({
+  hooks: [
+    {
+      after: (context, details) => {
+        console.log(`${context.flagKey} = ${JSON.stringify(details.value)}`);
+      },
+    },
+  ],
+});
+```
+
+See [Configuration](/docs/flags/configuration) for all options.
+
+## Errors of Hono
+
+An `HTTPException` reaches Hono unchanged, also when you throw it from `getEvaluationContext`. The flag does not catch it and does not return its default value:
+
+```ts title="src/flags/self.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
+import { HTTPException } from 'hono/http-exception';
+
+export const self = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (request) => {
+    if (request?.cookies?.get('blocked')) {
+      throw new HTTPException(403, { message: 'Blocked' });
+    }
+    return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+  },
+});
+```
+
+## Lifecycle
+
+Without extra code, a provider initializes on its first evaluation. To initialize the providers before the first request, and to close them when the process stops, call the runtime yourself:
+
+```ts title="src/server.ts"
+import { runtime } from 'flags';
+
+await runtime.onInit();
+const server = serve({ fetch: app.fetch, port: 3000 });
+
+process.on('SIGTERM', () => {
+  server.close();
+  void runtime.onShutdown();
+});
+```
+
+## Flags Explorer and the manifest
+
+Without a bundler, no plugin serves the manifest in development. Write it with the CLI instead:
+
+```sh title="Terminal"
+npx flags manifest
+```
+
+- It imports the modules that start with `'use flags'` in the directory (`flags manifest [dir]`, the current directory by default) with Node.js, and writes `flags-manifest.json` into it. It loads `flags/config.ts` if it finds one.
+- Run it on the source if Node.js can run it (TypeScript with type stripping, Node.js 22.18 or newer), or on the output of `tsc`, which keeps the directive. A bundled output loses the directive.
+- `--out <file>` sets the output file.
+
+Overrides of Flags Explorer work as in every framework: the SDK reads the `flag-overrides` cookie of each request. See [Flags manifest](/docs/tooling/flags-manifest), [CLI](/docs/tooling/cli) and [Overrides](/docs/tooling/overrides).
+
+<Callout type="info">
+  Without a bundler, nothing appends the self-registration of `'use flags'` modules. Flags created with `bindFlag` register their source themselves. If a module exports plain flag objects with a source, call `registerFlags` with its exports.
+</Callout>
+
+## Without the middleware
+
+The middleware is a small wrapper. You can do the same with the runtime of the SDK:
+
+```ts
+import { runtime } from 'flags';
+
+app.use((c, next) => runtime.onInvoke(c.req.raw, next));
+```
+
+The middleware also passes `HTTPException` through and accepts `config`. See [No framework](/docs/frameworks/node) for the runtime.

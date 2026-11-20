@@ -1,0 +1,232 @@
+---
+title: Custom providers
+description: Write your own OpenFeature provider, or use an in-memory provider for development and tests.
+---
+
+You need your own provider when your flags live in a system without an OpenFeature provider, e.g. an in-house service, a configuration store, or a JSON file. You also need one for local development and tests, where you want fixed values without an account.
+
+The Flags SDK accepts any object which has the shape of an OpenFeature server provider. You do not need a base class, and you do not need to depend on `@openfeature/server-sdk`.
+
+## In-memory providers
+
+`@openfeature/server-sdk` has two in-memory providers. They keep the flags in an object, need no network, and are ideal for development, tests, examples and demos.
+
+- `TypedInMemoryProvider` checks the types of the variants, and infers them for `contextEvaluator`.
+- `InMemoryProvider` has the same configuration, without the type checks.
+
+```bash
+npm install flags @openfeature/server-sdk
+```
+
+```ts title="sources.ts"
+import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { defineSource } from 'flags';
+
+export const shop = defineSource({
+  provider: new TypedInMemoryProvider({
+    'summer-sale': {
+      variants: { on: true, off: false },
+      defaultVariant: 'off',
+      disabled: false,
+      // On for alice only
+      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+    },
+    checkout: {
+      variants: { control: 'control', express: 'express' },
+      defaultVariant: 'express',
+      disabled: false,
+    },
+  } as const),
+  // Tools know that this source has no dashboard
+  project: { system: 'in-memory' },
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+```
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag } from 'flags';
+import { shop } from './sources';
+
+export const summerSale = bindFlag({ key: 'summer-sale', source: shop });
+
+export const checkout = bindFlag({
+  key: 'checkout',
+  source: shop,
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+});
+```
+
+- Each flag has `variants`, a `defaultVariant` and `disabled`. A `contextEvaluator` returns the name of the variant for an evaluation context.
+- The evaluation context is what the source's `getEvaluationContext` returns, so the rules can use the request, e.g. a cookie.
+- With the file system API, the provider is the default export of `flags/sources/self/provider.ts`, e.g. `export default new TypedInMemoryProvider({ ... })`, and the code generation writes the source and the flags. See [Code generation](/docs/flags/code-generation).
+- For tests, see [Testing](/docs/flags/testing). You can also set values for one browser with an [override](/docs/tooling/overrides), without changing the provider.
+
+## A provider object
+
+A provider is an object with `metadata` and one method for each type of flag which it supports. The `Provider` type of `flags` describes it. Only `metadata` and `resolveBooleanEvaluation` are required:
+
+```ts title="lib/json-provider.ts"
+import type { EvaluationContext, Provider, ResolutionDetails } from 'flags';
+
+type Values = Record<string, unknown>;
+
+// A provider which loads the flags of each user from a JSON endpoint
+export function createJsonProvider(url: string): Provider {
+  let values: Record<string, Values> = {};
+
+  function resolve<T>(
+    key: string,
+    defaultValue: T,
+    type: 'boolean' | 'string' | 'number',
+    context: EvaluationContext,
+  ): ResolutionDetails<T> {
+    const user = String(context.targetingKey ?? 'default');
+    const flags = values[user] ?? values.default ?? {};
+    if (!(key in flags)) {
+      return { value: defaultValue, reason: 'ERROR', errorCode: 'FLAG_NOT_FOUND' };
+    }
+    const value = flags[key];
+    if (typeof value !== type) {
+      return { value: defaultValue, reason: 'ERROR', errorCode: 'TYPE_MISMATCH' };
+    }
+    return { value: value as T, reason: 'TARGETING_MATCH' };
+  }
+
+  return {
+    metadata: { name: 'json-provider' },
+
+    // Called once, before the first evaluation. Not in the constructor:
+    // importing a module with this provider must not open connections.
+    async initialize() {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`json-provider: Could not load ${url} (${response.status})`);
+      }
+      values = await response.json();
+    },
+
+    async resolveBooleanEvaluation(key, defaultValue, context) {
+      return resolve(key, defaultValue, 'boolean', context);
+    },
+    async resolveStringEvaluation(key, defaultValue, context) {
+      return resolve(key, defaultValue, 'string', context);
+    },
+    async resolveNumberEvaluation(key, defaultValue, context) {
+      return resolve(key, defaultValue, 'number', context);
+    },
+  };
+}
+```
+
+```ts title="sources.ts"
+import { defineSource } from 'flags';
+import { createJsonProvider } from './lib/json-provider';
+
+export const remote = defineSource({
+  provider: createJsonProvider('https://config.example.com/flags.json'),
+  getEvaluationContext: (request) => ({
+    targetingKey: request?.cookies?.get('user-id')?.value ?? 'default',
+  }),
+});
+```
+
+### What the SDK does with the result
+
+- **`value`** becomes the value of the flag. The SDK checks that it has the `type` of the flag. A value which is not in the `options` of the flag is still used: options describe the flag for tools, they do not limit it.
+- **`errorCode`** makes the evaluation fail. The flag returns its `defaultValue` and logs one line, or, without a `defaultValue`, throws a `FlagEvaluationError` with this `code`. Use the codes of OpenFeature, e.g. `FLAG_NOT_FOUND`, `TYPE_MISMATCH` or `GENERAL`.
+- **`reason`**, **`variant`** and **`flagMetadata`** reach your hooks in the evaluation details. Use the reasons of OpenFeature, e.g. `STATIC`, `TARGETING_MATCH`, `SPLIT` or `DEFAULT`.
+- A method which throws also makes the evaluation fail, with the code `GENERAL`.
+- A flag of a `type` which the provider has no method for fails.
+
+See [Errors and default values](/docs/flags/errors-and-default-values).
+
+### Optional members
+
+| Member | Purpose |
+| --- | --- |
+| `initialize(context?)` | Loads data or opens connections. The SDK calls it once, at `runtime.onInit()` or before the first evaluation, and waits for it. |
+| `onClose()` | Closes connections. The SDK calls it at `runtime.onShutdown()`. |
+| `resolveStringEvaluation`, `resolveNumberEvaluation`, `resolveObjectEvaluation` | The other types of flags. `resolveObjectEvaluation` returns any JSON value. |
+| `hooks` | OpenFeature hooks which run around each evaluation of this provider, also for overrides (reason `OVERRIDE`). |
+| `events` | An event emitter for provider events, e.g. `PROVIDER_CONFIGURATION_CHANGED`. |
+| `track(eventName, context, details)` | Receives tracking events of `track(source, eventName, options?)`, e.g. for experiments. |
+
+See [OpenFeature compatibility](/docs/flags/openfeature) for hooks, events and tracking.
+
+## A reusable OpenFeature provider
+
+If other teams or other applications will use your provider, write it as a regular OpenFeature server provider: a class which implements `Provider` of `@openfeature/server-sdk`. It then works with the Flags SDK, with the OpenFeature client, and with each other tool of the OpenFeature ecosystem.
+
+```ts title="src/acme-provider.ts"
+import type {
+  EvaluationContext,
+  JsonValue,
+  Provider,
+  ResolutionDetails,
+} from '@openfeature/server-sdk';
+
+export class AcmeProvider implements Provider {
+  readonly metadata = { name: 'acme' } as const;
+  readonly runsOn = 'server';
+
+  constructor(private readonly options: { apiKey: string }) {}
+
+  async initialize(_context?: EvaluationContext): Promise<void> {
+    // Connect to Acme, load the flags
+  }
+
+  async onClose(): Promise<void> {
+    // Close the connections
+  }
+
+  async resolveBooleanEvaluation(
+    flagKey: string,
+    defaultValue: boolean,
+    context: EvaluationContext,
+  ): Promise<ResolutionDetails<boolean>> {
+    return { value: defaultValue, reason: 'DEFAULT' };
+  }
+
+  async resolveStringEvaluation(
+    flagKey: string,
+    defaultValue: string,
+    context: EvaluationContext,
+  ): Promise<ResolutionDetails<string>> {
+    return { value: defaultValue, reason: 'DEFAULT' };
+  }
+
+  async resolveNumberEvaluation(
+    flagKey: string,
+    defaultValue: number,
+    context: EvaluationContext,
+  ): Promise<ResolutionDetails<number>> {
+    return { value: defaultValue, reason: 'DEFAULT' };
+  }
+
+  async resolveObjectEvaluation<T extends JsonValue>(
+    flagKey: string,
+    defaultValue: T,
+    context: EvaluationContext,
+  ): Promise<ResolutionDetails<T>> {
+    return { value: defaultValue, reason: 'DEFAULT' };
+  }
+}
+```
+
+The Flags SDK only relies on the [provider contract of OpenFeature](https://openfeature.dev/specification/sections/providers). It does not need more. Keep these points in mind:
+
+- **No I/O in the constructor.** Connect in `initialize()`. Tools import modules with sources to read your flags, and a constructor which connects would run there.
+- **One instance, many sources.** Several sources can share your provider. The SDK initializes it once. Do not keep state of one request in the provider.
+- **The context comes complete.** The SDK creates the evaluation context once per request, through the chain of `getEvaluationContext` steps. Your provider receives the result on each call.
+- **Do not register the instance with the OpenFeature API** when you give it to the Flags SDK, or it is initialized twice.
+- **Errors are values.** Return an `errorCode` for a known problem, e.g. a missing flag. Throw only for unexpected errors.
+
+## Dashboard links for your system
+
+A source can name its flag project with `project`, so that tools can link to your dashboard (see [Providers](/docs/providers#projects-and-dashboard-links)). Today, the SDK knows `vercel-flags`, `launchdarkly` and `in-memory`. To add your system, open a pull request to the [Flags SDK repository](https://github.com/vercel/flags) with the fields of its projects and the URL of its system manifest. See [The flags manifest format](/docs/standard/flags-manifest-format#system-manifests).

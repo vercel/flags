@@ -7,21 +7,21 @@ import {
   it,
   vi,
 } from 'vitest';
-import { defineConnection } from './connection';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { logger } from './logger';
-import { registerConnections } from './register';
+import { registerSources } from './register';
 import { type FlagDefinition, runtime } from './runtime';
+import { defineSource } from './source';
 import type { Provider } from './types';
 
-function createConnection(name = 'test') {
+function createSource(name = 'test') {
   const provider = {
     metadata: { name },
     initialize: vi.fn<() => Promise<void>>(async () => {}),
     onClose: vi.fn<() => Promise<void>>(async () => {}),
     resolveBooleanEvaluation: vi.fn(async () => ({ value: true })),
   } satisfies Provider;
-  return defineConnection({ provider, project: { system: 'in-memory' } });
+  return defineSource({ provider, project: { system: 'in-memory' } });
 }
 
 /**
@@ -48,27 +48,27 @@ describe('runtime', () => {
   });
 
   describe('onInit', () => {
-    it('initializes the providers of registered connections', async () => {
-      const connection = createConnection();
-      registerConnections([connection]);
+    it('initializes the providers of registered sources', async () => {
+      const source = createSource();
+      registerSources([source]);
 
       await runtime.onInit();
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
     it('initializes the providers of defined flags', async () => {
-      const connection = createConnection();
-      defineFlag({ key: 'a', connection });
+      const source = createSource();
+      bindFlag({ key: 'a', source });
 
       await runtime.onInit();
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
     it('waits for the initializations', async () => {
-      const connection = createConnection();
+      const source = createSource();
       const init = deferred();
-      connection.provider.initialize.mockReturnValue(init.promise);
-      registerConnections([connection]);
+      source.provider.initialize.mockReturnValue(init.promise);
+      registerSources([source]);
 
       let finished = false;
       const onInit = runtime.onInit().then(() => {
@@ -82,33 +82,33 @@ describe('runtime', () => {
       expect(finished).toBe(true);
     });
 
-    it('initializes a provider shared by connections once', async () => {
-      const a = createConnection();
-      const b = defineConnection({
+    it('initializes a provider shared by sources once', async () => {
+      const a = createSource();
+      const b = defineSource({
         provider: a.provider,
         project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
       });
-      registerConnections([a, b]);
+      registerSources([a, b]);
 
       await runtime.onInit();
       expect(a.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
     it('does not initialize again for evaluations', async () => {
-      const connection = createConnection();
-      const flag = defineFlag({ key: 'a', connection });
+      const source = createSource();
+      const flag = bindFlag({ key: 'a', source });
 
       await runtime.onInit();
       await flag();
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
     it('logs failures and initializes the other providers', async () => {
-      const failing = createConnection('failing');
+      const failing = createSource('failing');
       const error = new Error('Network error');
       failing.provider.initialize.mockRejectedValueOnce(error);
-      const working = createConnection('working');
-      registerConnections([failing, working]);
+      const working = createSource('working');
+      registerSources([failing, working]);
 
       await expect(runtime.onInit()).resolves.toBeUndefined();
       expect(working.provider.initialize).toHaveBeenCalledTimes(1);
@@ -119,30 +119,30 @@ describe('runtime', () => {
     });
 
     it('lets the next evaluation retry a failed initialization', async () => {
-      const connection = createConnection();
-      connection.provider.initialize.mockRejectedValueOnce(new Error('Oops'));
-      const flag = defineFlag({ key: 'a', connection });
+      const source = createSource();
+      source.provider.initialize.mockRejectedValueOnce(new Error('Oops'));
+      const flag = bindFlag({ key: 'a', source });
 
       await runtime.onInit();
       await expect(flag()).resolves.toBe(true);
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(2);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('onInvoke', () => {
     it('starts the initialization before it returns', () => {
-      const connection = createConnection();
-      connection.provider.initialize.mockReturnValue(deferred().promise);
-      registerConnections([connection]);
+      const source = createSource();
+      source.provider.initialize.mockReturnValue(deferred().promise);
+      registerSources([source]);
 
       void runtime.onInvoke({ headers }, () => {});
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
     it('does not wait for the initializations', async () => {
-      const connection = createConnection();
-      connection.provider.initialize.mockReturnValue(deferred().promise);
-      registerConnections([connection]);
+      const source = createSource();
+      source.provider.initialize.mockReturnValue(deferred().promise);
+      registerSources([source]);
 
       await expect(runtime.onInvoke({ headers }, () => 'result')).resolves.toBe(
         'result',
@@ -150,12 +150,12 @@ describe('runtime', () => {
     });
 
     it('does not let a slow provider delay flags of other providers', async () => {
-      const slow = createConnection('slow');
+      const slow = createSource('slow');
       const slowInit = deferred();
       slow.provider.initialize.mockReturnValue(slowInit.promise);
-      const fast = createConnection('fast');
-      const slowFlag = defineFlag({ key: 'a', connection: slow });
-      const fastFlag = defineFlag({ key: 'b', connection: fast });
+      const fast = createSource('fast');
+      const slowFlag = bindFlag({ key: 'a', source: slow });
+      const fastFlag = bindFlag({ key: 'b', source: fast });
 
       await runtime.onInvoke({ headers }, async () => {
         await expect(fastFlag()).resolves.toBe(true);
@@ -168,56 +168,54 @@ describe('runtime', () => {
     });
 
     it('lets flags wait for the initialization it started', async () => {
-      const connection = createConnection();
+      const source = createSource();
       const init = deferred();
-      connection.provider.initialize.mockReturnValue(init.promise);
-      const flag = defineFlag({ key: 'a', connection });
+      source.provider.initialize.mockReturnValue(init.promise);
+      const flag = bindFlag({ key: 'a', source });
 
       void runtime.onInvoke({ headers }, () => {});
       const pending = flag();
       await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(
-        connection.provider.resolveBooleanEvaluation,
-      ).not.toHaveBeenCalled();
+      expect(source.provider.resolveBooleanEvaluation).not.toHaveBeenCalled();
 
       init.resolve();
       await expect(pending).resolves.toBe(true);
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
     it('initializes providers which were registered after onInit', async () => {
       await runtime.onInit();
 
-      const connection = createConnection();
-      registerConnections([connection]);
+      const source = createSource();
+      registerSources([source]);
       void runtime.onInvoke({ headers }, () => {});
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
     it('retries failed initializations', async () => {
-      const connection = createConnection();
-      connection.provider.initialize.mockRejectedValueOnce(new Error('Oops'));
-      registerConnections([connection]);
+      const source = createSource();
+      source.provider.initialize.mockRejectedValueOnce(new Error('Oops'));
+      registerSources([source]);
 
       await runtime.onInit();
       void runtime.onInvoke({ headers }, () => {});
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(2);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(2);
     });
 
     it('does not initialize again after a successful initialization', async () => {
-      const connection = createConnection();
-      registerConnections([connection]);
+      const source = createSource();
+      registerSources([source]);
 
       await runtime.onInit();
       void runtime.onInvoke({ headers }, () => {});
       void runtime.onInvoke({ headers }, () => {});
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
     it('does not throw or log when an initialization fails', async () => {
-      const connection = createConnection();
-      connection.provider.initialize.mockRejectedValue(new Error('Oops'));
-      registerConnections([connection]);
+      const source = createSource();
+      source.provider.initialize.mockRejectedValue(new Error('Oops'));
+      registerSources([source]);
 
       await runtime.onInvoke({ headers }, () => {});
       await runtime.waitForInitialization();
@@ -227,10 +225,10 @@ describe('runtime', () => {
 
   describe('waitForInitialization', () => {
     it('waits for running initializations', async () => {
-      const connection = createConnection();
+      const source = createSource();
       const init = deferred();
-      connection.provider.initialize.mockReturnValue(init.promise);
-      registerConnections([connection]);
+      source.provider.initialize.mockReturnValue(init.promise);
+      registerSources([source]);
 
       let finished = false;
       void runtime.onInvoke({ headers }, () => {});
@@ -246,9 +244,9 @@ describe('runtime', () => {
     });
 
     it('does not throw when an initialization fails', async () => {
-      const connection = createConnection();
-      connection.provider.initialize.mockRejectedValue(new Error('Oops'));
-      registerConnections([connection]);
+      const source = createSource();
+      source.provider.initialize.mockRejectedValue(new Error('Oops'));
+      registerSources([source]);
 
       void runtime.onInvoke({ headers }, () => {});
       await expect(runtime.waitForInitialization()).resolves.toBeUndefined();
@@ -261,53 +259,53 @@ describe('runtime', () => {
 
   describe('onShutdown', () => {
     it('closes initialized providers', async () => {
-      const connection = createConnection();
-      registerConnections([connection]);
+      const source = createSource();
+      registerSources([source]);
 
       await runtime.onInit();
       await runtime.onShutdown();
-      expect(connection.provider.onClose).toHaveBeenCalledTimes(1);
+      expect(source.provider.onClose).toHaveBeenCalledTimes(1);
     });
 
     it('closes providers which were initialized by an evaluation', async () => {
-      const connection = createConnection();
-      const flag = defineFlag({ key: 'a', connection });
+      const source = createSource();
+      const flag = bindFlag({ key: 'a', source });
 
       await flag();
       await runtime.onShutdown();
-      expect(connection.provider.onClose).toHaveBeenCalledTimes(1);
+      expect(source.provider.onClose).toHaveBeenCalledTimes(1);
     });
 
     it('does not close providers which were never initialized', async () => {
-      const connection = createConnection();
-      registerConnections([connection]);
+      const source = createSource();
+      registerSources([source]);
 
       await runtime.onShutdown();
-      expect(connection.provider.onClose).not.toHaveBeenCalled();
+      expect(source.provider.onClose).not.toHaveBeenCalled();
     });
 
     it('does not close providers whose initialization failed', async () => {
-      const connection = createConnection();
-      connection.provider.initialize.mockRejectedValueOnce(new Error('Oops'));
-      registerConnections([connection]);
+      const source = createSource();
+      source.provider.initialize.mockRejectedValueOnce(new Error('Oops'));
+      registerSources([source]);
 
       await runtime.onInit();
       await runtime.onShutdown();
-      expect(connection.provider.onClose).not.toHaveBeenCalled();
+      expect(source.provider.onClose).not.toHaveBeenCalled();
     });
 
     it('waits for running initializations before closing', async () => {
       const order: string[] = [];
-      const connection = createConnection();
+      const source = createSource();
       const init = deferred();
-      connection.provider.initialize.mockImplementation(async () => {
+      source.provider.initialize.mockImplementation(async () => {
         await init.promise;
         order.push('initialize');
       });
-      connection.provider.onClose.mockImplementation(async () => {
+      source.provider.onClose.mockImplementation(async () => {
         order.push('close');
       });
-      registerConnections([connection]);
+      registerSources([source]);
 
       void runtime.onInvoke({ headers }, () => {});
       const shutdown = runtime.onShutdown();
@@ -317,11 +315,11 @@ describe('runtime', () => {
     });
 
     it('logs errors and closes the other providers', async () => {
-      const failing = createConnection('failing');
+      const failing = createSource('failing');
       const error = new Error('Oops');
       failing.provider.onClose.mockRejectedValue(error);
-      const working = createConnection('working');
-      registerConnections([failing, working]);
+      const working = createSource('working');
+      registerSources([failing, working]);
 
       await runtime.onInit();
       await expect(runtime.onShutdown()).resolves.toBeUndefined();
@@ -333,23 +331,23 @@ describe('runtime', () => {
     });
 
     it('initializes providers again when used after a shutdown', async () => {
-      const connection = createConnection();
-      const flag = defineFlag({ key: 'a', connection });
+      const source = createSource();
+      const flag = bindFlag({ key: 'a', source });
 
       await runtime.onInit();
       await runtime.onShutdown();
       await flag();
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(2);
+      expect(source.provider.initialize).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('evaluate', () => {
-    it('evaluates a flag returned by defineFlag', async () => {
-      const connection = createConnection();
-      const flag = defineFlag({ key: 'a', connection });
+    it('evaluates a flag returned by bindFlag', async () => {
+      const source = createSource();
+      const flag = bindFlag({ key: 'a', source });
 
       await expect(runtime.evaluate(flag)).resolves.toBe(true);
-      expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
+      expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
         'a',
         false,
         {},
@@ -360,13 +358,13 @@ describe('runtime', () => {
     });
 
     it('evaluates a key which is only known at runtime', async () => {
-      const connection = createConnection();
+      const source = createSource();
       const key = ['new', 'checkout'].join('-');
 
       await expect(
-        runtime.evaluate({ key, connection, defaultValue: false }),
+        runtime.evaluate({ key, source, defaultValue: false }),
       ).resolves.toBe(true);
-      expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
+      expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
         'new-checkout',
         false,
         {},
@@ -374,12 +372,12 @@ describe('runtime', () => {
       );
     });
 
-    it('initializes the provider of a connection which is not registered', async () => {
-      const connection = createConnection();
+    it('initializes the provider of a source which is not registered', async () => {
+      const source = createSource();
       runtime.reset();
 
-      await runtime.evaluate({ key: 'a', connection });
-      expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
+      await runtime.evaluate({ key: 'a', source });
+      expect(source.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
     it('uses the context of the current request', async () => {
@@ -387,17 +385,17 @@ describe('runtime', () => {
         metadata: { name: 'test' },
         resolveBooleanEvaluation: vi.fn(async () => ({ value: true })),
       } satisfies Provider;
-      const connection = defineConnection({
+      const source = defineSource({
         provider,
         project: { system: 'in-memory' },
-        getEvaluationContext: (_context, request) => ({
+        getEvaluationContext: (request) => ({
           targetingKey: request?.headers?.get('x-user') ?? 'anonymous',
         }),
       });
 
       await runtime.onInvoke(
         { headers: new Headers({ 'x-user': 'alice' }) },
-        () => runtime.evaluate({ key: 'a', connection }),
+        () => runtime.evaluate({ key: 'a', source }),
       );
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
         'a',
@@ -408,13 +406,13 @@ describe('runtime', () => {
     });
 
     it('returns the default value when the evaluation fails', async () => {
-      const connection = createConnection();
-      connection.provider.resolveBooleanEvaluation.mockRejectedValue(
+      const source = createSource();
+      source.provider.resolveBooleanEvaluation.mockRejectedValue(
         new Error('Oops'),
       );
 
       await expect(
-        runtime.evaluate({ key: 'a', connection, defaultValue: false }),
+        runtime.evaluate({ key: 'a', source, defaultValue: false }),
       ).resolves.toBe(false);
       expect(console.error).toHaveBeenCalledWith(
         'flags: Could not evaluate flag "a": Oops. Returned the default value: false.',
@@ -422,27 +420,35 @@ describe('runtime', () => {
     });
 
     it('rejects with a FlagEvaluationError without a default value', async () => {
-      const connection = createConnection();
-      connection.provider.resolveBooleanEvaluation.mockRejectedValue(
+      const source = createSource();
+      source.provider.resolveBooleanEvaluation.mockRejectedValue(
         new Error('Oops'),
       );
 
       await expect(
-        runtime.evaluate({ key: 'a', connection }),
+        runtime.evaluate({ key: 'a', source }),
       ).rejects.toMatchObject({
         name: 'FlagEvaluationError',
         message: 'flags: Could not evaluate flag "a": Oops',
       });
     });
 
-    it('requires a connection returned by defineConnection', async () => {
-      const connection = {
-        provider: createConnection().provider,
+    it('requires a source, because there is no default source', async () => {
+      await expect(
+        runtime.evaluate({ key: 'a', defaultValue: false }),
+      ).rejects.toThrow(
+        'flags: Flag "a" has no source. Give it a source, e.g. with bindFlag({ key, source }).',
+      );
+    });
+
+    it('requires a source returned by defineSource', async () => {
+      const source = {
+        provider: createSource().provider,
         project: { system: 'in-memory' as const },
       };
 
-      await expect(runtime.evaluate({ key: 'a', connection })).rejects.toThrow(
-        'flags: The connection of flag "a" must be returned by defineConnection.',
+      await expect(runtime.evaluate({ key: 'a', source })).rejects.toThrow(
+        'flags: The source of flag "a" must be returned by defineSource.',
       );
     });
   });
@@ -456,13 +462,13 @@ describe('runtime', () => {
     it('lets a signal of the framework through, also with a defaultValue', async () => {
       runtime.setRethrow(rethrow);
       const signal = new FrameworkSignal('Dynamic server usage');
-      runtime.setRequestSource(() => {
+      runtime.setGetRequest(() => {
         throw signal;
       });
-      const flag = defineFlag({
+      const flag = bindFlag({
         key: 'a',
         defaultValue: false,
-        connection: createConnection(),
+        source: createSource(),
       });
 
       await expect(flag()).rejects.toBe(signal);
@@ -471,8 +477,8 @@ describe('runtime', () => {
     it('lets a signal of a step through', async () => {
       runtime.setRethrow(rethrow);
       const signal = new FrameworkSignal('Postponed');
-      const connection = defineConnection({
-        provider: createConnection().provider,
+      const source = defineSource({
+        provider: createSource().provider,
         project: { system: 'in-memory' },
         getEvaluationContext: () => {
           throw signal;
@@ -480,29 +486,47 @@ describe('runtime', () => {
       });
 
       await expect(
-        defineFlag({ key: 'a', defaultValue: false, connection })(),
+        bindFlag({ key: 'a', defaultValue: false, source })(),
       ).rejects.toBe(signal);
     });
 
     it('handles other errors as usual', async () => {
       runtime.setRethrow(rethrow);
-      runtime.setRequestSource(() => {
+      runtime.setGetRequest(() => {
         throw new Error('Other error');
       });
 
       await expect(
-        defineFlag({
+        bindFlag({
           key: 'a',
           defaultValue: false,
-          connection: createConnection(),
+          source: createSource(),
         })(),
       ).resolves.toBe(false);
     });
   });
 
-  describe('setConfigSource', () => {
-    const connectionWith = (value: boolean) =>
-      defineConnection({
+  describe('configure', () => {
+    it('rejects a defaultSource, because each flag has its source', () => {
+      expect(() =>
+        // @ts-expect-error the configuration has no defaultSource
+        runtime.configure({ defaultSource: createSource() }),
+      ).toThrow(
+        'flags: The configuration has no defaultSource. Give each flag its source, e.g. with flags/sources/self.',
+      );
+    });
+
+    it('rejects hooks which are not an array', () => {
+      expect(() =>
+        // @ts-expect-error hooks is an array
+        runtime.configure({ hooks: {} }),
+      ).toThrow('flags: The hooks of the configuration must be an array.');
+    });
+  });
+
+  describe('setLoadConfig', () => {
+    const sourceWith = (value: boolean) =>
+      defineSource({
         provider: {
           metadata: { name: `value-${value}` },
           resolveBooleanEvaluation: async () => ({ value }),
@@ -510,57 +534,73 @@ describe('runtime', () => {
         project: { system: 'in-memory' },
       });
 
-    it('loads the configuration before the first evaluation', async () => {
-      const config = { defaultConnection: connectionWith(true) };
-      runtime.setConfigSource(() => config);
+    // A configuration with a hook which records the name of the configuration
+    const configNamed = (name: string, seen: string[]) => ({
+      hooks: [
+        {
+          after: () => {
+            seen.push(name);
+          },
+        },
+      ],
+    });
 
-      await expect(defineFlag({ key: 'a' })()).resolves.toBe(true);
+    it('loads the configuration before the first evaluation', async () => {
+      const seen: string[] = [];
+      runtime.setLoadConfig(() => configNamed('config', seen));
+
+      await expect(
+        bindFlag({ key: 'a', source: sourceWith(true) })(),
+      ).resolves.toBe(true);
+      expect(seen).toEqual(['config']);
     });
 
     it('loads a changed configuration in development', async () => {
       vi.stubEnv('NODE_ENV', 'development');
-      let config = { defaultConnection: connectionWith(true) };
-      runtime.setConfigSource(() => config);
-      const flag = defineFlag({ key: 'a' });
+      const seen: string[] = [];
+      let config = configNamed('first', seen);
+      runtime.setLoadConfig(() => config);
+      const flag = bindFlag({ key: 'a', source: sourceWith(true) });
 
-      await expect(flag()).resolves.toBe(true);
-      config = { defaultConnection: connectionWith(false) };
-      await expect(flag()).resolves.toBe(false);
+      await flag();
+      config = configNamed('second', seen);
+      await flag();
+      expect(seen).toEqual(['first', 'second']);
       vi.unstubAllEnvs();
     });
 
     it('loads the configuration one time in production', async () => {
       vi.stubEnv('NODE_ENV', 'production');
-      const source = vi.fn(() => ({ defaultConnection: connectionWith(true) }));
-      runtime.setConfigSource(source);
-      const flag = defineFlag({ key: 'a' });
+      const loadConfig = vi.fn(() => configNamed('config', []));
+      runtime.setLoadConfig(loadConfig);
+      const flag = bindFlag({ key: 'a', source: sourceWith(true) });
 
       await flag();
       await flag();
-      expect(source).toHaveBeenCalledTimes(1);
+      expect(loadConfig).toHaveBeenCalledTimes(1);
       vi.unstubAllEnvs();
     });
 
     it('fails the evaluation when the configuration can not be loaded', async () => {
-      runtime.setConfigSource(() => {
-        throw new Error('flags.config.ts has an error');
+      runtime.setLoadConfig(() => {
+        throw new Error('flags/config.ts has an error');
       });
 
       await expect(
-        defineFlag({ key: 'a', connection: connectionWith(true) })(),
-      ).rejects.toThrow('flags.config.ts has an error');
+        bindFlag({ key: 'a', source: sourceWith(true) })(),
+      ).rejects.toThrow('flags/config.ts has an error');
     });
   });
 
   it('supports providers without initialize and onClose', async () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: {
         metadata: { name: 'minimal' },
         resolveBooleanEvaluation: async () => ({ value: true }),
       },
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({ key: 'a', connection });
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInit();
     await runtime.onInvoke({ headers }, () => {});

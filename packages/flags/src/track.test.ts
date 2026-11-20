@@ -1,20 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineConnection } from './connection';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 import { track } from './track';
 import type { Provider } from './types';
 
-function createConnection() {
+function createSource() {
   const provider = {
     metadata: { name: 'tracking' },
     initialize: vi.fn(async () => {}),
     resolveBooleanEvaluation: async () => ({ value: true }),
     track: vi.fn(),
   } satisfies Provider;
-  return defineConnection({
+  return defineSource({
     provider,
     project: { system: 'in-memory' },
-    getEvaluationContext: (context: { userId: string }, request) => ({
+    getEvaluationContext: (request, context: { userId: string }) => ({
       user: context.userId,
       country: request?.headers?.get('x-country') ?? null,
     }),
@@ -31,44 +31,47 @@ afterEach(() => {
 });
 
 describe('track', () => {
-  it('gives the event to the provider with the context of the connection', async () => {
-    const connection = createConnection();
+  it('gives the event to the provider with the context of the source', async () => {
+    const source = createSource();
     const request = new Request('https://shop.example', {
       headers: { 'x-country': 'CH' },
     });
 
     await runtime.onInvoke(request, () =>
-      track(connection, 'purchase', {
+      track(source, 'purchase', {
         evaluationContext: { userId: 'alice' },
         details: { value: 99, currency: 'CHF' },
       }),
     );
-    expect(connection.provider.initialize).toHaveBeenCalledTimes(1);
-    expect(connection.provider.track).toHaveBeenCalledWith(
+    expect(source.provider.initialize).toHaveBeenCalledTimes(1);
+    expect(source.provider.track).toHaveBeenCalledWith(
       'purchase',
       { user: 'alice', country: 'CH' },
       { value: 99, currency: 'CHF' },
     );
   });
 
-  it('requires the context which the connection requires', () => {
-    const connection = createConnection();
+  it('requires the context which the source requires', () => {
+    const source = createSource();
     void (() => {
-      // @ts-expect-error the connection requires { userId }
-      track(connection, 'purchase');
+      // @ts-expect-error the source requires { userId }
+      track(source, 'purchase');
     });
   });
 
-  it('uses the default connection', async () => {
-    const connection = createConnection();
-    runtime.configure({ defaultConnection: connection });
+  it('throws without a source, because there is no default source', () => {
+    expect(() =>
+      // @ts-expect-error track needs a source
+      track('signup', { evaluationContext: { userId: 'bob' } }),
+    ).toThrow('flags: track expects a source and an event name.');
+  });
 
-    await track('signup', { evaluationContext: { userId: 'bob' } });
-    expect(connection.provider.track).toHaveBeenCalledWith(
-      'signup',
-      { user: 'bob', country: null },
-      {},
-    );
+  it('requires the name of the event', () => {
+    const source = createSource();
+    expect(() =>
+      // @ts-expect-error the name of the event is a string
+      track(source, 1),
+    ).toThrow('flags: The name of a tracking event must be a string.');
   });
 
   it('ignores the event for a provider without track', async () => {
@@ -76,22 +79,22 @@ describe('track', () => {
       metadata: { name: 'no-tracking' },
       resolveBooleanEvaluation: async () => ({ value: true }),
     };
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: { system: 'in-memory' },
     });
 
-    await expect(track(connection, 'purchase')).resolves.toBeUndefined();
+    await expect(track(source, 'purchase')).resolves.toBeUndefined();
   });
 
   it('logs errors and does not throw', async () => {
-    const connection = createConnection();
-    connection.provider.track.mockImplementation(() => {
+    const source = createSource();
+    source.provider.track.mockImplementation(() => {
       throw new Error('Offline');
     });
 
     await expect(
-      track(connection, 'purchase', { evaluationContext: { userId: 'a' } }),
+      track(source, 'purchase', { evaluationContext: { userId: 'a' } }),
     ).resolves.toBeUndefined();
     expect(console.error).toHaveBeenCalledWith(
       'flags: Could not track event "purchase".',
@@ -99,12 +102,10 @@ describe('track', () => {
     );
   });
 
-  it('requires a connection returned by defineConnection', () => {
+  it('requires a source returned by defineSource', () => {
     expect(() =>
-      // @ts-expect-error a number is not a connection
+      // @ts-expect-error a number is not a source
       track(1, 'purchase'),
-    ).toThrow(
-      'flags: track expects an event name, or a connection and an event name.',
-    );
+    ).toThrow('flags: track expects a source and an event name.');
   });
 });

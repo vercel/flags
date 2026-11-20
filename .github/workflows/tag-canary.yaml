@@ -33,55 +33,38 @@ jobs:
     name: Tag Canary Release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-
-      - uses: actions/setup-node@v3
-        with:
-          node-version-file: ".node-version"
-          cache: "pnpm"
-
-      - name: Add npm auth token to pnpm
-        run: pnpm config set '//registry.npmjs.org/:_authToken' "${NPM_TOKEN_ELEVATED}"
+      - name: Validate version
         env:
-          NPM_TOKEN_ELEVATED: ${{secrets.NPM_TOKEN_ELEVATED}}
-
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Tag packages as canary
+          VERSION: ${{ inputs.version }}
         run: |
-          echo "Tagging version ${{ inputs.version }} as canary for flags package..."
-
-          # Validate version format
-          if [[ ! "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)*$ ]]; then
-            echo "❌ Invalid version format: ${{ inputs.version }}"
+          # Validate format before any checkout, install, or credentials
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)*$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
             echo "Version must follow semver format (e.g., 1.2.3, 1.2.3-beta.1, or 1.2.3-3db4af51-20250321114840)"
             exit 1
           fi
 
-          # Tag only the flags package
-          echo "Tagging flags@${{ inputs.version }} as canary..."
-          npm dist-tag add "flags@${{ inputs.version }}" canary
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          echo "Successfully tagged flags with version ${{ inputs.version }} as canary"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          registry-url: https://registry.npmjs.org
+
+      - name: Tag flags as canary
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
+          VERSION: ${{ inputs.version }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
+        run: npm dist-tag add "flags@${VERSION}" canary
 
-      - name: Verify canary tags
+      - name: Verify canary tag
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           echo "Verifying canary tag was applied correctly..."
-
-          echo "Checking canary tag for flags..."
-          npm dist-tag ls "flags" | grep "canary: ${{ inputs.version }}" || {
-            echo "❌ Canary tag not found for flags"
+          npm dist-tag ls "flags" | grep -Fx "canary: ${VERSION}" || {
+            echo "❌ Canary tag not found for flags: ${VERSION}"
             exit 1
           }
           echo "✅ Canary tag verified for flags"
-
-          echo "Canary tag verified successfully!"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}

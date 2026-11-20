@@ -30,10 +30,6 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./default-provider": {
-      "import": "./dist/default-provider.js",
-      "require": "./dist/default-provider.cjs"
-    },
     "./framework": {
       "import": "./dist/framework.js",
       "require": "./dist/framework.cjs"
@@ -89,7 +85,7 @@
     "@types/node": "22.14.0",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   },
   "publishConfig": {
     "access": "public"

@@ -8,6 +8,9 @@ export default defineConfig({
       '@flags-sdk/next/encrypt-values': fileURLToPath(
         new URL('./src/encrypt-values.ts', import.meta.url),
       ),
+      '@flags-sdk/next/verify-code': fileURLToPath(
+        new URL('./src/verify-code.ts', import.meta.url),
+      ),
     },
   },
   test: { environment: 'node' },

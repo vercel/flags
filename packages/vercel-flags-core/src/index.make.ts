@@ -19,6 +19,12 @@ export type CreateClientOptions<Entity = Record<string, unknown>> = Omit<
   'auth'
 > & {
   /**
+   * Reads the flags of another project in the same team with this
+   * deployment's OIDC token. The other project must have connected this
+   * project first. Cannot be combined with an SDK key.
+   */
+  projectId?: string;
+  /**
    * Reports experiment exposures produced by evaluation calls.
    *
    * @remarks This API is not supported for general use yet. Do not use it
@@ -71,10 +77,11 @@ export function make(
       ? sdkKeyOrConnectionStringOrOptions
       : options;
 
-    const { experimental_reportExposures, ...controllerOptions } =
+    const { experimental_reportExposures, projectId, ...controllerOptions } =
       createClientOptions ?? {};
-    const auth = new Authentication(sdkKeyOrConnectionString);
+    const auth = new Authentication(sdkKeyOrConnectionString, { projectId });
     const waitUntil = controllerOptions.waitUntil ?? defaults.waitUntil;
+    const lookup = auth.getStaticBundledDefinitionsLookup();
 
     // sdk key contains the environment
     const controller = new Controller({
@@ -87,7 +94,9 @@ export function make(
       origin: {
         provider: 'vercel',
         sdkKey: auth.sdkKey,
-        ...(auth.sourceProjectId ? { projectId: auth.sourceProjectId } : null),
+        ...(lookup?.type === 'project-id'
+          ? { projectId: lookup.projectId }
+          : null),
       },
       waitUntil,
       ...(experimental_reportExposures ? { experimental_reportExposures } : {}),

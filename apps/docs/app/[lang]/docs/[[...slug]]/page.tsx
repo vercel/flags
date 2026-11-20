@@ -4,7 +4,6 @@ import type { MDXComponents } from "mdx/types";
 import { getMDXComponents } from "@/components/geistdocs/mdx-components";
 import { IframeBrowser } from "@/components/custom/iframe-browser";
 import { LearnMore } from "@/components/custom/learn-more";
-import { ProviderList } from "@/components/custom/provider-list";
 import { config } from "@/lib/geistdocs/config";
 import { geistdocsSource } from "@/lib/geistdocs/source";
 import { ExternalLinkIcon } from "lucide-react";
@@ -17,7 +16,6 @@ const docsPage = createDocsPage({
       ...components,
       IframeBrowser,
       LearnMore,
-      ProviderList,
       ExternalSmall: ExternalLinkIcon,
     });
   },

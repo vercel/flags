@@ -1,5 +1,5 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { decryptFlagValues, defineConnection, defineFlag } from 'flags';
+import { bindFlag, decryptFlagValues, defineSource } from 'flags';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,7 +8,7 @@ import { FlagValues, type FlagValuesProps } from './flag-values';
 // 32 bytes as base64url
 const secret = 'dGhpcy1pcy1hLXRlc3Qtc2VjcmV0LWZvci1mbGFncyE';
 
-const shop = defineConnection({
+const shop = defineSource({
   provider: new TypedInMemoryProvider({
     'summer-sale': {
       variants: { on: true, off: false },
@@ -23,8 +23,17 @@ const shop = defineConnection({
   } as const),
   project: { system: 'in-memory' },
 });
-const summerSale = defineFlag(shop, 'summer-sale', false);
-const banner = defineFlag(shop, 'banner', '');
+const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: shop,
+  defaultValue: false,
+});
+const banner = bindFlag({
+  key: 'banner',
+  source: shop,
+  type: 'string',
+  defaultValue: '',
+});
 
 /** Renders the component, as Next.js would: the async inner component. */
 async function render(props: FlagValuesProps): Promise<string> {

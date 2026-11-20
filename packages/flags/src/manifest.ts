@@ -7,9 +7,8 @@
  * flags, and it does not depend on how the flags were created.
  */
 import stringify from 'fast-json-stable-stringify';
-import { systemManifestUrls } from './connection';
 import { findPlatformProject } from './overrides/vercel';
-import { runtime } from './runtime';
+import { systemManifestUrls } from './source';
 import { isSafeUrl } from './system-manifest';
 import {
   describeValue,
@@ -38,7 +37,7 @@ export interface FlagsModule {
 /**
  * Where a flag is declared in the code.
  */
-export interface FlagSource {
+export interface FlagDeclaration {
   readonly module: string;
   readonly export: string;
 }
@@ -57,22 +56,22 @@ export interface FlagManifestDefinition {
    */
   readonly declaredInCode: true;
   /**
-   * The id of the connection of the flag in `connections`.
+   * The id of the source of the flag in `sources`.
    */
-  readonly connection?: string;
+  readonly source?: string;
   /**
    * The exports which declare the flag. Usually one.
    */
-  readonly sources: readonly FlagSource[];
+  readonly declarations: readonly FlagDeclaration[];
 }
 
 /**
- * A connection of the flags: its system, and the variables of its
+ * A source of the flags: its system, and the variables of its
  * project. A tool builds the links to the dashboard from the provider
  * manifest and the variables (see `resolveFlagLinks`). The links are not in
  * the file, so a system can change them without a new build.
  */
-export interface FlagManifestConnection {
+export interface FlagManifestSource {
   readonly system: string;
   /**
    * The URL of the system manifest of the system, if it has one.
@@ -88,9 +87,9 @@ export interface FlagManifestConnection {
 export interface FlagsManifest {
   readonly version: 1;
   /**
-   * The connections, by an id which the definitions use.
+   * The sources, by an id which the definitions use.
    */
-  readonly connections: Readonly<Record<string, FlagManifestConnection>>;
+  readonly sources: Readonly<Record<string, FlagManifestSource>>;
   /**
    * The flags, by key, in the order of their keys.
    */
@@ -102,7 +101,7 @@ export interface FlagsManifest {
  */
 interface ExportedFlag {
   readonly key: string;
-  readonly connection?: unknown;
+  readonly source?: unknown;
   readonly type?: unknown;
   readonly options?: unknown;
   readonly defaultValue?: unknown;
@@ -127,7 +126,7 @@ export function isExportedFlag(value: unknown): value is ExportedFlag {
 function definitionOf(
   flag: ExportedFlag,
   where: string,
-): Omit<FlagManifestDefinition, 'sources'> {
+): Omit<FlagManifestDefinition, 'declarations'> {
   const type = flag.type ?? 'boolean';
   if (!isFlagType(type)) {
     throw new Error(
@@ -160,14 +159,13 @@ function definitionOf(
 }
 
 /**
- * The connection of a flag in the manifest. A flag without a connection uses
- * the default connection.
+ * The source of a flag in the manifest, if it has a source with a project.
  */
-function connectionOf(flag: ExportedFlag): FlagManifestConnection | undefined {
-  const connection = (flag.connection ?? runtime.defaultConnection) as {
+function sourceOf(flag: ExportedFlag): FlagManifestSource | undefined {
+  const source = flag.source as {
     project?: unknown;
   };
-  const project = connection?.project as Record<string, unknown> | undefined;
+  const project = source?.project as Record<string, unknown> | undefined;
   if (typeof project !== 'object' || project === null) return undefined;
   const { system, systemManifest, ...fields } = project;
   if (typeof system !== 'string') return undefined;
@@ -212,9 +210,9 @@ export function createManifest(modules: readonly FlagsModule[]): FlagsManifest {
   const found = new Map<
     string,
     {
-      definition: Omit<FlagManifestDefinition, 'sources' | 'connection'>;
-      connection: FlagManifestConnection | undefined;
-      sources: FlagSource[];
+      definition: Omit<FlagManifestDefinition, 'declarations' | 'source'>;
+      source: FlagManifestSource | undefined;
+      declarations: FlagDeclaration[];
     }
   >();
   for (const module of modules) {
@@ -226,56 +224,60 @@ export function createManifest(modules: readonly FlagsModule[]): FlagsManifest {
       }
       const where = `flag "${value.key}" (export "${name}" of ${module.id})`;
       const definition = definitionOf(value, where);
-      const connection = connectionOf(value);
-      const source = { module: module.id, export: name };
+      const source = sourceOf(value);
+      const declaration = { module: module.id, export: name };
       const existing = found.get(value.key);
       if (!existing) {
-        found.set(value.key, { definition, connection, sources: [source] });
+        found.set(value.key, {
+          definition,
+          source,
+          declarations: [declaration],
+        });
         continue;
       }
       if (
         stringify(existing.definition) !== stringify(definition) ||
-        stringify(existing.connection ?? null) !== stringify(connection ?? null)
+        stringify(existing.source ?? null) !== stringify(source ?? null)
       ) {
-        const first = existing.sources[0];
+        const first = existing.declarations[0];
         throw new Error(
           `flags: Flag "${value.key}" is declared two times with different values: export "${first?.export}" of ${first?.module}, and export "${name}" of ${module.id}.`,
         );
       }
-      existing.sources.push(source);
+      existing.declarations.push(declaration);
     }
   }
 
-  // The ids of the connections: the system, and a number if two
-  // connections have the same system. In the order of the keys of the
-  // flags, so that the file is stable.
-  const connections: Record<string, FlagManifestConnection> = {};
+  // The ids of the sources: the system, and a number if two sources have
+  // the same system. In the order of the keys of the flags, so that the
+  // file is stable.
+  const sources: Record<string, FlagManifestSource> = {};
   const ids = new Map<string, string>();
   const entries = [...found.entries()].sort(([a], [b]) =>
     a < b ? -1 : a > b ? 1 : 0,
   );
   const definitions = Object.fromEntries(
-    entries.map(([key, { definition, connection, sources }]) => {
+    entries.map(([key, { definition, source, declarations }]) => {
       let id: string | undefined;
-      if (connection) {
-        const content = stringify(connection);
+      if (source) {
+        const content = stringify(source);
         id = ids.get(content);
         if (!id) {
-          id = connection.system;
-          for (let n = 2; Object.hasOwn(connections, id); n++) {
-            id = `${connection.system}-${n}`;
+          id = source.system;
+          for (let n = 2; Object.hasOwn(sources, id); n++) {
+            id = `${source.system}-${n}`;
           }
           ids.set(content, id);
-          connections[id] = connection;
+          sources[id] = source;
         }
       }
       return [
         key,
-        { ...definition, ...(id ? { connection: id } : {}), sources },
+        { ...definition, ...(id ? { source: id } : {}), declarations },
       ];
     }),
   );
-  return { version: 1, connections, definitions };
+  return { version: 1, sources, definitions };
 }
 
 const flagTypes = ['boolean', 'string', 'number', 'object'];
@@ -296,21 +298,21 @@ export function validateFlagsManifest(value: unknown): FlagsManifest {
   };
   if (!isRecord(value)) return fail('it is not an object.');
   if (value.version !== 1) return fail('the version is not 1.');
-  if (!isRecord(value.connections)) return fail('connections is missing.');
+  if (!isRecord(value.sources)) return fail('sources is missing.');
   if (!isRecord(value.definitions)) return fail('definitions is missing.');
-  for (const [id, connection] of Object.entries(value.connections)) {
-    if (!isRecord(connection) || typeof connection.system !== 'string') {
-      fail(`connection "${id}" has no system.`);
+  for (const [id, source] of Object.entries(value.sources)) {
+    if (!isRecord(source) || typeof source.system !== 'string') {
+      fail(`source "${id}" has no system.`);
     }
-    const { variables, systemManifest } = connection as Record<string, unknown>;
+    const { variables, systemManifest } = source as Record<string, unknown>;
     if (
       !isRecord(variables) ||
       Object.values(variables).some((v) => typeof v !== 'string')
     ) {
-      fail(`the variables of connection "${id}" must be strings.`);
+      fail(`the variables of source "${id}" must be strings.`);
     }
     if (systemManifest !== undefined && !isSafeUrl(systemManifest)) {
-      fail(`the systemManifest of connection "${id}" must be an HTTPS URL.`);
+      fail(`the systemManifest of source "${id}" must be an HTTPS URL.`);
     }
   }
   const keys = Object.keys(value.definitions);
@@ -326,22 +328,22 @@ export function validateFlagsManifest(value: unknown): FlagsManifest {
       fail(`flag "${key}" must have declaredInCode: true.`);
     }
     if (
-      definition.connection !== undefined &&
-      !Object.hasOwn(value.connections, definition.connection as string)
+      definition.source !== undefined &&
+      !Object.hasOwn(value.sources, definition.source as string)
     ) {
-      fail(`flag "${key}" refers to a connection which is not known.`);
+      fail(`flag "${key}" refers to a source which is not known.`);
     }
     if (
-      !Array.isArray(definition.sources) ||
-      definition.sources.length === 0 ||
-      !definition.sources.every(
-        (source) =>
-          isRecord(source) &&
-          typeof source.module === 'string' &&
-          typeof source.export === 'string',
+      !Array.isArray(definition.declarations) ||
+      definition.declarations.length === 0 ||
+      !definition.declarations.every(
+        (declaration) =>
+          isRecord(declaration) &&
+          typeof declaration.module === 'string' &&
+          typeof declaration.export === 'string',
       )
     ) {
-      fail(`flag "${key}" has no valid sources.`);
+      fail(`flag "${key}" has no valid declarations.`);
     }
     if (
       definition.options !== undefined &&

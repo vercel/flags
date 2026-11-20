@@ -1,7 +1,7 @@
 import { createProxy } from "@vercel/geistdocs/proxy";
-import { precompute } from "flags/next";
+import { precompute } from "@flags-sdk/next/precompute";
 import { NextResponse } from "next/server";
-import { rootFlags } from "@/flags";
+import { rootFlags } from "@/root-flags";
 import { config as geistdocsConfig } from "@/lib/geistdocs/config";
 import { trackMdRequest } from "@/lib/geistdocs/md-tracking";
 
@@ -15,7 +15,9 @@ const proxy = createProxy({
       return null;
     }
 
-    const code = await precompute(rootFlags);
+    // The request goes to decide, which reads the cookies, and to the
+    // overrides of Flags Explorer
+    const code = await precompute(rootFlags, { request });
     return NextResponse.rewrite(
       new URL(`/${defaultLanguage}/home/${code}`, request.url)
     );
@@ -26,7 +28,7 @@ export const config = {
   // Matcher ignoring `/_next/`, `/api/`, static assets, favicon, sitemap, robots, etc.
   // `/schemas/` and `/system-manifests/` are the files of the Flags SDK in `public`.
   matcher: [
-    "/((?!api(?:/|$)|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|\\.well-known/vercel/flags|schemas/|system-manifests/).*)",
+    "/((?!api(?:/|$)|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|\\.well-known/flags|schemas/|system-manifests/).*)",
   ],
 };
 

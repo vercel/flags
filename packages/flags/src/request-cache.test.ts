@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineConnection } from './connection';
 import { evaluate } from './evaluate';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 import type { Provider } from './types';
 
-function createConnection() {
+function createSource() {
   let calls = 0;
   const provider = {
     metadata: { name: 'counting' },
     // Each evaluation returns a new value, so a second evaluation is visible
     resolveBooleanEvaluation: vi.fn(async () => ({ value: ++calls % 2 === 1 })),
   } satisfies Provider;
-  return defineConnection({
+  return defineSource({
     provider,
     project: { system: 'in-memory' },
   });
@@ -31,8 +31,8 @@ afterEach(() => {
 
 describe('the cache of each request', () => {
   it('evaluates a flag once per request', async () => {
-    const connection = createConnection();
-    const flag = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const flag = bindFlag({ key: 'a', source });
 
     const values = await runtime.onInvoke(request(), async () => [
       await flag(),
@@ -40,42 +40,38 @@ describe('the cache of each request', () => {
       await evaluate(flag),
     ]);
     expect(values).toEqual([true, true, true]);
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(1);
   });
 
   it('shares one evaluation between concurrent calls', async () => {
-    const connection = createConnection();
-    const flag = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), () =>
       Promise.all([flag(), flag(), evaluate([flag, flag])]),
     );
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(1);
   });
 
   it('evaluates again in a new request', async () => {
-    const connection = createConnection();
-    const flag = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const flag = bindFlag({ key: 'a', source });
 
     expect(await runtime.onInvoke(request(), () => flag())).toBe(true);
     expect(await runtime.onInvoke(request(), () => flag())).toBe(false);
   });
 
   it('evaluates on each call outside of a request', async () => {
-    const connection = createConnection();
-    const flag = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const flag = bindFlag({ key: 'a', source });
 
     expect(await flag()).toBe(true);
     expect(await flag()).toBe(false);
   });
 
   it('compares plain data of the call side by its content', async () => {
-    const connection = createConnection();
-    const flag = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), async () => {
       // e.g. two server components, which each create the object
@@ -83,14 +79,12 @@ describe('the cache of each request', () => {
       await flag({ evaluationContext: { plan: 'pro', user: 'alice' } });
       await flag({ evaluationContext: { user: 'bob', plan: 'pro' } });
     });
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(
-      2,
-    );
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(2);
   });
 
   it('compares other objects by identity', async () => {
-    const connection = createConnection();
-    const flag = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const flag = bindFlag({ key: 'a', source });
     const date = new Date(0);
 
     await runtime.onInvoke(request(), async () => {
@@ -101,14 +95,12 @@ describe('the cache of each request', () => {
       await flag({ evaluationContext: same });
     });
     // A Date is not plain data, so each new object is a new input
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(
-      3,
-    );
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(3);
   });
 
   it('does not fail for a circular input', async () => {
-    const connection = createConnection();
-    const flag = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const flag = bindFlag({ key: 'a', source });
     const circular: Record<string, unknown> = { user: 'alice' };
     circular.self = circular;
 
@@ -116,34 +108,28 @@ describe('the cache of each request', () => {
       await flag({ evaluationContext: circular as never });
       await flag({ evaluationContext: circular as never });
     });
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(1);
   });
 
   it('keeps one result for each flag object', async () => {
-    const connection = createConnection();
-    const a = defineFlag({ key: 'a', connection });
-    const b = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const a = bindFlag({ key: 'a', source });
+    const b = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), () => evaluate([a, b]));
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(
-      2,
-    );
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(2);
   });
 
-  it('works with a request source, e.g. in Next.js', async () => {
-    const connection = createConnection();
-    const flag = defineFlag({ key: 'a', connection });
+  it('works with a request getter, e.g. in Next.js', async () => {
+    const source = createSource();
+    const flag = bindFlag({ key: 'a', source });
     const headers = new Headers();
     // Next.js returns a new object on each call, but the same headers
-    runtime.setRequestSource(() => ({ headers }));
+    runtime.setGetRequest(() => ({ headers }));
 
     await flag();
     await flag();
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(1);
   });
 
   it('keeps a failure, and logs it once per request', async () => {
@@ -153,16 +139,16 @@ describe('the cache of each request', () => {
         throw new Error('Offline');
       }),
     };
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: { system: 'in-memory' },
     });
-    const withDefault = defineFlag({
+    const withDefault = bindFlag({
       key: 'a',
-      connection,
+      source,
       defaultValue: false,
     });
-    const withoutDefault = defineFlag({ key: 'b', connection });
+    const withoutDefault = bindFlag({ key: 'b', source });
 
     await runtime.onInvoke(request(), async () => {
       expect(await withDefault()).toBe(false);
@@ -176,9 +162,9 @@ describe('the cache of each request', () => {
 
   it('runs the hooks only for the evaluation, not for a result of the cache', async () => {
     const after = vi.fn();
-    const connection = createConnection();
+    const source = createSource();
     runtime.configure({ hooks: [{ after }] });
-    const flag = defineFlag({ key: 'a', connection });
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), async () => {
       await flag();
@@ -189,8 +175,8 @@ describe('the cache of each request', () => {
 
   it('gives a call with its own hooks its own evaluation', async () => {
     const after = vi.fn();
-    const connection = createConnection();
-    const flag = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const flag = bindFlag({ key: 'a', source });
 
     await runtime.onInvoke(request(), async () => {
       await flag();
@@ -198,8 +184,6 @@ describe('the cache of each request', () => {
       await flag({ hookHints: { debug: true } });
     });
     expect(after).toHaveBeenCalledTimes(1);
-    expect(connection.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(
-      3,
-    );
+    expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledTimes(3);
   });
 });

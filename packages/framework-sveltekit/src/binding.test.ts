@@ -50,16 +50,16 @@ describe('the SvelteKit binding', () => {
     expect(() => rethrowSignal(new Error('Other'))).not.toThrow();
   });
 
-  it('sets up the request source, the rethrow and the config source', () => {
+  it('sets up the request getter, the rethrow and the config loader', () => {
     const fake = {
-      setRequestSource: vi.fn(),
+      setGetRequest: vi.fn(),
       setRethrow: vi.fn(),
-      setConfigSource: vi.fn(),
+      setLoadConfig: vi.fn(),
     };
 
     setupFramework(fake as unknown as Runtime);
-    expect(fake.setRequestSource).toHaveBeenCalledWith(getRequest);
+    expect(fake.setGetRequest).toHaveBeenCalledWith(getRequest);
     expect(fake.setRethrow).toHaveBeenCalledWith(rethrowSignal);
-    expect(fake.setConfigSource).toHaveBeenCalledOnce();
+    expect(fake.setLoadConfig).toHaveBeenCalledOnce();
   });
 });

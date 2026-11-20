@@ -1,12 +1,12 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineConnection } from './connection';
 import { FlagEvaluationError } from './errors';
 import { evaluate } from './evaluate';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { OVERRIDE_REASON } from './hooks';
 import { encryptOverrides } from './overrides';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 import type { EvaluationDetails, Hook, HookFlagValue, Provider } from './types';
 
 function inMemory() {
@@ -58,39 +58,39 @@ describe('hooks', () => {
       hooks: [recorder('provider', steps)],
     });
     runtime.configure({ hooks: [recorder('config', steps)] });
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: { system: 'in-memory' },
-      hooks: [recorder('connection', steps)],
+      hooks: [recorder('source', steps)],
     });
-    const flag = defineFlag({ key: 'summer-sale', connection });
+    const flag = bindFlag({ key: 'summer-sale', source });
 
     await flag({ hooks: [recorder('call', steps)] });
     expect(steps).toEqual([
       'config: before',
-      'connection: before',
+      'source: before',
       'call: before',
       'provider: before',
       'provider: after',
       'call: after',
-      'connection: after',
+      'source: after',
       'config: after',
       'provider: finally',
       'call: finally',
-      'connection: finally',
+      'source: finally',
       'config: finally',
     ]);
   });
 
   it('gives the hooks the context, the details and the hints', async () => {
     const after = vi.fn<NonNullable<Hook['after']>>();
-    const connection = defineConnection({
+    const source = defineSource({
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({
+    const flag = bindFlag({
       key: 'summer-sale',
-      connection,
+      source,
       defaultValue: false,
     });
 
@@ -120,12 +120,12 @@ describe('hooks', () => {
 
   it('merges the context which a before hook returns', async () => {
     const seen = vi.fn();
-    const connection = defineConnection({
+    const source = defineSource({
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
     const input = { user: 'bob' };
-    const flag = defineFlag({ key: 'summer-sale', connection });
+    const flag = bindFlag({ key: 'summer-sale', source });
 
     const value = await flag({
       evaluationContext: input,
@@ -155,12 +155,12 @@ describe('hooks', () => {
         durations.push(hookContext.hookData.get('start'));
       },
     };
-    const connection = defineConnection({
+    const source = defineSource({
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
 
-    await defineFlag({ key: 'summer-sale', connection })({
+    await bindFlag({ key: 'summer-sale', source })({
       hooks: [timer, other],
     });
     expect(durations).toEqual([undefined, 1]);
@@ -170,18 +170,18 @@ describe('hooks', () => {
     const steps: string[] = [];
     const error = vi.fn<NonNullable<Hook['error']>>();
     const final = vi.fn<NonNullable<Hook['finally']>>();
-    const connection = defineConnection({
+    const source = defineSource({
       provider: inMemory(),
       project: { system: 'in-memory' },
-      hooks: [recorder('connection', steps), { error, finally: final }],
+      hooks: [recorder('source', steps), { error, finally: final }],
     });
-    const flag = defineFlag({ key: 'missing', connection, defaultValue: true });
+    const flag = bindFlag({ key: 'missing', source, defaultValue: true });
 
     await expect(flag()).resolves.toBe(true);
     expect(steps).toEqual([
-      'connection: before',
-      'connection: error',
-      'connection: finally',
+      'source: before',
+      'source: error',
+      'source: finally',
     ]);
     expect(error.mock.calls[0]?.[1]).toBeInstanceOf(FlagEvaluationError);
     expect(final.mock.calls[0]?.[1]).toMatchObject({
@@ -193,12 +193,12 @@ describe('hooks', () => {
   });
 
   it('fails the evaluation when a before or after hook throws', async () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({ key: 'summer-sale', connection });
-    const provider = vi.spyOn(connection.provider, 'resolveBooleanEvaluation');
+    const flag = bindFlag({ key: 'summer-sale', source });
+    const provider = vi.spyOn(source.provider, 'resolveBooleanEvaluation');
 
     await expect(
       flag({
@@ -229,11 +229,11 @@ describe('hooks', () => {
   });
 
   it('logs errors of error and finally hooks, and keeps the result', async () => {
-    const connection = defineConnection({
+    const source = defineSource({
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const flag = defineFlag({ key: 'summer-sale', connection });
+    const flag = bindFlag({ key: 'summer-sale', source });
 
     const value = await flag({
       hooks: [
@@ -253,12 +253,12 @@ describe('hooks', () => {
 
   it('runs the hooks of the call side for each flag of evaluate', async () => {
     const keys: string[] = [];
-    const connection = defineConnection({
+    const source = defineSource({
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const a = defineFlag({ key: 'summer-sale', connection });
-    const b = defineFlag({ key: 'missing', connection, defaultValue: false });
+    const a = bindFlag({ key: 'summer-sale', source });
+    const b = bindFlag({ key: 'missing', source, defaultValue: false });
 
     await evaluate([a, b], {
       hooks: [
@@ -274,15 +274,15 @@ describe('hooks', () => {
       metadata: { name: 'booleans' },
       resolveBooleanEvaluation: async () => ({ value: true }),
     };
-    const connection = defineConnection({
+    const source = defineSource({
       provider,
       project: { system: 'in-memory' },
       hooks: [{ before }],
     });
-    const flag = defineFlag({
+    const flag = bindFlag({
       key: 'banner',
       type: 'string',
-      connection,
+      source,
       defaultValue: 'Welcome',
     });
 
@@ -314,12 +314,12 @@ describe('hooks', () => {
         hooks: [{ after: providerAfter }],
       });
       const resolve = vi.spyOn(provider, 'resolveBooleanEvaluation');
-      const connection = defineConnection({
+      const source = defineSource({
         provider,
         project: { system: 'in-memory' },
       });
       runtime.configure({ hooks: [{ after }] });
-      const flag = defineFlag({ key: 'summer-sale', connection });
+      const flag = bindFlag({ key: 'summer-sale', source });
 
       const value = await runtime.onInvoke(await requestWithOverride(), () =>
         flag({ evaluationContext: { user: 'bob' } }),
@@ -340,12 +340,12 @@ describe('hooks', () => {
 
     it('does not create the context for an override without hooks', async () => {
       const getEvaluationContext = vi.fn(() => ({}));
-      const connection = defineConnection({
+      const source = defineSource({
         provider: inMemory(),
         project: { system: 'in-memory' },
         getEvaluationContext,
       });
-      const flag = defineFlag({ key: 'summer-sale', connection });
+      const flag = bindFlag({ key: 'summer-sale', source });
 
       await expect(
         runtime.onInvoke(await requestWithOverride(), () => flag()),

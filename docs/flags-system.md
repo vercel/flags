@@ -1,5 +1,14 @@
 # Flags system design and release plan
 
+> **Status (2026-11):** `packages/flags-protocol` is joined into `packages/flags`
+> (milestones M0 to M7 in "The move to sources" of
+> [the SPEC](../packages/flags/SPEC.md)). "Connection" is now "source"
+> (`defineSource`), flags of a source use `bindFlag`, inline flags use
+> `defineFlag` with `decide`, and code generation is in `flags/tooling` and
+> in the framework plugins (on by default, `disableCodeGeneration` turns it
+> off). "Current implementation" and "Code reading
+> order" below describe the state before the join.
+
 Flags connects server applications, frameworks, and flag providers through shared
 contracts and one evaluation runtime.
 
@@ -65,7 +74,7 @@ must be safe to load in build tooling. Catalog code must not import runtime
 providers or request APIs. Credentials must never enter generated files.
 
 Manual connections need neither this directory layout nor `catalog.ts`. A central
-`flags.config.ts` is not required by the proposed source model. The final API for
+`flags/config.ts` is not required by the proposed source model. The final API for
 global runtime policy, such as hooks and overrides, is still open.
 
 ## Types and evaluation context
@@ -177,14 +186,15 @@ are optional consumers of the shared contracts.
 
 ## Code reading order
 
-1. [Protocol contracts](../packages/flags-protocol/src/connection.ts),
-   [generator](../packages/flags-protocol/src/codegen.ts), and
-   [scope](../packages/flags-protocol/src/scope.ts): see the prototype boundary.
+1. [Sources](../packages/flags/src/source.ts),
+   [catalogs](../packages/flags/src/catalog.ts), and the
+   [generator](../packages/flags/src/codegen.ts): the contracts of a source and
+   of the code generation.
 2. [Flags runtime](../packages/flags/src/runtime.ts) and
    [flag API](../packages/flags/src/flag.ts): see the behavior to consolidate.
 3. [Next.js binding](../packages/framework-next/src/binding.ts) and
-   [catalog plugin](../packages/flags-protocol/src/next-config.ts): compare the
-   runtime and build integrations.
+   [code generation of the plugin](../packages/framework-next/src/code-generation.ts):
+   the runtime and build integrations.
 4. [Playground setup](../apps/playground/README.md) and
    [conformance suite](../packages/conformance/README.md): run the demo and inspect
    existing checks. The current [standard draft](../packages/flags/STANDARD.md)

@@ -1,11 +1,12 @@
 {
   "root": true,
+  "title": "Principles",
   "pages": [
     "flags-as-code",
     "server-side-vs-client-side",
     "data-locality",
-    "precompute",
-    "evaluation-context"
+    "evaluation-context",
+    "precompute"
   ],
   "defaultOpen": true
 }

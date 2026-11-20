@@ -110,7 +110,7 @@ interface FlagSelectProps {
   flagKey: string;
   label: string;
   description?: string;
-  options: { value: string }[] | undefined;
+  options: readonly { value: string }[] | undefined;
 }
 
 export const FlagSelect = ({

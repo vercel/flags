@@ -23,7 +23,7 @@ the SDK are in [SPEC.md](./SPEC.md). The guide for implementers is
 - **Flag management system (system):** the source of truth of the flags,
   as defined by OpenFeature, e.g. LaunchDarkly or Vercel Flags.
 - **Provider:** an OpenFeature provider of a system.
-- **Connection:** a provider plus a flag project in a system.
+- **Source:** a provider plus a flag project in a system.
 - **Deployment platform (platform):** where the application runs, e.g.
   Vercel. A **platform project** has many **deployments**.
 - **Framework binding (binding):** the module which connects the SDK to one
@@ -43,7 +43,7 @@ An implementation conforms to one or more of these classes:
 | --- | --- | --- |
 | Framework binding | a framework, or its package `@flags-sdk/<framework>` | 3, 4, 5, 6 |
 | Build plugin | a framework with a bundler | 4, 7 |
-| Deployment platform | e.g. Vercel | 4.3, 8, 11.3 |
+| Deployment platform | e.g. Vercel | 8, 11.3 |
 | Flag management system | e.g. LaunchDarkly | 9 |
 | Tool | e.g. Flags Explorer | 7.3, 9.2, 10, 11 |
 
@@ -88,14 +88,13 @@ time for each request and input.
 
 ## 4. The replaceable modules
 
-The runtime imports three modules through the name of its own package. A
-build plugin or a platform replaces them.
+The runtime imports two modules through the name of its own package. A
+build plugin replaces them.
 
 | Module | Default | Replaced by |
 | --- | --- | --- |
 | `flags/framework` | no binding | the framework binding (section 5) |
-| `flags/config` | no configuration | `flags.config.ts` of the application (section 6) |
-| `flags/default-provider` | the OFREP provider of Vercel Flags | the provider of a platform (section 8) |
+| `flags/config` | no configuration | `flags/config.ts` of the application (section 6) |
 
 ### 4.1 Replacement
 
@@ -116,17 +115,6 @@ build plugin or a platform replaces them.
   `Symbol.for('flags.v5.state')`.
 - A copy without a binding MUST NOT hide the binding of an other copy.
 
-### 4.3 `flags/default-provider`
-
-The module MUST export:
-
-```ts
-export function createDefaultProvider(): Provider; // an OpenFeature provider
-```
-
-- The runtime calls it at most one time for each process.
-- The provider MUST NOT be registered with the OpenFeature API.
-
 ## 5. The framework binding
 
 The module behind `flags/framework` MUST export:
@@ -146,7 +134,7 @@ export const setupFramework: SetupFramework; // (runtime: Runtime) => void | Pro
 
 A framework which can give the current request at any time, but has no
 middleware which wraps the handler, MUST call
-`runtime.setRequestSource(source)`.
+`runtime.setGetRequest(source)`.
 
 - `source()` MUST return the current `FlagsRequestInit`, or `undefined`
   outside of a request. It MAY return a promise.
@@ -175,7 +163,7 @@ redirect. These are **signals**.
 
 ### 5.3 The config source
 
-A framework with a bundler MUST call `runtime.setConfigSource(source)`,
+A framework with a bundler MUST call `runtime.setLoadConfig(source)`,
 where `source` returns the export `config` of `flags/config`.
 
 - In development, the runtime calls the source before each evaluation, and
@@ -197,10 +185,12 @@ evaluation belongs to the request.
   application evaluates the flag outside, and passes the value into the
   cache scope.
 
-## 6. `flags.config.ts`
+## 6. `flags/config.ts`
 
-- The file MUST be named `flags.config.ts`, `flags.config.mts`,
-  `flags.config.js` or `flags.config.mjs`, in the directory of the
+- The file is OPTIONAL. It has the settings for all flags: `hooks` and
+  `overrides`. It has no source.
+- The file MUST be named `flags/config.ts`, `flags/config.mts`,
+  `flags/config.js` or `flags/config.mjs`, in the directory of the
   application or in its `src` directory.
 - The configuration MUST be the named export `config`. A default export
   MUST NOT be read.
@@ -218,7 +208,7 @@ directive prologue.
 - Each export of a flags module MUST be a flag: an object or a function
   with a non-empty string `key`.
 - Importing a flags module MUST NOT have side effects other than the
-  definition of flags and connections. It MUST NOT open network
+  definition of flags and sources. It MUST NOT open network
   connections.
 - A build plugin SHOULD append a registration to each flags module, which
   calls `registerFlags` with the exports of the module
@@ -249,11 +239,15 @@ The manifest MUST conform to the JSON Schema
 ```json
 {
   "version": 1,
-  "connections": {
+  "sources": {
     "launchdarkly": {
       "system": "launchdarkly",
       "systemManifest": "https://flags-sdk.dev/system-manifests/launchdarkly.json",
-      "variables": { "projectId": "shop", "environment": "production" }
+      "variables": {
+        "projectId": "shop",
+        "teamId": "acme",
+        "environment": "production"
+      }
     }
   },
   "definitions": {
@@ -262,8 +256,8 @@ The manifest MUST conform to the JSON Schema
       "defaultValue": false,
       "description": "The summer sale",
       "declaredInCode": true,
-      "connection": "launchdarkly",
-      "sources": [{ "module": "flags.ts", "export": "summerSale" }]
+      "source": "launchdarkly",
+      "declarations": [{ "module": "flags.ts", "export": "summerSale" }]
     }
   }
 }
@@ -276,10 +270,8 @@ The manifest MUST conform to the JSON Schema
 
 ## 8. Deployment platforms
 
-- A platform MAY replace `flags/default-provider` with its own provider,
-  for its builds. It MUST NOT replace it for development.
-- A `defaultConnection` of `flags.config.ts` MUST win over the provider of
-  the platform. The runtime does this.
+- This version of the standard has no default provider. Each flag of a
+  provider names its source, and the configuration has no source.
 - A platform SHOULD put `flags-manifest.json` of the build into its build
   output, so that tools can read it.
 - A platform which signs override tokens MUST follow section 10.
@@ -345,8 +337,9 @@ An override sets the value of a flag for one browser, with a cookie.
 
 ### 10.3 Both kinds
 
-- A value of an override which does not fit the type or the options of
-  its flag MUST be ignored.
+- A value of an override which does not fit the type of its flag MUST be
+  ignored. A value which is not one of the options of its flag MUST NOT be
+  ignored, because options do not limit the values of a flag.
 - An evaluation with an override MUST have the reason `OVERRIDE` in its
   evaluation details, and runs all hooks.
 

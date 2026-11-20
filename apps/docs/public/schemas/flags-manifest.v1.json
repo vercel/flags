@@ -4,16 +4,16 @@
   "title": "Flags manifest",
   "description": "The flags of an application, as a build plugin of the Flags SDK writes them: at /.well-known/flags/manifest.json in development, and as flags-manifest.json in the server output. It has no values of flags and no credentials.",
   "type": "object",
-  "required": ["version", "connections", "definitions"],
+  "required": ["version", "sources", "definitions"],
   "properties": {
     "version": {
       "const": 1
     },
-    "connections": {
+    "sources": {
       "type": "object",
-      "description": "The connections, by an id which the definitions use.",
+      "description": "The sources of the flags, by an id which the definitions use.",
       "additionalProperties": {
-        "$ref": "#/$defs/connection"
+        "$ref": "#/$defs/source"
       }
     },
     "definitions": {
@@ -38,7 +38,7 @@
         }
       }
     },
-    "connection": {
+    "source": {
       "type": "object",
       "required": ["system", "variables"],
       "properties": {
@@ -63,7 +63,7 @@
     },
     "definition": {
       "type": "object",
-      "required": ["type", "declaredInCode", "sources"],
+      "required": ["type", "declaredInCode", "declarations"],
       "properties": {
         "type": {
           "enum": ["boolean", "string", "number", "object"]
@@ -83,12 +83,13 @@
         "declaredInCode": {
           "const": true
         },
-        "connection": {
+        "source": {
           "type": "string",
-          "description": "The id of the connection in connections."
+          "description": "The id of the source in sources."
         },
-        "sources": {
+        "declarations": {
           "type": "array",
+          "description": "The exports which declare the flag in the code.",
           "minItems": 1,
           "items": {
             "type": "object",

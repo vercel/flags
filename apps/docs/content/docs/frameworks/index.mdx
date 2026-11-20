@@ -1,0 +1,138 @@
+---
+title: Frameworks
+description: Use the same flags in Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, or plain Node.js.
+---
+
+The Flags SDK does not depend on a framework. You define flags with the `flags` package, and you call them in the same way everywhere: `await enableSale()` or `await evaluate([enableSale, betaBanner])`. A small framework package connects the SDK to your framework. Your application code imports only `flags`.
+
+## What a framework package does
+
+A framework package is a thin layer between the SDK and the framework. It does these things for you, so that you do not write glue code in your pages:
+
+- **Request scope.** It gives the SDK the current request (headers, cookies, URL). Each `getEvaluationContext` and each inline `decide` function receives this request. The SDK evaluates each flag one time for each request, so all parts of a page see the same value.
+- **Config loading.** It loads your optional `flags/config.ts` (hooks and override options). See [Configuration](/docs/flags/configuration).
+- **Signals.** Some frameworks use thrown errors as signals, for example `redirect()` or `notFound()`. The package makes sure that such errors reach the framework unchanged, also when you throw them from `getEvaluationContext`.
+- **`'use flags'` registration.** A module that starts with the `'use flags'` directive exports only flags. The build plugin registers these flags, so that the SDK knows all flags and sources.
+- **Code generation.** With a bundler, the plugin generates the modules of `flags:<source>` from the folders of `flags/sources` (see [Code generation](/docs/flags/code-generation)).
+- **Manifest.** The plugin serves the [flags manifest](/docs/tooling/flags-manifest) at `/.well-known/flags/manifest.json` in development and writes `flags-manifest.json` during the build. [Flags Explorer](/docs/tooling/flags-explorer) reads this manifest.
+
+## Supported frameworks
+
+| Framework | Package | Setup | Sources |
+| --- | --- | --- | --- |
+| [Next.js](/docs/frameworks/next) | `@flags-sdk/next` | `withFlags({})` in `next.config.ts` | `flags/sources/self`, `flags:self` |
+| [SvelteKit](/docs/frameworks/sveltekit) | `@flags-sdk/sveltekit` | `flags()` in `vite.config.ts` | `src/flags/sources/self`, `flags:self` |
+| [Nuxt](/docs/frameworks/nuxt) | `@flags-sdk/nuxt` | `modules: ['@flags-sdk/nuxt']` in `nuxt.config.ts` | `flags/sources/self`, `flags:self` |
+| [TanStack Start](/docs/frameworks/tanstack-start) | `@flags-sdk/tanstack-start` | `flags()` in `vite.config.ts` | `flags/sources/self`, `flags:self` |
+| [Hono](/docs/frameworks/hono) | `@flags-sdk/hono` | `app.use(flags())` | by hand, `defineSource` |
+| [Express](/docs/frameworks/express) | `@flags-sdk/express` | `app.use(flags())` | by hand, `defineSource` |
+| [No framework](/docs/frameworks/node) | none | `runtime.onInvoke(request, next)` for each request | by hand, `defineSource` |
+
+Your framework is not in the list? You can [write a binding for it](/docs/frameworks/custom-frameworks).
+
+## The same flags in every framework
+
+### With a bundler: the file system API
+
+In Next.js, SvelteKit, Nuxt and TanStack Start, the main source of your application is the folder `flags/sources/self`. In SvelteKit, it is `src/flags/sources/self`, since SvelteKit type-checks `src` only. The files are the same in each of these frameworks. `context.ts` is optional:
+
+```ts title="flags/sources/self/provider.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+// Any OpenFeature server provider works
+export default new VercelProvider();
+```
+
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
+
+// Optional. Runs one time for each request
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+}
+```
+
+```ts title="flags/sources/self/catalog.ts"
+// The flags of your Vercel project, for the code generation
+export { default } from '@vercel/flags-core/catalog';
+```
+
+The provider and the catalog of Vercel Flags use the OIDC token of your project. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project. With another provider, the catalog can also return a list.
+
+The plugin of your framework generates `.flags/self.ts` and the types in `flags/generated.d.ts`, and your code imports the flags:
+
+```ts
+import { enableSale } from 'flags:self';
+
+const sale = await enableSale();
+```
+
+Inline flags, which your code decides, go into a module that starts with `'use flags'`:
+
+```ts title="flags.ts"
+'use flags';
+
+import { defineFlag } from 'flags';
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
+});
+```
+
+See [Code generation](/docs/flags/code-generation) for the details, and to load the catalog from your flag management system.
+
+### Without a bundler: sources by hand
+
+Hono, Express and plain Node.js often run without a bundler, so nothing generates `flags:self`. Write the source and its flags by hand, with `defineSource` and `bindFlag`. By convention, the source module is `flags/self.ts`:
+
+```ts title="src/flags/self.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
+
+export const self = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  // Runs one time for each request
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+```
+
+```ts title="src/flags.ts"
+'use flags';
+
+import { bindFlag, defineFlag } from 'flags';
+import { self } from './flags/self.ts';
+
+// A flag of the source: the provider decides the value
+export const enableSale = bindFlag({
+  key: 'enableSale',
+  source: self,
+  defaultValue: false,
+  description: 'Shows the summer sale',
+});
+
+// An inline flag: your code decides the value
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
+});
+```
+
+This is the same code that the code generation writes, so you can also use it in the other frameworks if you prefer to write code. Or generate it with `flags sync` and import `./.flags/self.ts` (see [Code generation](/docs/flags/code-generation#without-a-framework-plugin)).
+
+For a demo without an account, replace `VercelProvider` with an in-memory provider of `@openfeature/server-sdk`. In production, use the provider of your flag management system, for example [Vercel Flags](/docs/providers/vercel) or any [OpenFeature provider](/docs/providers/openfeature). The flags and the code that calls them stay the same.
+
+To learn more about the two kinds of flags, see [Inline flags](/docs/flags/inline-flags) and [Provider flags](/docs/flags/provider-flags).
+
+## A shared contract
+
+Each framework package implements the same contract, the [Flags SDK standard](/docs/standard). It defines what a framework must give the SDK, and a [conformance suite](/docs/standard/conformance) checks it. That is why the same flags behave the same in each framework, and why a framework can take over its package or write its own.

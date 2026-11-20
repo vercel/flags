@@ -7,10 +7,10 @@ import {
   it,
   vi,
 } from 'vitest';
-import { defineConnection } from './connection';
 import { evaluate } from './evaluate';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 import type { Provider } from './types';
 
 function createProvider(values: Record<string, boolean> = {}) {
@@ -24,13 +24,13 @@ function createProvider(values: Record<string, boolean> = {}) {
   } satisfies Provider;
 }
 
-function createConnection(values: Record<string, boolean>) {
+function createSource(values: Record<string, boolean>) {
   const provider = createProvider(values);
-  const connection = defineConnection({
+  const source = defineSource({
     provider,
     project: { system: 'in-memory' },
   });
-  return { connection, provider };
+  return { source, provider };
 }
 
 describe('evaluate', () => {
@@ -44,8 +44,8 @@ describe('evaluate', () => {
   });
 
   it('evaluates one flag', async () => {
-    const { connection } = createConnection({ a: true });
-    const a = defineFlag({ key: 'a', connection });
+    const { source } = createSource({ a: true });
+    const a = bindFlag({ key: 'a', source });
 
     const value = await evaluate(a);
     expect(value).toBe(true);
@@ -53,29 +53,29 @@ describe('evaluate', () => {
   });
 
   it('evaluates several flags in the order of the list', async () => {
-    const { connection } = createConnection({ a: true, b: false, c: true });
-    const a = defineFlag({ key: 'a', connection });
-    const b = defineFlag({ key: 'b', connection });
-    const c = defineFlag({ key: 'c', connection });
+    const { source } = createSource({ a: true, b: false, c: true });
+    const a = bindFlag({ key: 'a', source });
+    const b = bindFlag({ key: 'b', source });
+    const c = bindFlag({ key: 'c', source });
 
     const values = await evaluate([b, a, c]);
     expect(values).toEqual([false, true, true]);
     expectTypeOf(values).toEqualTypeOf<[boolean, boolean, boolean]>();
   });
 
-  it('evaluates flags of several connections', async () => {
-    const first = createConnection({ a: true });
-    const second = createConnection({ b: false });
-    const a = defineFlag({ key: 'a', connection: first.connection });
-    const b = defineFlag({ key: 'b', connection: second.connection });
+  it('evaluates flags of several sources', async () => {
+    const first = createSource({ a: true });
+    const second = createSource({ b: false });
+    const a = bindFlag({ key: 'a', source: first.source });
+    const b = bindFlag({ key: 'b', source: second.source });
 
     await expect(evaluate([a, b])).resolves.toEqual([true, false]);
   });
 
   it('accepts flag definitions', async () => {
-    const { connection } = createConnection({ dynamic: true });
+    const { source } = createSource({ dynamic: true });
 
-    await expect(evaluate([{ key: 'dynamic', connection }])).resolves.toEqual([
+    await expect(evaluate([{ key: 'dynamic', source }])).resolves.toEqual([
       true,
     ]);
   });
@@ -85,20 +85,20 @@ describe('evaluate', () => {
   });
 
   it('is the same as runtime.evaluate', async () => {
-    const { connection } = createConnection({ a: true });
-    const a = defineFlag({ key: 'a', connection });
+    const { source } = createSource({ a: true });
+    const a = bindFlag({ key: 'a', source });
 
     await expect(runtime.evaluate([a])).resolves.toEqual([true]);
   });
 
   describe('when a flag fails', () => {
     it('returns the default value of that flag', async () => {
-      const { connection } = createConnection({ a: true });
-      const a = defineFlag({ key: 'a', connection });
-      const missing = defineFlag({
+      const { source } = createSource({ a: true });
+      const a = bindFlag({ key: 'a', source });
+      const missing = bindFlag({
         key: 'missing',
         defaultValue: false,
-        connection,
+        source,
       });
 
       await expect(evaluate([a, missing])).resolves.toEqual([true, false]);
@@ -108,9 +108,9 @@ describe('evaluate', () => {
     });
 
     it('rejects without a default value', async () => {
-      const { connection } = createConnection({ a: true });
-      const a = defineFlag({ key: 'a', connection });
-      const missing = defineFlag({ key: 'missing', connection });
+      const { source } = createSource({ a: true });
+      const a = bindFlag({ key: 'a', source });
+      const missing = bindFlag({ key: 'missing', source });
 
       await expect(evaluate([a, missing])).rejects.toMatchObject({
         name: 'FlagEvaluationError',
@@ -118,15 +118,15 @@ describe('evaluate', () => {
       });
     });
 
-    it('rejects for a connection not returned by defineConnection', async () => {
-      const { provider } = createConnection({});
-      const connection = {
+    it('rejects for a source not returned by defineSource', async () => {
+      const { provider } = createSource({});
+      const source = {
         provider,
         project: { system: 'in-memory' as const },
       };
 
-      await expect(evaluate([{ key: 'a', connection }])).rejects.toThrow(
-        'flags: The connection of flag "a" must be returned by defineConnection.',
+      await expect(evaluate([{ key: 'a', source }])).rejects.toThrow(
+        'flags: The source of flag "a" must be returned by defineSource.',
       );
     });
   });

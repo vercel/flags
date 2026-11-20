@@ -5,7 +5,7 @@ import {
 import { test } from '@playwright/test';
 import { FLAGS_SECRET } from '../playwright.config';
 
-// The conformance suite of the standard (STANDARD.md, section 11)
+// The conformance suite of the standard (STANDARD.md, section 12)
 for (const check of conformanceChecks) {
   test(`conformance ${check.name}`, async ({ baseURL }, testInfo) => {
     const options: ConformanceOptions = {

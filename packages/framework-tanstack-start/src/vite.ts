@@ -11,18 +11,18 @@
  * ```
  *
  * It points `flags/framework` to the binding of this package, and does the
- * rest of `@flags-sdk/vite`: `flags.config.ts`, `'use flags'` modules, the
- * manifest of the flags, and the default provider of the platform.
+ * rest of `@flags-sdk/vite`: `flags/config.ts`, `'use flags'` modules, the
+ * manifest of the flags, and the code generation of `flags:<source>`.
  */
 import { flags as flagsVite } from '@flags-sdk/vite';
 import type { Plugin } from 'vite';
 
 export interface FlagsTanStackStartOptions {
   /**
-   * The module of the default provider, e.g. of a platform. See
-   * `@flags-sdk/vite`.
+   * Turns off the code generation of `flags:<source>` from the catalogs of
+   * `flags/sources/<source>`, which is on by default. See `@flags-sdk/vite`.
    */
-  readonly defaultProvider?: string | false;
+  readonly disableCodeGeneration?: boolean;
 }
 
 export function flags(options: FlagsTanStackStartOptions = {}): Plugin {

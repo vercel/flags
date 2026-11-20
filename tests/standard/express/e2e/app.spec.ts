@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { encryptOverrides } from 'flags';
 import { FLAGS_SECRET } from '../playwright.config';
 
-test('uses flags.config.ts with the middleware', async ({ request }) => {
+test('uses flags/config.ts with the middleware', async ({ request }) => {
   const [anonymous, alice] = await Promise.all([
     request.get('/'),
     request.get('/', { headers: { cookie: 'user=alice' } }),
@@ -39,7 +39,7 @@ test('the script writes the manifest of the flags', () => {
     'greeting',
     'new-checkout',
   ]);
-  expect(manifest.connections).toEqual({
+  expect(manifest.sources).toEqual({
     'in-memory': { system: 'in-memory', variables: {} },
   });
 });

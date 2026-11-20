@@ -1,7 +1,13 @@
 'use flags';
 
-import { defineFlag } from 'flags';
+import { bindFlag } from 'flags';
+import { self } from './flags/self';
 
-// No connection: the flags use the default connection of flags.config.ts
-export const greeting = defineFlag('greeting', 'Hi');
-export const darkMode = defineFlag('dark-mode');
+// The flags of the source of this app (flags/self.ts)
+export const greeting = bindFlag({
+  key: 'greeting',
+  source: self,
+  type: 'string',
+  defaultValue: 'Hi',
+});
+export const darkMode = bindFlag({ key: 'dark-mode', source: self });

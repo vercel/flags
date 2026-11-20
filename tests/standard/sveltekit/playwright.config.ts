@@ -15,11 +15,6 @@ export default defineConfig({
       use: { baseURL: 'http://localhost:4330' },
     },
     {
-      name: 'platform',
-      testMatch: 'platform.spec.ts',
-      use: { baseURL: 'http://localhost:4332' },
-    },
-    {
       name: 'dev',
       testMatch: /(dev|conformance)\.spec\.ts/,
       use: { baseURL: 'http://localhost:4331' },
@@ -30,12 +25,6 @@ export default defineConfig({
       command: 'node build/index.js',
       url: 'http://localhost:4330/',
       env: { PORT: '4330', FLAGS_SECRET },
-      reuseExistingServer: false,
-    },
-    {
-      command: 'node build-platform/index.js',
-      url: 'http://localhost:4332/',
-      env: { PORT: '4332', TEST_VARIANT: 'platform' },
       reuseExistingServer: false,
     },
     {

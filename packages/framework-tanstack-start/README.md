@@ -1,9 +1,8 @@
 # @flags-sdk/tanstack-start
 
 The TanStack Start package of the [Flags SDK](../flags). It connects the SDK
-to TanStack Start: the current request, `flags.config.ts`, the signals of
-TanStack Router, discovery for Flags Explorer, and the default provider of
-the platform.
+to TanStack Start: the current request, `flags/config.ts`, the signals of
+TanStack Router, discovery for Flags Explorer, and code generation.
 
 ```ts
 // vite.config.ts
@@ -20,8 +19,9 @@ export default defineConfig({
 - **Signals pass through.** `redirect()` and `notFound()` reach TanStack
   Start unchanged, also from `getEvaluationContext`.
 - **React and Solid.** The binding uses the packages of your project.
-- **Discovery** in `vite dev` and in the build, and the **default provider**
-  of Vercel for builds on Vercel.
+- **Discovery** in `vite dev` and in the build.
+- **Code generation.** Import the flags of a source from `flags:<source>`,
+  e.g. `flags:self`.
 
 ## Installation
 
@@ -51,44 +51,22 @@ export default defineConfig({
 
 That is the only required step.
 
-### 2️⃣ Optional: `flags.config.ts`
+### 2️⃣ Optional: `flags/config.ts`
 
-Without `flags.config.ts`, flags use Vercel Flags with zero configuration:
-locally through OFREP with the OIDC token of `vercel env pull`, and in a
-build on Vercel with the fast provider of `@vercel/flags-core`, if the
-project has it. Write `flags.config.ts` for an evaluation context, or for
-fast evaluations also in development:
-
-```sh
-pnpm add @vercel/flags-core @openfeature/server-sdk
-```
-
-Put it in the directory of the project or in `src`:
+You do not need a configuration file: each flag names its source, and
+overrides work with `FLAGS_SECRET`, or on Vercel, without one. Add
+`flags/config.ts` (or `src/flags/config.ts`), next to `flags/sources`, for
+settings of all flags: OpenFeature `hooks`, and the options of `overrides`.
+It has no source. The Vite plugin loads it automatically.
 
 ```ts
-// src/flags.config.ts
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineConnection } from 'flags';
+// flags/config.ts
+import { defineConfig } from 'flags';
 
 export const config = defineConfig({
-  defaultConnection: defineConnection({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
-  }),
+  hooks: [myLoggingHook],
 });
-
-// Gives flags without a connection the types of this connection
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
 ```
-
-Any other OpenFeature provider works in the same way.
 
 ## Usage
 
@@ -118,11 +96,34 @@ and tracking.
   the flags modules in a runnable copy of that environment.
 - `vite build` writes `flags-manifest.json` into `.output/server`.
 
-## Deployment
+## Code generation
 
-On Vercel, the plugin uses `@vercel/flags-core/default-provider` if the
-project has it. `flags({ defaultProvider: './src/provider.ts' })` gives an
-other module. A `defaultConnection` in `flags.config.ts` always wins.
+The plugin generates the code by default:
+
+```ts
+// vite.config.ts
+export default defineConfig({
+  plugins: [nitro(), tanstackStart(), viteReact(), flags()],
+});
+```
+
+- Each source is a directory `flags/sources/<source>` with `catalog.ts`,
+  `provider.ts` and an optional `context.ts`. By convention, the main source of the
+  application is `flags/sources/self`.
+- The plugin generates `.flags/<source>.ts` one time for `vite build`, and
+  watches the catalogs in `vite dev`. It adds the aliases
+  `flags:<source>`:
+
+  ```ts
+  import { 'summer-sale' as summerSale } from 'flags:self';
+  ```
+
+- The types are in `flags/generated.d.ts`, so `tsconfig.json` needs no
+  change. `.flags` has its own `.gitignore`.
+- Without `flags/sources`, the plugin writes nothing. To turn the generation
+  off, use `flags({ disableCodeGeneration: true })`.
+- Without code generation, write `defineSource` and `bindFlag` by hand.
+  Each flag names its source. There is no default source.
 
 ## How it works
 

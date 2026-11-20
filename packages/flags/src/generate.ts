@@ -1,0 +1,457 @@
+/**
+ * The code generation of `flags:<source>`. It reads the catalogs of
+ * `flags/sources/<source>/catalog.ts`, and writes one module for each
+ * source into `.flags/<source>.ts`. A framework plugin points the alias
+ * `flags:<source>` to the module, and TypeScript finds it with
+ * `"paths": { "flags:*": ["./.flags/*"] }`.
+ *
+ * It imports only the catalogs, never the providers or the contexts.
+ */
+import { randomUUID } from 'node:crypto';
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
+import nodeModule from 'node:module';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import type { Catalog, CatalogLoader } from './catalog';
+import {
+  assertSourceName,
+  renderDeclarations,
+  renderSourceModule,
+} from './codegen';
+import { GENERATED_DIRECTORY } from './generated-directory';
+
+export { GENERATED_DIRECTORY };
+
+/**
+ * The aliases of the generated modules, e.g.
+ * `{ 'flags:site': './.flags/site.ts' }`. Relative to the directory of the
+ * application.
+ */
+export type FlagsAliases = Record<string, string>;
+
+// context.ts is optional: without it, the source has no evaluation context
+const SOURCE_FILES = ['catalog.ts', 'provider.ts'] as const;
+const CONTEXT_FILE = 'context.ts';
+
+async function isFile(file: string): Promise<boolean> {
+  const info = await stat(file).catch(() => null);
+  return info?.isFile() ?? false;
+}
+
+async function writeIfChanged(
+  directory: string,
+  filename: string,
+  content: string,
+): Promise<void> {
+  const target = path.join(directory, filename);
+  const previous = await readFile(target, 'utf8').catch(() => null);
+  if (previous === content) {
+    return;
+  }
+  // A file watcher must never see a module which is only partly written
+  const temporary = `${target}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, content);
+    await rename(temporary, target);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+/**
+ * The name of the declarations of the modules `flags:<source>`, in the
+ * folder `flags` of the application.
+ */
+export const GENERATED_DECLARATIONS = 'generated.d.ts';
+
+/**
+ * Finds the folder `flags` with the sources: in the directory of the
+ * application, or in its `src` directory, as for `flags/config.ts`. The SDK
+ * never creates this folder, so it is where the application put it.
+ */
+export async function findFlagsDirectory(
+  directory: string,
+): Promise<string | undefined> {
+  for (const base of [directory, path.join(directory, 'src')]) {
+    const flags = path.join(base, 'flags');
+    const info = await stat(path.join(flags, 'sources')).catch(() => null);
+    if (info?.isDirectory()) {
+      return flags;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The names of the sources: the directories of `flags/sources`. Checks the
+ * files of each source before it imports a catalog.
+ */
+async function findSources(flagsDirectory: string): Promise<string[]> {
+  const sourcesDirectory = path.join(flagsDirectory, 'sources');
+  const entries = await readdir(sourcesDirectory, {
+    withFileTypes: true,
+  }).catch(() => []);
+  const names = entries
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+    .map((entry) => entry.name)
+    .sort();
+  for (const name of names) {
+    assertSourceName(name);
+    for (const file of SOURCE_FILES) {
+      const info = await stat(path.join(sourcesDirectory, name, file)).catch(
+        () => null,
+      );
+      if (!info?.isFile()) {
+        throw new Error(
+          `flags: The source ${JSON.stringify(name)} needs flags/sources/${name}/${file}.`,
+        );
+      }
+    }
+  }
+  return names;
+}
+
+/**
+ * A native `import()`. The CommonJS build turns a plain `import()` into
+ * `require()`, which can not load `catalog.ts` as a module of Node.js with
+ * its types stripped, e.g. when Next.js loads `withFlags` as CommonJS.
+ */
+const nativeImport = new Function('specifier', 'return import(specifier)') as (
+  specifier: string,
+) => Promise<unknown>;
+
+type ResolveHook = (
+  specifier: string,
+  context: unknown,
+  nextResolve: (specifier: string, context: unknown) => unknown,
+) => unknown;
+
+let resolveHookRegistered = false;
+
+/**
+ * Lets `catalog.ts` and the modules which it imports use relative imports
+ * without an extension, as in the rest of a TypeScript application. Node.js
+ * runs these files with its own type stripping, which needs `.ts` in each
+ * relative import, and TypeScript only accepts `.ts` there with
+ * `allowImportingTsExtensions`. The hook tries `.ts` and `/index.ts` when a
+ * relative import is not found. It needs `module.registerHooks` of Node.js
+ * 22.15 or newer; without it, nothing changes.
+ */
+function allowImportsWithoutExtension(): void {
+  if (resolveHookRegistered) {
+    return;
+  }
+  resolveHookRegistered = true;
+  const { registerHooks } = nodeModule as {
+    registerHooks?: (hooks: { resolve: ResolveHook }) => unknown;
+  };
+  if (!registerHooks) {
+    return;
+  }
+  registerHooks({
+    resolve(specifier, context, nextResolve) {
+      try {
+        return nextResolve(specifier, context);
+      } catch (error) {
+        const code = (error as { code?: unknown } | null)?.code;
+        const relative =
+          specifier.startsWith('./') || specifier.startsWith('../');
+        if (
+          !relative ||
+          path.extname(specifier) !== '' ||
+          (code !== 'ERR_MODULE_NOT_FOUND' &&
+            code !== 'ERR_UNSUPPORTED_DIR_IMPORT')
+        ) {
+          throw error;
+        }
+        for (const suffix of ['.ts', '.tsx', '/index.ts']) {
+          try {
+            return nextResolve(`${specifier}${suffix}`, context);
+          } catch {
+            // Try the next suffix
+          }
+        }
+        throw error;
+      }
+    },
+  });
+}
+
+async function importModule(specifier: string): Promise<unknown> {
+  allowImportsWithoutExtension();
+  try {
+    return await nativeImport(specifier);
+  } catch (error) {
+    // In a VM context without an import callback, e.g. in a test runner
+    if (
+      (error as { code?: unknown } | null)?.code ===
+      'ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING'
+    ) {
+      // A bundler of a build tool, e.g. Turbopack for its loaders, must not
+      // try to resolve the catalog of the application
+      return import(
+        /* webpackIgnore: true */ /* turbopackIgnore: true */ /* @vite-ignore */ specifier
+      );
+    }
+    throw error;
+  }
+}
+
+async function importCatalogLoader(
+  flagsDirectory: string,
+  name: string,
+): Promise<CatalogLoader> {
+  const file = path.join(flagsDirectory, 'sources', name, 'catalog.ts');
+  const loaded = (await importModule(pathToFileURL(file).href)) as {
+    default?: unknown;
+  };
+  const loadCatalog = loaded.default;
+  if (typeof loadCatalog !== 'function') {
+    throw new Error(
+      `flags: flags/sources/${name}/catalog.ts must have a default export which loads the catalog.`,
+    );
+  }
+  return loadCatalog as CatalogLoader;
+}
+
+function checkCatalog(name: string, catalog: unknown): Catalog {
+  const flags = (catalog as { flags?: unknown } | null)?.flags;
+  if (typeof flags !== 'object' || flags === null) {
+    throw new Error(
+      `flags: The catalog of the source ${JSON.stringify(name)} has no flags.`,
+    );
+  }
+  for (const [key, flag] of Object.entries(flags)) {
+    if (!Array.isArray((flag as { variants?: unknown })?.variants)) {
+      throw new Error(
+        `flags: Flag ${JSON.stringify(key)} of the source ${JSON.stringify(name)} has no variants.`,
+      );
+    }
+  }
+  return catalog as Catalog;
+}
+
+async function writeModules(
+  directory: string,
+  flagsDirectory: string,
+  catalogs: ReadonlyMap<string, Catalog>,
+): Promise<FlagsAliases> {
+  const output = path.join(directory, GENERATED_DIRECTORY);
+  // The imports of the files of each source, from the generated modules
+  const sourcesPath = path
+    .relative(output, path.join(flagsDirectory, 'sources'))
+    .split(path.sep)
+    .join('/');
+  // Render all files before a file changes, so that an error changes
+  // nothing
+  const modules = await Promise.all(
+    [...catalogs].map(async ([name, catalog]) => {
+      // Checked for each write, so a catalog change after a new context.ts
+      // picks it up
+      const files = {
+        context: await isFile(
+          path.join(flagsDirectory, 'sources', name, CONTEXT_FILE),
+        ),
+      };
+      return {
+        name,
+        catalog,
+        files,
+        code: renderSourceModule(name, catalog, sourcesPath, files),
+      };
+    }),
+  );
+  const declarations = renderDeclarations(
+    modules.map(({ name, catalog, files }) => [name, catalog, files] as const),
+  );
+  await mkdir(output, { recursive: true });
+  // Git ignores the folder without a change to the .gitignore of the app
+  await writeIfChanged(output, '.gitignore', '*\n');
+  const aliases: FlagsAliases = {};
+  for (const { name, code } of modules) {
+    await writeIfChanged(output, `${name}.ts`, code);
+    aliases[`flags:${name}`] = `./${GENERATED_DIRECTORY}/${name}.ts`;
+  }
+  // The module of a removed source must also go, e.g. from the editor
+  for (const file of await readdir(output)) {
+    if (file.endsWith('.ts') && !catalogs.has(file.slice(0, -3))) {
+      await rm(path.join(output, file));
+    }
+  }
+  await writeIfChanged(flagsDirectory, GENERATED_DECLARATIONS, declarations);
+  const summary = Object.fromEntries(
+    modules.map(({ name, catalog }) => [
+      name,
+      {
+        ...(catalog.revision !== undefined
+          ? { revision: catalog.revision }
+          : {}),
+        flags: Object.keys(catalog.flags).length,
+      },
+    ]),
+  );
+  await writeIfChanged(
+    output,
+    'catalog.json',
+    `${JSON.stringify(summary, null, 2)}\n`,
+  );
+  await writeIfChanged(
+    output,
+    'aliases.json',
+    `${JSON.stringify(aliases, null, 2)}\n`,
+  );
+  return aliases;
+}
+
+async function* snapshotsOf(
+  loadCatalog: CatalogLoader,
+  signal: AbortSignal,
+): AsyncGenerator<Catalog> {
+  const result = await loadCatalog({ signal });
+  if (
+    typeof result === 'object' &&
+    result !== null &&
+    Symbol.asyncIterator in result
+  ) {
+    yield* result;
+  } else {
+    yield result as Catalog;
+  }
+}
+
+export interface WatchResult {
+  /**
+   * The aliases after the first generation.
+   */
+  readonly aliases: FlagsAliases;
+  /**
+   * Resolves when all catalogs end or the signal aborts. Rejects when a
+   * catalog fails. The generated files of the last good catalogs stay.
+   */
+  readonly done: Promise<void>;
+}
+
+async function start(
+  directory: string,
+  watch: boolean,
+  signal: AbortSignal | undefined,
+): Promise<WatchResult> {
+  const root = path.resolve(directory);
+  const controller = new AbortController();
+  const stop = () => controller.abort(signal?.reason);
+  signal?.addEventListener('abort', stop, { once: true });
+  if (signal?.aborted) {
+    stop();
+  }
+  const streams: { name: string; iterator: AsyncGenerator<Catalog> }[] = [];
+  const close = async () => {
+    controller.abort();
+    signal?.removeEventListener('abort', stop);
+    await Promise.allSettled(
+      streams.map(({ iterator }) => iterator.return(undefined)),
+    );
+  };
+
+  try {
+    controller.signal.throwIfAborted();
+    const flagsDirectory = await findFlagsDirectory(root);
+    // Without flags/sources there is nothing to generate, and no file is
+    // written
+    if (flagsDirectory === undefined) {
+      await close();
+      return { aliases: {}, done: Promise.resolve() };
+    }
+    for (const name of await findSources(flagsDirectory)) {
+      const loadCatalog = await importCatalogLoader(flagsDirectory, name);
+      streams.push({
+        name,
+        iterator: snapshotsOf(loadCatalog, controller.signal),
+      });
+    }
+    const initial = await Promise.all(
+      streams.map(async ({ name, iterator }) => {
+        const first = await iterator.next();
+        if (first.done) {
+          throw new Error(
+            `flags: The catalog of the source ${JSON.stringify(name)} gave no catalog.`,
+          );
+        }
+        return [name, checkCatalog(name, first.value)] as const;
+      }),
+    );
+    controller.signal.throwIfAborted();
+    let catalogs = new Map(initial);
+    const aliases = await writeModules(root, flagsDirectory, catalogs);
+    if (!watch) {
+      await close();
+      return { aliases, done: Promise.resolve() };
+    }
+
+    // One queue of writes keeps the order of the changes of all sources
+    let writes = Promise.resolve();
+    const consumers = streams.map(async ({ name, iterator }) => {
+      for await (const catalog of iterator) {
+        if (controller.signal.aborted) {
+          break;
+        }
+        writes = writes.then(async () => {
+          controller.signal.throwIfAborted();
+          const next = new Map(catalogs).set(name, checkCatalog(name, catalog));
+          await writeModules(root, flagsDirectory, next);
+          catalogs = next;
+        });
+        await writes;
+      }
+    });
+    const done = Promise.all(consumers)
+      .then(() => {})
+      .catch((error: unknown) => {
+        if (!signal?.aborted) {
+          throw error;
+        }
+      })
+      .finally(close);
+    // The caller can start a server before it awaits done
+    done.catch(() => {});
+    return { aliases, done };
+  } catch (error) {
+    await close();
+    throw error;
+  }
+}
+
+/**
+ * Generates the modules of all sources one time, from the first catalog of
+ * each source, then closes the catalogs. Returns the aliases.
+ *
+ * @param directory - The directory of the application, which contains
+ * `flags/sources`.
+ */
+export async function generateFlags(
+  directory: string = process.cwd(),
+): Promise<FlagsAliases> {
+  const { aliases } = await start(directory, false, undefined);
+  return aliases;
+}
+
+/**
+ * Generates the modules of all sources, and again after each change of a
+ * catalog, until the signal aborts. Resolves when the first modules exist.
+ *
+ * @param directory - The directory of the application, which contains
+ * `flags/sources`.
+ */
+export function watchFlags(
+  directory: string,
+  options: { readonly signal: AbortSignal },
+): Promise<WatchResult> {
+  return start(directory, true, options.signal);
+}

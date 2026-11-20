@@ -1,6 +1,7 @@
 import { evaluate } from 'flags';
 import { bannerText, newCheckout, summerSale } from '../../../flags';
-import { contextCalls, evaluationCount } from '../../../flags.config';
+import { evaluationCount } from '../../../flags/config';
+import { contextCalls } from '../../../flags/self';
 
 export async function GET(request: Request) {
   const [sale, checkout, banner] = await evaluate([

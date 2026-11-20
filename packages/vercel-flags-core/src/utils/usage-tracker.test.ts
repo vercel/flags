@@ -106,6 +106,7 @@ function createAuth(sdkKey = 'test-key'): Auth {
   return {
     sdkKey,
     resolveToken: () => Promise.resolve(sdkKey),
+    getStaticBundledDefinitionsLookup: () => undefined,
     resolveBundledDefinitionsLookup: () =>
       Promise.resolve({ type: 'sdk-key', sdkKey }),
   };
@@ -272,6 +273,7 @@ describe('UsageTracker', () => {
       const tracker = new UsageTracker({
         auth: {
           resolveToken: () => Promise.resolve('primary-oidc-token'),
+          getStaticBundledDefinitionsLookup: () => undefined,
           resolveBundledDefinitionsLookup: () =>
             Promise.resolve({ type: 'project-id', projectId: 'prj_123' }),
         },
@@ -1374,6 +1376,7 @@ describe('runtime ingest transport', () => {
       auth: {
         sdkKey: undefined,
         resolveToken,
+        getStaticBundledDefinitionsLookup: () => undefined,
         resolveBundledDefinitionsLookup: () =>
           Promise.resolve({ type: 'project-id' as const, projectId: 'prj_1' }),
       },
@@ -1494,6 +1497,7 @@ describe('runtime ingest transport', () => {
       auth: {
         sourceProjectId: 'prj_source',
         resolveToken: () => Promise.resolve('oidc-token'),
+        getStaticBundledDefinitionsLookup: () => undefined,
         resolveBundledDefinitionsLookup: () =>
           Promise.resolve({
             type: 'project-id' as const,

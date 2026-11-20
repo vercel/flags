@@ -64,16 +64,16 @@ describe('the conformance suite', () => {
   });
 
   it('finds a framework which gives a new headers object for each call', async () => {
-    // Without onInvoke, with a request source which returns new headers
+    // Without onInvoke, with a request getter which returns new headers
     const results = await runConformance({
       baseURL,
       fetch: async (url, init) => {
         const headers = new Headers(init?.headers);
-        runtime.setRequestSource(() => ({ headers: new Headers(headers) }));
+        runtime.setGetRequest(() => ({ headers: new Headers(headers) }));
         try {
           return Response.json(await conformanceResult());
         } finally {
-          runtime.setRequestSource(undefined);
+          runtime.setGetRequest(undefined);
         }
       },
     });

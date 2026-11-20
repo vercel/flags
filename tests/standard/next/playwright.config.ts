@@ -6,7 +6,7 @@ import { defineConfig } from '@playwright/test';
 export const FLAGS_SECRET = 'dGhpcy1pcy1hLXRlc3Qtc2VjcmV0LWZvci1mbGFncyE';
 
 // The tests only send HTTP requests, so they need no browser. Run
-// `pnpm test:e2e`, which builds both variants first.
+// `pnpm test:e2e`, which builds the app first.
 export default defineConfig({
   testDir: './e2e',
   reporter: 'list',
@@ -16,22 +16,12 @@ export default defineConfig({
       testMatch: /(app|conformance)\.spec\.ts/,
       use: { baseURL: 'http://localhost:4310' },
     },
-    {
-      name: 'platform',
-      testMatch: 'platform.spec.ts',
-      use: { baseURL: 'http://localhost:4311' },
-    },
   ],
   webServer: [
     {
       command: 'pnpm start',
       url: 'http://localhost:4310/api/flags',
       env: { FLAGS_SECRET },
-      reuseExistingServer: false,
-    },
-    {
-      command: 'pnpm start:platform',
-      url: 'http://localhost:4311/api/flags',
       reuseExistingServer: false,
     },
   ],

@@ -108,6 +108,22 @@ describe('createVercelAdapter', () => {
     } satisfies Origin);
   });
 
+  it('returns origin when created with a connected projectId', () => {
+    const adapter = createVercelAdapter({ projectId: 'prj_source' });
+
+    expect(adapter()).toHaveProperty('origin', {
+      provider: 'vercel',
+      sdkKey: undefined,
+      projectId: 'prj_source',
+    } satisfies Origin);
+  });
+
+  it('rejects an invalid projectId', () => {
+    expect(() => createVercelAdapter({ projectId: 'prj_a/b' })).toThrow(
+      '@vercel/flags-core: Invalid projectId',
+    );
+  });
+
   it('forwards override observations to the flags client', async () => {
     const reportOverride = vi.fn();
     const fakeClient = {
@@ -300,6 +316,75 @@ describe('when used with getProviderData', () => {
     expect(providerData.definitions['test-flag']?.origin).toEqual({
       provider: 'vercel',
       projectId: 'prj_source',
+    });
+  });
+
+  describe('when the project has no datafile yet', () => {
+    const env = ['VERCEL_PROJECT_ID', 'VERCEL_OIDC_TOKEN'] as const;
+    let originalEnv: Record<string, string | undefined>;
+
+    // Like the token of `vercel env pull`, which names the project
+    function oidcToken(claims: object): string {
+      const encode = (value: object) =>
+        Buffer.from(JSON.stringify(value)).toString('base64url');
+      const exp = Math.floor(Date.now() / 1000) + 3600;
+      return `${encode({ alg: 'RS256' })}.${encode({ exp, ...claims })}.signature`;
+    }
+
+    beforeEach(() => {
+      originalEnv = Object.fromEntries(env.map((k) => [k, process.env[k]]));
+      // Locally there is no VERCEL_PROJECT_ID
+      delete process.env.VERCEL_PROJECT_ID;
+      // Vercel Flags is not activated for the project
+      server.use(
+        http.get('https://flags.vercel.com/v1/datafile', () =>
+          HttpResponse.json({ error: 'not found' }, { status: 404 }),
+        ),
+      );
+    });
+
+    afterEach(() => {
+      for (const k of env) {
+        if (originalEnv[k] === undefined) delete process.env[k];
+        else process.env[k] = originalEnv[k];
+      }
+    });
+
+    it('falls back to the project of the OIDC token', async () => {
+      process.env.VERCEL_OIDC_TOKEN = oidcToken({ project_id: 'prj_local' });
+      const testFlag = flag({
+        key: 'test-flag',
+        adapter: createVercelAdapter()(),
+      });
+
+      const providerData = await getProviderData({ testFlag });
+
+      expect(providerData.definitions['test-flag']?.origin).toEqual({
+        provider: 'vercel',
+        projectId: 'prj_local',
+      });
+    });
+
+    it('throws when the OIDC token names no project', async () => {
+      process.env.VERCEL_OIDC_TOKEN = oidcToken({});
+      const testFlag = flag({
+        key: 'test-flag',
+        adapter: createVercelAdapter()(),
+      });
+
+      await expect(getProviderData({ testFlag })).rejects.toThrow();
+    });
+
+    it('does not fall back for an SDK key', async () => {
+      // An SDK key can belong to another project than the OIDC token
+      process.env.VERCEL_OIDC_TOKEN = oidcToken({ project_id: 'prj_local' });
+      // Another key than in the tests above, so that its client has no data
+      const testFlag = flag({
+        key: 'test-flag',
+        adapter: createVercelAdapter('vf_server_inactive_sdk_key')(),
+      });
+
+      await expect(getProviderData({ testFlag })).rejects.toThrow();
     });
   });
 });

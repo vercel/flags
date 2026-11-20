@@ -99,18 +99,18 @@ describe('getRequest', () => {
 });
 
 describe('setupFramework', () => {
-  it('sets the request source, the rethrow and the config source', async () => {
+  it('sets the request getter, the rethrow and the config loader', async () => {
     const runtime = {
-      setRequestSource: vi.fn(),
+      setGetRequest: vi.fn(),
       setRethrow: vi.fn(),
-      setConfigSource: vi.fn(),
+      setLoadConfig: vi.fn(),
     };
 
     await setupFramework(runtime as never);
-    expect(runtime.setRequestSource).toHaveBeenCalledWith(getRequest);
+    expect(runtime.setGetRequest).toHaveBeenCalledWith(getRequest);
     expect(runtime.setRethrow).toHaveBeenCalledTimes(1);
     // Without the plugin, flags/config has no configuration
-    const source = runtime.setConfigSource.mock.calls[0]?.[0];
+    const source = runtime.setLoadConfig.mock.calls[0]?.[0];
     await expect(source()).resolves.toBeUndefined();
   });
 });

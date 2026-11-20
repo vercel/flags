@@ -21,14 +21,32 @@ import type { NextConfig } from 'next';
 export { findConfigFile };
 
 import { findConfigFile, MANIFEST_FILE } from 'flags/tooling';
+import { prepareCodeGeneration, readAliases } from './code-generation';
 
 export interface FlagsPluginOptions {
   /**
    * The directory of the application, where the plugin looks for
-   * `flags.config.ts`. The default is the current directory.
+   * `flags/config.ts` and `flags/sources`. The default is the current
+   * directory.
    */
   readonly dir?: string;
+  /**
+   * Turns off the code generation of `flags:<source>`. By default,
+   * `withFlags` generates the modules from the catalogs of
+   * `flags/sources/<source>`: one time for `next build`, and again after
+   * each change of a catalog for `next dev`. Without `flags/sources`, it
+   * writes nothing.
+   *
+   * With it, `withFlags` returns the configuration itself, not a function
+   * of the phase, and still gives Turbopack the aliases of
+   * `.flags/aliases.json`, e.g. from `flags sync` or `flags watch`.
+   */
+  readonly disableCodeGeneration?: boolean;
 }
+
+// The phases of Next.js, as in next/constants
+const PHASE_DEVELOPMENT_SERVER = 'phase-development-server';
+const PHASE_PRODUCTION_BUILD = 'phase-production-build';
 
 // Next.js can load the configuration more than once during one build, e.g.
 // in the workers of the build. They inherit the environment of the main
@@ -170,12 +188,21 @@ function turbopackRules(
 }
 
 /**
+ * The configuration of Next.js as a function of the phase. Next.js passes
+ * a second argument with the default configuration.
+ */
+export type NextConfigFunction<T extends object> = (
+  phase: string,
+  context?: unknown,
+) => T | Promise<T>;
+
+/**
  * Adds the Flags SDK to the configuration of Next.js:
  *
  * - The alias `flags/framework` points to `@flags-sdk/next/binding`, which
  *   gives the
  *   runtime the current request of Next.js, and loads the configuration.
- * - The alias `flags/config` points to `flags.config.ts`, if it exists.
+ * - The alias `flags/config` points to `flags/config.ts`, if it exists.
  * - A module with the `'use flags'` directive registers its flags itself,
  *   so nobody calls `registerFlags` by hand.
  * - The route `@flags-sdk/next/manifest` gets the modules with `'use flags'`,
@@ -184,20 +211,64 @@ function turbopackRules(
  *   that `@flags-sdk/next/precompute` needs no `FLAGS_PRECOMPUTE_SECRET`.
  * - With Cache Components, `FlagValues` encrypts in `'use cache'`, so that
  *   a static page can have encrypted flag values.
+ * - It generates the modules of `flags:<source>` from `flags/sources`, and
+ *   points the aliases `flags:<source>` to them in `.flags`.
  *
  * It supports only Turbopack, and keeps the aliases and the rules of the
- * configuration. A build with webpack throws.
+ * configuration. A build with webpack throws. The configuration can also be
+ * a function of the phase, as in `next.config.ts`.
  */
 export function withFlags<T extends object>(
-  config: T = {} as T,
+  config?: T | NextConfigFunction<T>,
+  options?: FlagsPluginOptions & { readonly disableCodeGeneration?: false },
+): NextConfigFunction<T>;
+/**
+ * Adds the Flags SDK to the configuration of Next.js, without the code
+ * generation of `flags:<source>`. Returns the configuration itself.
+ */
+export function withFlags<T extends object>(
+  config: T,
+  options: FlagsPluginOptions & { readonly disableCodeGeneration: true },
+): T;
+/**
+ * Adds the Flags SDK to a configuration function of Next.js, without the
+ * code generation of `flags:<source>`.
+ */
+export function withFlags<T extends object>(
+  config: NextConfigFunction<T>,
+  options: FlagsPluginOptions & { readonly disableCodeGeneration: true },
+): NextConfigFunction<T>;
+export function withFlags<T extends object>(
+  config: T | NextConfigFunction<T> = {} as T,
   options: FlagsPluginOptions = {},
-): T {
+): T | NextConfigFunction<T> {
+  const dir = options.dir ?? process.cwd();
+  if (options.disableCodeGeneration && typeof config !== 'function') {
+    return addFlags(config, dir);
+  }
+  return async (phase, context) => {
+    // `next start` and the other phases do no catalog work
+    if (!options.disableCodeGeneration) {
+      if (phase === PHASE_DEVELOPMENT_SERVER) {
+        await prepareCodeGeneration(dir, true);
+      } else if (phase === PHASE_PRODUCTION_BUILD) {
+        await prepareCodeGeneration(dir, false);
+      }
+    }
+    const resolved =
+      typeof config === 'function' ? await config(phase, context) : config;
+    return addFlags(resolved, dir);
+  };
+}
+
+function addFlags<T extends object>(config: T, dir: string): T {
   // Typed loosely, so a `next` version other than ours does not clash.
   const nextConfig: NextConfig = config;
-  const dir = options.dir ?? process.cwd();
   const configFile = findConfigFile(dir);
 
   const turbopackAliases: Record<string, string> = {
+    // The generated modules of flags:<source>, relative to the project
+    ...readAliases(dir),
     'flags/framework': '@flags-sdk/next/binding',
   };
   if (usesCacheComponents(nextConfig)) {
@@ -205,6 +276,10 @@ export function withFlags<T extends object>(
     // Without Cache Components, 'use cache' is an error.
     turbopackAliases['@flags-sdk/next/encrypt-values'] =
       '@flags-sdk/next/encrypt-values-cached';
+    // The check of a precomputed code uses WebCrypto, which a prerender
+    // counts as uncached data
+    turbopackAliases['@flags-sdk/next/verify-code'] =
+      '@flags-sdk/next/verify-code-cached';
   }
   if (configFile) {
     // Turbopack resolves a relative path from the directory of the project

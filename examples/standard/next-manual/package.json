@@ -1,0 +1,31 @@
+{
+  "name": "standard-example-next-manual",
+  "private": true,
+  "type": "module",
+  "description": "The Flags SDK with Next.js, with sources written by hand (no code generation)",
+  "scripts": {
+    "dev": "next dev --port 4410",
+    "build": "next build",
+    "start": "next start --port 4410",
+    "test": "next build && node --test test/*.test.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flags-sdk/next": "workspace:*",
+    "@openfeature/core": "1.12.0",
+    "@openfeature/server-sdk": "1.23.0",
+    "flags": "workspace:*",
+    "next": "16.4.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "22.14.0",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

@@ -1,57 +1,78 @@
 ---
 title: Server-side vs Client-side
+description: Why the Flags SDK evaluates feature flags on the server, and how pages can still stay static.
 ---
 
-We strongly believe feature flags should be used server-side.
+We strongly believe feature flags should be evaluated on the server. The Flags
+SDK only runs on the server: flags are evaluated in server code, and the
+values go to the client as regular data, for example as props.
 
 ## Avoid layout shift and jank
 
-When a feature flag is used on the client side, it can cause layout
-shifts and jank. The application needs to wait until the feature flags
-are bootstrapped over the network. In the meantime it has to take one of
-two bad choices:
+When a feature flag is evaluated on the client, the application has to wait
+until the flags are loaded over the network. In the meantime it has to make
+one of two bad choices:
 
-- Show a loading spinner
-- Speculatively show one version of the page
+- Show a loading spinner.
+- Speculatively show one version of the page.
 
-But if the feature flag turns out to have a different value, the page
-needs to be swapped out leading to jank.
+If the flag then has a different value, the page has to swap out content, and
+the visitor sees jank.
 
-When you use feature flags server-side, this problem is avoided. The
-server will only send the version of the page that matches the feature
-flag. No layout shift or jank.
+When you evaluate flags on the server, this problem does not exist. The server
+sends only the version of the page that matches the flag. No layout shift, no
+jank.
+
+```tsx title="app/page.tsx"
+import { summerSale } from '../flags';
+import { Banner } from './banner'; // a client component
+
+export default async function Page() {
+  const sale = await summerSale();
+  // The client component receives the value, not the flag
+  return <Banner sale={sale} />;
+}
+```
+
+<Callout>
+  Do not import `flags` in client code, for example in a file with
+  `'use client'`. Evaluate the flag in a server component, a loader or a
+  route handler, and pass the value down.
+</Callout>
 
 ## Keeping pages static
 
-A big benefit using client-side feature flags is that the page itself
-can stay fully static. Having static pages is great, as they can be
-served from the CDN around the world at low latency.
+A benefit of client-side flags is that the page itself can stay fully static.
+Static pages are great: a CDN can serve them around the world at low latency.
 
-A common misconception is that server-side usage of feature flags means
-that the page can no longer be static. This is not the case. The Flags
-SDK comes with multiple patterns which allow keeping the page static
-without falling back to client-side usage.
+A common misconception is that server-side flags make a page dynamic. They do
+not have to. With [precompute](/docs/principles/precompute), you evaluate
+flags in Routing Middleware (the proxy in Next.js), and rewrite the request to
+a statically generated variant of the page. This combines well with
+Incremental Static Regeneration (ISR).
 
-These patterns are made possible by using Routing Middleware. One or
-multiple feature flags can be evaluated in Routing Middleware, and the
-request can then be rewritten to serve a statically generated version of
-the page. This combines extremely well with Incremental Static
-Regeneration (ISR).
-
-<LearnMore href="/frameworks/next/guides/marketing-pages" icon="arrow">
-  See the Marketing Pages example
-</LearnMore>
+See [Precompute in Next.js](/docs/frameworks/next/precompute) for the
+implementation.
 
 ## Confidentiality
 
-Using feature flags on the client typically means the name of the
-feature flag is sent to the client. Often times teams then fall back to
-using cryptic alias for their feature flags in order to avoid leaking
-features.
+Client-side flags usually send the names of all flags, and often their rules,
+to the browser. Teams then fall back to cryptic aliases, so that the names of
+flags do not leak upcoming features.
+
+With server-side flags, the key of a flag never has to reach the browser. When
+a page includes flag values for tools such as Flags Explorer or analytics,
+[`FlagValues`](/docs/frameworks/next/flag-values) encrypts them by default, so
+visitors can not read them.
 
 ## Code size
 
-When feature flags are used server-side, only the necessary code is sent
-to the client. In contrast, when using feature flags client-side it is
-common that both versions of the page are sent to the client, which
-leads to an increased bundle size.
+With server-side flags, only the code of the variant that the visitor gets is
+sent to the client. With client-side flags, it is common that the code of all
+variants is sent to the client, which increases the bundle size.
+
+## Overrides still work
+
+You do not lose the ability to try a variant in your browser. Flags Explorer
+of the Vercel Toolbar sets an override cookie, and the SDK reads it on the
+server for each request. See [Overrides](/docs/tooling/overrides).

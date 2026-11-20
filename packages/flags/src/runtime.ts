@@ -2,13 +2,10 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import stringify from 'fast-json-stable-stringify';
 import { type SetupFramework, setupFramework } from 'flags/framework';
 import type { Config } from './config';
-import { type Connection, isConnection } from './connection';
-import { getBuiltInConnection } from './default-connection';
 import { FlagEvaluationError, toEvaluationError } from './errors';
 import type { Evaluate } from './evaluate';
-import { HookRun, OVERRIDE_REASON } from './hooks';
+import { DECIDE_REASON, HookRun, OVERRIDE_REASON } from './hooks';
 import { logger } from './logger';
-import { codeDefault } from './ofrep';
 import {
   createOverridesReader,
   type OverridesReader,
@@ -16,6 +13,7 @@ import {
 import type { JsonValue } from './overrides/types';
 import { createFlagsRequest } from './request';
 import { sharedState } from './shared-state';
+import { isSource, type Source } from './source';
 import type {
   EvaluationContext,
   EvaluationDetails,
@@ -33,12 +31,10 @@ import type {
   TrackingEventDetails,
 } from './types';
 import {
-  describeValue,
   type FlagOptionObject,
   type FlagType,
   type FlagValue,
   hasType,
-  isOption,
   placeholderOf,
   resolveMethodOf,
 } from './value-types';
@@ -54,8 +50,8 @@ export interface FlagDefinition {
    * `defineFlag`.
    */
   getEvaluationContext?(
-    context: unknown,
     request: FlagsRequest | undefined,
+    context: unknown,
   ): unknown;
   /**
    * Returned when the evaluation fails, after logging the error. If not set,
@@ -67,8 +63,8 @@ export interface FlagDefinition {
    */
   readonly type?: FlagType;
   /**
-   * The values which the flag can have, as objects with a value. A value
-   * that is not one of them fails.
+   * The known values of the flag, as objects with a value. Other values of
+   * the type also go through.
    */
   readonly options?: readonly FlagOptionObject<FlagValue>[];
   /**
@@ -76,23 +72,25 @@ export interface FlagDefinition {
    */
   readonly description?: string;
   /**
-   * A connection returned by `defineConnection`. Without it, the flag uses
-   * the default connection.
+   * A source returned by `defineSource`. An evaluation without it fails.
    */
-  readonly connection?: Connection;
+  readonly source?: Source;
+  /**
+   * Decides the value of an inline flag, instead of the provider of the
+   * source.
+   */
+  readonly decide?: (
+    request: FlagsRequest | undefined,
+    context: unknown,
+  ) => FlagValue | Promise<FlagValue>;
 }
 
 /**
  * Why a value does not fit a flag, or `undefined` if it fits.
  */
-function valueProblem(
-  value: unknown,
-  type: FlagType,
-  options: readonly FlagOptionObject<FlagValue>[] | undefined,
-): string | undefined {
-  if (!hasType(value, type)) return `it is not a ${type}`;
-  if (options && !isOption(value, options)) {
-    return 'it is not one of the options';
+function valueProblem(value: unknown, type: FlagType): string | undefined {
+  if (!hasType(value, type)) {
+    return `it is not a ${type}`;
   }
   return undefined;
 }
@@ -111,23 +109,20 @@ function formatValue(value: FlagValue): string {
 
 /**
  * Returns the configuration, or `undefined` if there is none. See
- * `runtime.setConfigSource`.
+ * `runtime.setLoadConfig`.
  */
-export type ConfigSource = () =>
-  | Config
-  | undefined
-  | Promise<Config | undefined>;
+export type LoadConfig = () => Config | undefined | Promise<Config | undefined>;
 
 /**
  * Returns the current request, or `undefined` outside of a request. See
- * `runtime.setRequestSource`.
+ * `runtime.setGetRequest`.
  */
-export type RequestSource = () =>
+export type GetRequest = () =>
   | FlagsRequestInit
   | undefined
   | Promise<FlagsRequestInit | undefined>;
 
-type Step = (context: unknown, request: FlagsRequest | undefined) => unknown;
+type Step = (request: FlagsRequest | undefined, context: unknown) => unknown;
 
 type ResolveMethod = (
   flagKey: string,
@@ -308,31 +303,28 @@ function callStep(
   input: unknown,
   request: FlagsRequest | undefined,
 ): Promise<unknown> {
-  return new Promise((resolve) => resolve(step.call(owner, input, request)));
+  return new Promise((resolve) => resolve(step.call(owner, request, input)));
 }
 
 /**
- * Coordinates the providers of all connections. Use the default `runtime`
+ * Coordinates the providers of all sources. Use the default `runtime`
  * instance. An application has only one runtime.
  *
  * The lifecycle methods map to the AWS Lambda phases. Framework bindings
  * call them.
  */
 class RuntimeImpl {
-  readonly #connections = new Set<Connection>();
+  readonly #sources = new Set<Source>();
   readonly #initializations = new Map<Provider, Promise<void>>();
   readonly #storage = new AsyncLocalStorage<RequestScope>();
-  #requestSource: RequestSource | undefined;
+  #requestGetter: GetRequest | undefined;
   #readOverrides: OverridesReader = createOverridesReader();
   #config: Config = {};
-  // Whether a flag uses the default connection. Only then does the runtime
-  // initialize its provider.
-  #usesDefaultConnection = false;
   #framework: Promise<void> | undefined;
   #rethrow: ((error: unknown) => void) | undefined;
-  #configSource: ConfigSource | undefined;
+  #configLoader: LoadConfig | undefined;
   #loadedConfig: Promise<void> | undefined;
-  readonly #sourceScopes = new WeakMap<object, RequestScope>();
+  readonly #requestScopes = new WeakMap<object, RequestScope>();
   readonly #statuses = new Map<Provider, ProviderStatus>();
   readonly #subscriptions = new Map<Provider, () => void>();
   readonly #handlers = new Map<ProviderEvent, Set<EventHandler>>();
@@ -340,7 +332,7 @@ class RuntimeImpl {
   /**
    * Call once before the first request, e.g. in the Lambda init phase.
    *
-   * Initializes the providers of all registered connections and waits for
+   * Initializes the providers of all registered sources and waits for
    * them. Errors are logged, not thrown. A failed provider is initialized
    * again on the next request or evaluation.
    */
@@ -370,11 +362,11 @@ class RuntimeImpl {
    * middleware. Returns the result of `next`.
    *
    * Flags which are evaluated while `next` runs belong to this request: each
-   * connection creates its evaluation context once per request.
+   * source creates its evaluation context once per request.
    *
    * Starts the initialization of providers which are not initialized yet,
    * and retries failed initializations. Does not wait for them: each flag
-   * waits only for the provider of its own connection. The evaluation of a
+   * waits only for the provider of its own source. The evaluation of a
    * flag reports errors.
    *
    * @param request - What the framework can give about the request, e.g. a
@@ -416,14 +408,14 @@ class RuntimeImpl {
    * @example
    * ```ts
    * // Next.js: headers() returns the same object during one request
-   * runtime.setRequestSource(async () => ({
+   * runtime.setGetRequest(async () => ({
    *   headers: await headers(),
    *   cookies: await cookies(),
    * }));
    * ```
    */
-  setRequestSource(source: RequestSource | undefined): void {
-    this.#requestSource = source;
+  setGetRequest(getRequest: GetRequest | undefined): void {
+    this.#requestGetter = getRequest;
   }
 
   /**
@@ -447,40 +439,38 @@ class RuntimeImpl {
 
   /**
    * Sets a function which returns the configuration, e.g. the export
-   * `config` of `flags.config.ts`. The framework binding sets it.
+   * `config` of `flags/config.ts`. The framework binding sets it.
    *
    * In production, the runtime calls it one time. In development, the
    * runtime calls it before each evaluation, and configures again when it
-   * returns a different object, so that a change of `flags.config.ts`
+   * returns a different object, so that a change of `flags/config.ts`
    * applies without a restart.
    */
-  setConfigSource(source: ConfigSource | undefined): void {
-    this.#configSource = source;
+  setLoadConfig(loadConfig: LoadConfig | undefined): void {
+    this.#configLoader = loadConfig;
     this.#loadedConfig = undefined;
   }
 
   /**
    * Configures the SDK. By convention, the framework binding calls it
-   * with the export `config` of `flags.config.ts`. Without a framework, call
+   * with the export `config` of `flags/config.ts`. Without a framework, call
    * it at startup.
    *
    * A new call replaces the configuration, e.g. after a reload in
-   * development. A replaced default connection is closed, if no other
-   * connection uses its provider. Validates the configuration at once, and
-   * throws before it changes anything.
+   * development. Validates the configuration at once, and throws before it
+   * changes anything.
    *
    * @example
    * ```ts
-   * import { config } from './flags.config';
+   * import { config } from './flags/config';
    *
    * runtime.configure(config);
    * ```
    */
   configure(config: Config): void {
-    const { defaultConnection } = config;
-    if (defaultConnection !== undefined && !isConnection(defaultConnection)) {
+    if (Object.hasOwn(config, 'defaultSource')) {
       throw new Error(
-        'flags: The defaultConnection of the configuration must be returned by defineConnection.',
+        'flags: The configuration has no defaultSource. Give each flag its source, e.g. with flags/sources/self.',
       );
     }
     if (config.hooks !== undefined && !Array.isArray(config.hooks)) {
@@ -490,39 +480,14 @@ class RuntimeImpl {
     }
     const readOverrides = createOverridesReader(config.overrides);
 
-    const previous = this.#config.defaultConnection;
     this.#config = config;
     this.#readOverrides = readOverrides;
-    // A replaced default connection, e.g. after a reload in development,
-    // must not keep its client open
-    if (previous && previous !== defaultConnection) {
-      this.#closeUnusedProvider(previous.provider);
-    }
-  }
-
-  /**
-   * The connection of flags without a connection: the `defaultConnection` of
-   * the configuration, or the built-in default connection.
-   *
-   * @internal
-   */
-  get defaultConnection(): Connection {
-    return this.#config.defaultConnection ?? getBuiltInConnection();
-  }
-
-  /**
-   * Marks that a flag uses the default connection.
-   *
-   * @internal
-   */
-  markDefaultConnectionUsed(): void {
-    this.#usesDefaultConnection = true;
   }
 
   /**
    * Sets up the framework binding and loads the configuration, without
    * the initialization of providers. For tools, e.g. the route of the
-   * manifest, which need the default connection of the configuration.
+   * manifest.
    */
   async prepare(): Promise<void> {
     await this.#setUpFramework();
@@ -611,19 +576,19 @@ class RuntimeImpl {
   }
 
   /**
-   * Makes a connection known to the runtime.
+   * Makes a source known to the runtime.
    *
    * @internal
    */
-  registerConnection(connection: Connection): void {
-    this.#connections.add(connection);
+  registerSource(source: Source): void {
+    this.#sources.add(source);
   }
 
   /**
    * @internal
    */
-  get connections(): ReadonlySet<Connection> {
-    return this.#connections;
+  get sources(): ReadonlySet<Source> {
+    return this.#sources;
   }
 
   /**
@@ -686,13 +651,13 @@ class RuntimeImpl {
   }) as Evaluate;
 
   /**
-   * Records a tracking event with the provider of the connection. The same
+   * Records a tracking event with the provider of the source. The same
    * as the `track` function which the package exports.
    *
    * @internal
    */
   async track(
-    connection: Connection | undefined,
+    source: Source | undefined,
     eventName: string,
     options?: {
       evaluationContext?: unknown;
@@ -702,11 +667,17 @@ class RuntimeImpl {
     try {
       await this.#setUpFramework();
       await this.#loadConfig();
-      const target = connection ?? this.defaultConnection;
+      if (!isSource(source)) {
+        throw new Error(
+          'flags: track needs a source returned by defineSource.',
+        );
+      }
+      const target = source;
       const { provider } = target;
       // A provider without track ignores the event, as in OpenFeature
       if (!provider.track) return;
-      const scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
+      const scope =
+        this.#storage.getStore() ?? (await this.#scopeFromRequest());
       // OpenFeature does not call track on a provider which is not ready
       const [, context] = await Promise.all([
         this.initializeProvider(provider),
@@ -727,12 +698,12 @@ class RuntimeImpl {
 
   /**
    * Runs the chain: the call side gives `input` to the flag, the flag to the
-   * connection, and the connection to the provider. A missing step gives its
+   * source, and the source to the provider. A missing step gives its
    * input to the next step as it is.
    */
   async #evaluationContext(
     flag: FlagDefinition | undefined,
-    connection: Connection,
+    source: Source,
     input: unknown,
     scope: RequestScope | undefined,
   ): Promise<EvaluationContext> {
@@ -745,12 +716,8 @@ class RuntimeImpl {
     if (flag?.getEvaluationContext) {
       context = await run(flag.getEvaluationContext, flag, context);
     }
-    if (connection.getEvaluationContext) {
-      context = await run(
-        connection.getEvaluationContext as Step,
-        connection,
-        context,
-      );
+    if (source.getEvaluationContext) {
+      context = await run(source.getEvaluationContext as Step, source, context);
     }
     return (context ?? {}) as EvaluationContext;
   }
@@ -763,14 +730,14 @@ class RuntimeImpl {
     flag: FlagDefinition,
     call: CallOptions | undefined,
   ): Promise<FlagValue> {
-    // The integration can configure the default connection and the request
-    // source, so it must run first
+    // The integration can configure the runtime and set the function which
+    // gets the request, so it must run first
     let setupError: unknown;
     let scope: RequestScope | undefined;
     try {
       await this.#setUpFramework();
       await this.#loadConfig();
-      scope = this.#storage.getStore() ?? (await this.#scopeFromSource());
+      scope = this.#storage.getStore() ?? (await this.#scopeFromRequest());
     } catch (error) {
       setupError = error;
     }
@@ -785,24 +752,29 @@ class RuntimeImpl {
     scope: RequestScope | undefined,
     setupError: unknown,
   ): Promise<FlagValue> {
-    const { key, defaultValue, options } = flag;
+    const { key, defaultValue } = flag;
     const type = flag.type ?? 'boolean';
-    const connection = flag.connection ?? this.defaultConnection;
-    if (!isConnection(connection)) {
+    const { source } = flag;
+    if (source === undefined) {
       throw new Error(
-        `flags: The connection of flag "${key}" must be returned by defineConnection.`,
+        `flags: Flag "${key}" has no source. Give it a source, e.g. with bindFlag({ key, source }).`,
       );
     }
-    const { provider } = connection;
+    if (!isSource(source)) {
+      throw new Error(
+        `flags: The source of flag "${key}" must be returned by defineSource.`,
+      );
+    }
+    const { provider } = source;
     // OpenFeature requires a default of the correct type, and providers
     // examine it. Without one, the SDK passes a placeholder (see the spec).
     const fallback = defaultValue ?? placeholderOf(type);
-    // The order of OpenFeature: API (configuration), client (connection),
+    // The order of OpenFeature: API (configuration), client (source),
     // invocation (call side), provider. They also run for an override, with
     // the reason OVERRIDE.
     const allHooks = [
       ...(this.#config.hooks ?? []),
-      ...(connection.hooks ?? []),
+      ...(source.hooks ?? []),
       ...(call?.hooks ?? []),
       ...(provider.hooks ?? []),
     ];
@@ -817,7 +789,7 @@ class RuntimeImpl {
         ? (await scope.overrides(this.#readOverrides)).get(key)
         : undefined;
       if (override !== undefined) {
-        const problem = valueProblem(override, type, options);
+        const problem = valueProblem(override, type);
         if (problem) {
           logger.warn(
             `flags: The override of flag "${key}" was ignored, because ${problem}.`,
@@ -831,7 +803,7 @@ class RuntimeImpl {
       // An override skips the provider and its initialization
       const resolve =
         override === undefined
-          ? this.#resolveMethod(key, provider, type)
+          ? this.#resolveMethodOf(flag, provider, type, call, scope)
           : undefined;
       const initialization = resolve
         ? this.initializeProvider(provider)
@@ -841,7 +813,7 @@ class RuntimeImpl {
 
       const context = await this.#evaluationContext(
         flag,
-        connection,
+        source,
         call?.evaluationContext,
         scope,
       );
@@ -907,6 +879,29 @@ class RuntimeImpl {
     return defaultValue;
   }
 
+  /**
+   * The method which resolves the value: `decide` of an inline flag, or the
+   * method of the provider for the type.
+   */
+  #resolveMethodOf(
+    flag: FlagDefinition,
+    provider: Provider,
+    type: FlagType,
+    call: CallOptions | undefined,
+    scope: RequestScope | undefined,
+  ): ResolveMethod {
+    const { decide } = flag;
+    if (!decide) {
+      return this.#resolveMethod(flag.key, provider, type);
+    }
+    // decide receives the context of the call side as it is, not the
+    // context for a provider
+    return async () => ({
+      value: await decide(scope?.request, call?.evaluationContext),
+      reason: DECIDE_REASON,
+    });
+  }
+
   #resolveMethod(
     key: string,
     provider: Provider,
@@ -936,7 +931,7 @@ class RuntimeImpl {
     fallback: FlagValue,
     context: EvaluationContext,
   ): Promise<EvaluationDetails<FlagValue>> {
-    const { key, defaultValue, options } = flag;
+    const { key } = flag;
     const resolution = await resolve.call(
       provider,
       key,
@@ -959,14 +954,6 @@ class RuntimeImpl {
         resolution.errorMessage ?? 'The provider reported an error.',
       );
     }
-    // Without a defaultValue, the default of the code is only a placeholder
-    if (defaultValue === undefined && codeDefault in resolution) {
-      throw new FlagEvaluationError(
-        key,
-        'GENERAL',
-        'The provider asks for the default value, but the flag has no defaultValue.',
-      );
-    }
     if (!hasType(resolution.value, type)) {
       throw new FlagEvaluationError(
         key,
@@ -974,13 +961,8 @@ class RuntimeImpl {
         `Expected a ${type}, got ${typeName(resolution.value)}`,
       );
     }
-    if (options && !isOption(resolution.value, options)) {
-      throw new FlagEvaluationError(
-        key,
-        'TYPE_MISMATCH',
-        `The value is not one of the options: ${describeValue(resolution.value)}`,
-      );
-    }
+    // A value which is not one of the options goes through: the system can
+    // add a variant after the deployment, and options are only for tools
     return {
       value: resolution.value as FlagValue,
       variant: resolution.variant,
@@ -991,20 +973,19 @@ class RuntimeImpl {
   }
 
   /**
-   * Removes all connections and initializations. Only for tests.
+   * Removes all sources and initializations. Only for tests.
    *
    * @internal
    */
   reset(): void {
-    this.#connections.clear();
+    this.#sources.clear();
     this.#initializations.clear();
-    this.#requestSource = undefined;
+    this.#requestGetter = undefined;
     this.#readOverrides = createOverridesReader();
     this.#config = {};
-    this.#usesDefaultConnection = false;
     this.#framework = undefined;
     this.#rethrow = undefined;
-    this.#configSource = undefined;
+    this.#configLoader = undefined;
     this.#loadedConfig = undefined;
     for (const provider of [...this.#subscriptions.keys()]) {
       this.#unsubscribe(provider);
@@ -1097,17 +1078,17 @@ class RuntimeImpl {
   }
 
   /**
-   * Loads the configuration of the config source: one time in production,
+   * Loads the configuration with the function of `setLoadConfig`: one time in production,
    * before each evaluation in development.
    */
   #loadConfig(): Promise<void> {
-    const source = this.#configSource;
-    if (!source) return Promise.resolve();
+    const loadConfig = this.#configLoader;
+    if (!loadConfig) return Promise.resolve();
     const reload = process.env.NODE_ENV !== 'production';
     if (this.#loadedConfig && !reload) return this.#loadedConfig;
 
     const loading = Promise.resolve()
-      .then(source)
+      .then(loadConfig)
       .then((config) => {
         if (config && config !== this.#config) this.configure(config);
       })
@@ -1137,55 +1118,27 @@ class RuntimeImpl {
     return this.#framework;
   }
 
-  async #scopeFromSource(): Promise<RequestScope | undefined> {
-    if (!this.#requestSource) return undefined;
-    const init = await this.#requestSource();
+  async #scopeFromRequest(): Promise<RequestScope | undefined> {
+    if (!this.#requestGetter) return undefined;
+    const init = await this.#requestGetter();
     if (init === undefined) return undefined;
     // The headers stay the same object during one request, also when the
-    // source returns a new object on each call, e.g. in Next.js
+    // function returns a new object on each call, e.g. in Next.js
     const key = init.headers ?? init;
-    let scope = this.#sourceScopes.get(key);
+    let scope = this.#requestScopes.get(key);
     if (!scope) {
       scope = new RequestScope(createFlagsRequest(init));
-      this.#sourceScopes.set(key, scope);
+      this.#requestScopes.set(key, scope);
     }
     return scope;
   }
 
   /**
-   * The providers which `onInit` and `onInvoke` initialize. The default
-   * connection of the configuration always counts, the built-in one only when
-   * a flag uses it. Thus, a new configuration replaces the old default.
+   * The providers which `onInit` and `onInvoke` initialize: the providers of
+   * the registered sources.
    */
   #registeredProviders(): Provider[] {
-    const connections = [...this.#connections];
-    if (this.#config.defaultConnection) {
-      connections.push(this.#config.defaultConnection);
-    } else if (this.#usesDefaultConnection) {
-      connections.push(getBuiltInConnection());
-    }
-    return [...new Set(connections.map((c) => c.provider))];
-  }
-
-  /**
-   * Closes a provider which was initialized, if no registered connection
-   * uses it any more.
-   */
-  #closeUnusedProvider(provider: Provider): void {
-    const initialization = this.#initializations.get(provider);
-    if (!initialization || this.#registeredProviders().includes(provider)) {
-      return;
-    }
-    this.#initializations.delete(provider);
-    this.#unsubscribe(provider);
-    initialization
-      .then(() => provider.onClose?.())
-      .catch((error: unknown) => {
-        logger.error(
-          `flags: Could not close provider "${provider.metadata.name}".`,
-          error,
-        );
-      });
+    return [...new Set([...this.#sources].map((c) => c.provider))];
   }
 }
 

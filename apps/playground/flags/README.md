@@ -1,37 +1,23 @@
 # Playground sources
 
-This folder contains application-owned sources and demo descriptions. The shared
-runtime, generator, CLI, Next.js integration, and their tests live in
-[`packages/flags-protocol`](../../../packages/flags-protocol/README.md).
+The playground uses the Flags SDK (`packages/flags`) with code generation.
+Each directory in `sources` is a source, and the pages import its flags by
+name, e.g. `import { flag0 } from 'flags:site'`.
 
 | File | Responsibility |
 | --- | --- |
-| `sources/site/catalog.ts` | Convert streamed Vercel datafiles into catalog snapshots for sync and watch. |
-| `sources/site/stream.ts` | Subscribe to `/v1/stream` with OIDC, parse NDJSON, reconnect, and close on cancellation. |
-| `sources/site/provider.ts` | Evaluate flags through `@vercel/flags-core`. Creates the client on first use. |
-| `sources/site/context.ts` | Map normalized `{ cookies, headers }` to provider context. No framework imports. |
-| `demo-descriptions.ts` | Supply sample flag descriptions for generated JSDoc. |
-| `catalog.test.ts` | Check stream parsing, reconnects, cancellation, and catalog metadata without network access. |
+| `sources/<source>/catalog.ts` | `@vercel/flags-core/catalog`: the flags of Vercel Flags, from its stream, with the OIDC token. Runs at build time and in development only. |
+| `sources/<source>/provider.ts` | The OpenFeature provider: `VercelProvider` of `@vercel/flags-core/openfeature`. |
+| `sources/<source>/context.ts` | `getEvaluationContext(request, input)`: the visitor from a cookie. |
 
-The source imports contracts from `flags`, which is a workspace alias for the
-new protocol package. Application code imports flags from `flags:site`.
+`withFlags({})` in `next.config.ts` generates `.flags/<source>.ts` and
+`flags/generated.d.ts` (the types of `flags:<source>`) one time during
+`pnpm build`, and watches the catalogs during `pnpm dev`. `pnpm flags:sync` generates one time without Next.js. The
+generated module is a `'use flags'` module with one `defineSource` and one
+`bindFlag` for each flag.
 
-The directory name registers the source. Each directory needs all three files;
-there is no central config. Generation imports only `catalog.ts`. The generated
-server module imports `provider.ts` and `context.ts` and assembles the connection.
+A flag whose variants mix types, e.g. objects and `null`, gets the type
+`object`, which takes any JSON value, as the object method of OpenFeature
+does.
 
-The Next.js `withFlags()` plugin starts catalog watch during `pnpm dev` and
-generates once during `pnpm build`. `pnpm flags:watch` watches without starting
-the app. `pnpm flags:sync` takes the first snapshot and exits. The stream
-receives a complete datafile on connection and after changes. It uses a new OIDC
-token on reconnect, ignores pings and older revisions, and retains generated
-files during a connection failure. Authentication errors stop the watcher.
-
-The context function receives read methods: `cookies.get(name)` returns
-`{ value: string }` or `undefined`; `headers.get(name)` is case-insensitive and
-returns a string or `null`. A request scope resolves this context once for all
-flags from the same source. The visitor cookie is demo identity data.
-
-The Vercel API does not yet supply a context schema or flag descriptions.
-Context remains `Record<string, unknown>`, and JSDoc uses the demo descriptions.
-Replace those descriptions with provider metadata when available.
+Run `vercel link` and `vercel env pull` for the OIDC token of the project.

@@ -1,8 +1,8 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { defineConnection } from './connection';
-import { defineFlag } from './flag';
+import { bindFlag } from './flag';
 import { createFlagsRequest } from './request';
 import { runtime } from './runtime';
+import { defineSource } from './source';
 import type {
   FlagsRequest,
   FlagsRequestInit,
@@ -186,21 +186,21 @@ describe('FlagsRequest', () => {
 
   it('is the same object for each step of a request', async () => {
     const received: (FlagsRequest | undefined)[] = [];
-    const connection = defineConnection({
+    const source = defineSource({
       provider: {
         metadata: { name: 'test' },
         resolveBooleanEvaluation: async () => ({ value: true }),
       },
       project: { system: 'in-memory' },
-      getEvaluationContext: (_context, request) => {
+      getEvaluationContext: (request) => {
         received.push(request);
         return {};
       },
     });
-    const flag = defineFlag({
+    const flag = bindFlag({
       key: 'a',
-      connection,
-      getEvaluationContext: (_context: undefined, request) => {
+      source,
+      getEvaluationContext: (request) => {
         received.push(request);
         return undefined;
       },

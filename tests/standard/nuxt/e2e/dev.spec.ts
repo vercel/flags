@@ -9,6 +9,8 @@ test('serves the manifest of the flags in development', async ({ request }) => {
   const manifest = await response.json();
   expect(Object.keys(manifest.definitions)).toEqual([
     'banner-text',
+    // The flag of code generation, from flags/sources/self
+    'enableSale',
     'greeting',
     'new-checkout',
     'plain-flag',
@@ -25,7 +27,7 @@ test('evaluates the flags in development', async ({ request }) => {
   });
 });
 
-test('uses flags.config.ts and the request without onInvoke', async ({
+test('uses flags/config.ts and the request without onInvoke', async ({
   request,
 }) => {
   const [anonymous, alice] = await Promise.all([
@@ -35,7 +37,7 @@ test('uses flags.config.ts and the request without onInvoke', async ({
 
   expect(await anonymous.json()).toEqual({
     checkout: false,
-    text: 'Hello from flags.config.ts',
+    text: 'Hello from flags/config.ts',
   });
   expect(await alice.json()).toMatchObject({ checkout: true });
 });
@@ -55,4 +57,14 @@ test('lets an error of Nitro through', async ({ request }) => {
   });
 
   expect(response.status()).toBe(403);
+});
+
+test('evaluates a flag of code generation in development', async ({
+  request,
+}) => {
+  const response = await request.get('/api/generated', {
+    headers: { cookie: 'user=alice' },
+  });
+
+  expect(await response.json()).toEqual({ sale: true });
 });

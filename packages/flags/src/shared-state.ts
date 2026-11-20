@@ -8,10 +8,10 @@
  * have a different runtime.
  */
 interface SharedState {
-  readonly connections: WeakSet<object>;
+  readonly sources: WeakSet<object>;
   readonly flags: WeakSet<object>;
   runtime?: unknown;
-  defaultConnection?: unknown;
+  decideSource?: unknown;
   /**
    * The framework binding of the first copy which has one. A copy without
    * the alias of `flags/framework`, e.g. in the process of the build tool,
@@ -26,5 +26,5 @@ const store = globalThis as unknown as Record<symbol, SharedState | undefined>;
 /**
  * @internal
  */
-store[key] ??= { connections: new WeakSet(), flags: new WeakSet() };
+store[key] ??= { sources: new WeakSet(), flags: new WeakSet() };
 export const sharedState: SharedState = store[key];

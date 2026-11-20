@@ -1,51 +1,51 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { type Connection, defineConnection } from './connection';
-import { defineFlag } from './flag';
-import { registerConnections, registerFlags } from './register';
+import { bindFlag } from './flag';
+import { registerFlags, registerSources } from './register';
 import { runtime } from './runtime';
+import { defineSource, type Source } from './source';
 
-function createConnection() {
-  return defineConnection({
+function createSource() {
+  return defineSource({
     provider: new TypedInMemoryProvider({}),
     project: { system: 'in-memory' },
   });
 }
 
-describe('registerConnections', () => {
+describe('registerSources', () => {
   beforeEach(() => runtime.reset());
 
-  it('registers connections', () => {
-    const a = createConnection();
-    const b = createConnection();
-    registerConnections([a, b]);
+  it('registers sources', () => {
+    const a = createSource();
+    const b = createSource();
+    registerSources([a, b]);
 
-    expect([...runtime.connections]).toEqual([a, b]);
+    expect([...runtime.sources]).toEqual([a, b]);
   });
 
   it('accepts any iterable', () => {
-    const a = createConnection();
-    registerConnections(new Set([a]));
+    const a = createSource();
+    registerSources(new Set([a]));
 
-    expect(runtime.connections).toContain(a);
+    expect(runtime.sources).toContain(a);
   });
 
-  it('registers a connection once', () => {
-    const a = createConnection();
-    registerConnections([a, a]);
-    registerConnections([a]);
+  it('registers a source once', () => {
+    const a = createSource();
+    registerSources([a, a]);
+    registerSources([a]);
 
-    expect(runtime.connections.size).toBe(1);
+    expect(runtime.sources.size).toBe(1);
   });
 
-  it('only accepts connections returned by defineConnection', () => {
+  it('only accepts sources returned by defineSource', () => {
     const fake = {
       provider: new TypedInMemoryProvider({}),
       project: { system: 'in-memory' },
-    } as Connection;
+    } as Source;
 
-    expect(() => registerConnections([fake])).toThrow(
-      'flags: registerConnections only accepts connections returned by defineConnection.',
+    expect(() => registerSources([fake])).toThrow(
+      'flags: registerSources only accepts sources returned by defineSource.',
     );
   });
 });
@@ -53,25 +53,25 @@ describe('registerConnections', () => {
 describe('registerFlags', () => {
   beforeEach(() => runtime.reset());
 
-  it('registers the connections of all exported flags', () => {
-    const a = createConnection();
-    const b = createConnection();
-    const flagA = defineFlag({ key: 'a', connection: a });
-    const flagB = defineFlag({ key: 'b', connection: b });
-    // Defining flags already registers their connections
+  it('registers the sources of all exported flags', () => {
+    const a = createSource();
+    const b = createSource();
+    const flagA = bindFlag({ key: 'a', source: a });
+    const flagB = bindFlag({ key: 'b', source: b });
+    // Defining flags already registers their sources
     runtime.reset();
 
     registerFlags({ flagA, flagB });
-    expect([...runtime.connections]).toEqual([a, b]);
+    expect([...runtime.sources]).toEqual([a, b]);
   });
 
   it('accepts a module namespace object', async () => {
-    const connection = createConnection();
+    const source = createSource();
     const moduleExports = Object.freeze(
       Object.create(null, {
         myFlag: {
           enumerable: true,
-          value: defineFlag({ key: 'a', connection }),
+          value: bindFlag({ key: 'a', source }),
         },
         [Symbol.toStringTag]: { value: 'Module' },
       }),
@@ -79,18 +79,18 @@ describe('registerFlags', () => {
     runtime.reset();
 
     registerFlags(moduleExports);
-    expect([...runtime.connections]).toEqual([connection]);
+    expect([...runtime.sources]).toEqual([source]);
   });
 
   it('throws when an export is not a flag', () => {
-    const connection = createConnection();
-    const myFlag = defineFlag({ key: 'a', connection });
+    const source = createSource();
+    const myFlag = bindFlag({ key: 'a', source });
 
     runtime.reset();
 
     expect(() => registerFlags({ myFlag, helper: () => true })).toThrow(
       'flags: registerFlags expects only flags, but export "helper" is not a flag.',
     );
-    expect(runtime.connections.size).toBe(0);
+    expect(runtime.sources.size).toBe(0);
   });
 });

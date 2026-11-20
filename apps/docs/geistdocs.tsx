@@ -13,20 +13,28 @@ export const github = {
 
 export const nav = [
   {
-    label: "Principles",
-    href: "/docs/principles/flags-as-code",
+    label: "Get Started",
+    href: "/docs/getting-started",
+  },
+  {
+    label: "Flags",
+    href: "/docs/flags",
   },
   {
     label: "Frameworks",
-    href: "/docs/frameworks/next",
+    href: "/docs/frameworks",
   },
   {
     label: "Providers",
     href: "/docs/providers",
   },
   {
+    label: "Standard",
+    href: "/docs/standard",
+  },
+  {
     label: "API Reference",
-    href: "/docs/api-reference/core/core",
+    href: "/docs/api-reference/flags",
   },
 ];
 
@@ -36,15 +44,15 @@ export const suggestions = [
     icon: <Flag aria-hidden="true" size={16} />,
   },
   {
-    text: "What frameworks are supported by Flags SDK?",
+    text: "How do I use the same flags in different frameworks?",
     icon: <Layers aria-hidden="true" size={16} />,
   },
   {
-    text: "Which providers are supported by Flags SDK?",
+    text: "How do I use an OpenFeature provider?",
     icon: <Plug aria-hidden="true" size={16} />,
   },
   {
-    text: "How do I precompute flags?",
+    text: "How does code generation work?",
     icon: <Zap aria-hidden="true" size={16} />,
   },
 ];
@@ -52,19 +60,20 @@ export const suggestions = [
 export const title = "Flags SDK Documentation";
 
 export const prompt =
-  "You are a helpful assistant specializing in answering questions about Flags SDK, a free, open-source library for using feature flags in Next.js and SvelteKit.";
+  "You are a helpful assistant specializing in answering questions about Flags SDK, an open standard and free, open-source library for feature flags in JavaScript. It works with any framework (Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express) or none, and with any OpenFeature provider.";
 
 export const agent = {
   product: {
     name: "Flags SDK",
     description:
-      "Flags SDK is a free, open-source library for using feature flags in Next.js and SvelteKit.",
+      "Flags SDK is an open standard and free, open-source library for feature flags in JavaScript. Define a flag once and evaluate it in any framework, or none, with any OpenFeature provider.",
     category: "Feature Flags",
     audience: ["Application developers", "Framework teams"],
     useCases: [
-      "Implement feature flags as code",
-      "Connect feature flags to providers",
-      "Precompute feature flags in supported frameworks",
+      "Implement feature flags as code, inline or bound to a provider",
+      "Use any OpenFeature provider in any JavaScript framework",
+      "Generate typed flags from a provider",
+      "Precompute feature flags in Next.js",
     ],
   },
   api: {

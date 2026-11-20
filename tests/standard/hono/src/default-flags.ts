@@ -1,6 +1,7 @@
 'use flags';
 
-import { defineFlag } from 'flags';
+import { bindFlag } from 'flags';
+import { self } from './flags/self.ts';
 
-// No connection: the flags use the default connection of flags.config.ts
-export const newCheckout = defineFlag('new-checkout');
+// The flags of the source of this app (flags/self.ts)
+export const newCheckout = bindFlag({ key: 'new-checkout', source: self });

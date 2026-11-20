@@ -42,6 +42,11 @@ class MapHookData implements HookData {
 export const OVERRIDE_REASON = 'OVERRIDE';
 
 /**
+ * The reason of an evaluation of an inline flag, which `decide` resolves.
+ */
+export const DECIDE_REASON = 'DECIDE';
+
+/**
  * Runs the stages of the hooks of one evaluation, in the order of
  * OpenFeature: `before` from the first hook to the last, the other stages
  * from the last hook to the first. Each hook has its own `hookData`.

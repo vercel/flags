@@ -1,0 +1,19 @@
+{
+  "root": true,
+  "title": "Frameworks",
+  "defaultOpen": true,
+  "pages": [
+    "index",
+    "---Full-stack frameworks---",
+    "next",
+    "sveltekit",
+    "nuxt",
+    "tanstack-start",
+    "---Servers---",
+    "hono",
+    "express",
+    "node",
+    "---Extend---",
+    "custom-frameworks"
+  ]
+}

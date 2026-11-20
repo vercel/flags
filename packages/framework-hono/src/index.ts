@@ -3,7 +3,7 @@
  *
  * ```ts
  * import { flags } from '@flags-sdk/hono';
- * import { config } from './flags.config';
+ * import { config } from './flags/config';
  *
  * app.use(flags({ config }));
  * ```
@@ -18,7 +18,7 @@ import { HTTPException } from 'hono/http-exception';
 
 export interface FlagsMiddlewareOptions {
   /**
-   * The configuration, e.g. the export `config` of `flags.config.ts`. The
+   * The configuration, e.g. the export `config` of `flags/config.ts`. The
    * middleware gives it to `runtime.configure` one time.
    */
   readonly config?: Config;

@@ -3,8 +3,8 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import {
-  defineConnection,
-  defineFlag,
+  bindFlag,
+  defineSource,
   evaluate,
   type FlagsRequestInit,
   runtime,
@@ -26,7 +26,7 @@ const teams: Record<string, { plan: string }> = {
   globex: { plan: 'free' },
 };
 
-const connection = defineConnection({
+const source = defineSource({
   provider: new TypedInMemoryProvider({
     'new-checkout': {
       variants: { on: true, off: false },
@@ -49,8 +49,8 @@ const connection = defineConnection({
   project: { system: 'in-memory' },
   // The last step of the chain: receives the context of the flag or of the
   // call side, and the request
-  getEvaluationContext: (context: { teamId?: string } | undefined, request) => {
-    console.log('connection getEvaluationContext', context);
+  getEvaluationContext: (request, context: { teamId?: string } | undefined) => {
+    console.log('source getEvaluationContext', context);
     const team = context?.teamId ? teams[context.teamId] : undefined;
     return {
       // Node.js gives no cookies, so they come from the Cookie header
@@ -60,18 +60,18 @@ const connection = defineConnection({
   },
 });
 
-const newCheckout = defineFlag({
+const newCheckout = bindFlag({
   key: 'new-checkout',
   defaultValue: false,
-  connection,
+  source,
 });
 
 // The middle step: converts the slug of the URL to a team id
-const teamInsights = defineFlag({
+const teamInsights = bindFlag({
   key: 'team-insights',
   defaultValue: false,
-  connection,
-  getEvaluationContext: (context: { slug: string }) => ({
+  source,
+  getEvaluationContext: (_request, context: { slug: string }) => ({
     teamId: context.slug,
   }),
 });

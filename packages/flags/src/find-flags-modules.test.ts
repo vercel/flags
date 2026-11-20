@@ -38,4 +38,13 @@ describe('findFlagsModules', () => {
 
     expect(findFlagsModules(dir)).toEqual([]);
   });
+
+  it('finds the generated modules of flags:<source> in .flags', () => {
+    const dir = project({
+      '.flags/site.ts': "// Generated\n'use flags';",
+      'src/.flags/other.ts': "'use flags';",
+    });
+
+    expect(findFlagsModules(dir)).toEqual(['.flags/site.ts']);
+  });
 });

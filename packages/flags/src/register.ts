@@ -1,36 +1,36 @@
-import { type Connection, isConnection } from './connection';
 import { isExportedFlag } from './manifest';
 import { runtime } from './runtime';
+import { isSource, type Source } from './source';
 
 /**
- * Registers connections with the runtime.
+ * Registers sources with the runtime.
  *
- * Use this when you have the connections themselves. The runtime then
+ * Use this when you have the sources themselves. The runtime then
  * initializes their providers in `runtime.onInit()`, before the first request.
  *
- * Connections of flags are registered when the flag is defined, so you only
- * need this for connections whose flags are defined later, e.g. in modules
+ * Sources of flags are registered when the flag is defined, so you only
+ * need this for sources whose flags are defined later, e.g. in modules
  * which are imported lazily. To register the flags of a module, use
  * `registerFlags` instead.
  *
  * @example
  * ```ts
- * registerConnections([launchdarkly, inMemory]);
+ * registerSources([launchdarkly, inMemory]);
  * ```
  */
-export function registerConnections(connections: Iterable<Connection>): void {
-  for (const connection of connections) {
-    if (!isConnection(connection)) {
+export function registerSources(sources: Iterable<Source>): void {
+  for (const source of sources) {
+    if (!isSource(source)) {
       throw new Error(
-        'flags: registerConnections only accepts connections returned by defineConnection.',
+        'flags: registerSources only accepts sources returned by defineSource.',
       );
     }
-    runtime.registerConnection(connection);
+    runtime.registerSource(source);
   }
 }
 
 /**
- * Registers the connections of all flags a module exports.
+ * Registers the sources of all flags a module exports.
  *
  * Use this with the exports of a module which only exports flags, e.g. a
  * module with the `'use flags'` directive. The framework plugins call it for
@@ -38,8 +38,8 @@ export function registerConnections(connections: Iterable<Connection>): void {
  * call it with the module namespace object.
  *
  * A flag is any object or function with a `key`, e.g. a flag of
- * `defineFlag`. Throws if an export is not a flag. To register connections
- * directly, use `registerConnections` instead.
+ * `defineFlag`. Throws if an export is not a flag. To register sources
+ * directly, use `registerSources` instead.
  *
  * @example
  * ```ts
@@ -55,15 +55,13 @@ export function registerFlags(moduleExports: Record<string, unknown>): void {
         `flags: registerFlags expects only flags, but export "${name}" is not a flag.`,
       );
     }
-    return value as { connection?: unknown };
+    return value as { source?: unknown };
   });
   for (const flag of flags) {
-    const { connection } = flag;
-    // A flag without a connection uses the default connection, which the
-    // runtime selects at each evaluation
-    if (!isConnection(connection) || connection === runtime.defaultConnection) {
+    const { source } = flag;
+    if (!isSource(source)) {
       continue;
     }
-    runtime.registerConnection(connection);
+    runtime.registerSource(source);
   }
 }

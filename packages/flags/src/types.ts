@@ -173,13 +173,15 @@ export interface Hook {
     // biome-ignore lint/suspicious/noConfusingVoidType: the type of OpenFeature
   ): EvaluationContext | void | Promise<EvaluationContext | void>;
   /**
-   * Runs after a successful evaluation.
+   * Runs after a successful evaluation. The return value is ignored, also in
+   * this and the next stages: older versions of OpenFeature type it as
+   * `unknown`.
    */
   after?(
     hookContext: Readonly<HookContext>,
     evaluationDetails: EvaluationDetails<HookFlagValue>,
     hookHints?: HookHints,
-  ): void | Promise<void>;
+  ): unknown;
   /**
    * Runs when the evaluation or a hook fails.
    */
@@ -187,7 +189,7 @@ export interface Hook {
     hookContext: Readonly<HookContext>,
     error: unknown,
     hookHints?: HookHints,
-  ): void | Promise<void>;
+  ): unknown;
   /**
    * Runs after all other stages, also after an error.
    */
@@ -195,7 +197,7 @@ export interface Hook {
     hookContext: Readonly<HookContext>,
     evaluationDetails: EvaluationDetails<HookFlagValue>,
     hookHints?: HookHints,
-  ): void | Promise<void>;
+  ): unknown;
 }
 
 /**

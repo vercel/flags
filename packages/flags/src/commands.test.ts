@@ -22,7 +22,7 @@ describe('flags manifest', () => {
     writeFileSync(join(dir, 'package.json'), '{ "type": "module" }');
     writeFileSync(
       join(dir, 'flags.js'),
-      `'use flags';\nexport const sale = { key: 'sale', type: 'boolean', defaultValue: false };\n`,
+      `'use flags';\nconst source = { project: { system: 'vercel-flags' } };\nexport const sale = { key: 'sale', type: 'boolean', defaultValue: false, source };\n`,
     );
 
     const output = await runCommand(['manifest', dir]);
@@ -32,7 +32,7 @@ describe('flags manifest', () => {
       JSON.parse(readFileSync(join(dir, 'flags-manifest.json'), 'utf8')),
     ).toEqual({
       version: 1,
-      connections: {
+      sources: {
         'vercel-flags': {
           system: 'vercel-flags',
           systemManifest:
@@ -45,8 +45,8 @@ describe('flags manifest', () => {
           type: 'boolean',
           defaultValue: false,
           declaredInCode: true,
-          connection: 'vercel-flags',
-          sources: [{ module: 'flags.js', export: 'sale' }],
+          source: 'vercel-flags',
+          declarations: [{ module: 'flags.js', export: 'sale' }],
         },
       },
     });

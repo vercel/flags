@@ -15,8 +15,9 @@ contract".
    errors which the framework must receive.
 2. **A build plugin:** it sets the aliases, registers `'use flags'` modules,
    and writes the manifest of the flags. It is optional without a bundler.
-3. **Optional, for a deployment platform:** the alias of
-   `flags/default-provider`, e.g. to a fast provider of the platform.
+3. **Optional: code generation.** The build plugin generates the modules of
+   `flags:<source>` from the catalogs of `flags/sources`, and sets the
+   aliases `flags:<source>` (see "Code generation").
 
 The code of the application imports only `flags`.
 
@@ -27,9 +28,9 @@ The code of the application imports only `flags`.
 import type { SetupFramework } from 'flags';
 
 export const setupFramework: SetupFramework = (runtime) => {
-  runtime.setRequestSource(getRequest);
+  runtime.setGetRequest(getRequest);
   runtime.setRethrow(rethrowSignal);
-  runtime.setConfigSource(async () => (await import('flags/config')).config);
+  runtime.setLoadConfig(async () => (await import('flags/config')).config);
 };
 ```
 
@@ -49,7 +50,7 @@ The runtime calls `setupFramework` one time, before the first evaluation.
   `connection()` of Next.js. In a cache scope of the framework, e.g.
   `'use cache'`, the request source throws, and the rethrow throws this
   error again (see [STANDARD.md](./STANDARD.md), section 5.4).
-- **The config source** loads `flags.config.ts` through the alias
+- **The config source** loads `flags/config.ts` through the alias
   `flags/config`. In development, the runtime calls it before each
   evaluation, so a change applies without a restart.
 - **No static import of `flags`.** `flags` imports the binding, so the
@@ -58,22 +59,20 @@ The runtime calls `setupFramework` one time, before the first evaluation.
 
 ## The replaceable modules
 
-The runtime imports three modules through its own package name. A bundler
+The runtime imports two modules through its own package name. A bundler
 alias replaces them. The alias only reaches the SDK when the bundler
 bundles `flags`, so bundle it into the server code (e.g. `ssr.noExternal` of
 Vite, `externals.inline` of Nitro).
 
-| Module                   | Default          | Replaced by                                 |
-| ------------------------ | ---------------- | ------------------------------------------- |
-| `flags/framework`        | no binding       | the framework binding                       |
-| `flags/config`           | no configuration | `flags.config.ts` of the application        |
-| `flags/default-provider` | OFREP            | the provider of a platform, for its builds  |
+| Module            | Default          | Replaced by                          |
+| ----------------- | ---------------- | ------------------------------------ |
+| `flags/framework` | no binding       | the framework binding                |
+| `flags/config`    | no configuration | `flags/config.ts` of the application |
 
 - **Resolve from the project.** With pnpm, a replacement which is a package
   name must be resolved from the project, not from `flags`. E.g. a
   `resolveId` hook with the order `pre` in Vite: the resolver of Vite would
-  otherwise resolve `flags/default-provider` through the exports of the
-  package.
+  otherwise resolve the module through the exports of the package `flags`.
 - **One copy of the framework.** If the binding uses `instanceof` or check
   functions of the framework, the binding and the application must use one
   copy of it, e.g. with `resolve.dedupe` of Vite.
@@ -123,41 +122,62 @@ it, with the functions of `flags/tooling`:
      server output. `writeManifestFromBuild` imports the built modules in a
      child process, so they do not run in the process of the build.
 
-Call `runtime.prepare()` before `createManifest`, so that flags without a
-connection get the default connection of `flags.config.ts`.
+Call `runtime.prepare()` before `createManifest`. It sets up the binding
+and loads `flags/config.ts`, without the initialization of providers.
+
+## Code generation
+
+Code generation is optional. Each source is a directory
+`flags/sources/<source>` with `catalog.ts`, `provider.ts` and an optional
+`context.ts`. By convention, the main source of an application is `flags/sources/self`.
+The folder `flags` is in the root of the application or in `src`. The build
+plugin generates `.flags/<source>.ts`, and the types in
+`flags/generated.d.ts`, with the functions of `flags/tooling`, and sets the
+alias `flags:<source>` to each module:
+
+- for a build, `generateFlags(dir)` one time, before the bundler resolves
+  the imports;
+- for a dev server, `watchFlags(dir, { signal })`, which generates again
+  after each change of a catalog.
+
+Both return the aliases, e.g. `{ "flags:self": "./.flags/self.ts" }`. The
+plugins of this repository generate the code by default, and have the
+option `disableCodeGeneration` to turn it off, e.g.
+`flags({ disableCodeGeneration: true })`. Without `flags/sources`, they
+write nothing. A framework without a bundler has no
+plugin: the application runs `flags sync` and imports `./.flags/self.ts`.
 
 ## `flags/tooling`
 
 | Function                 | Purpose                                                       |
 | ------------------------ | ------------------------------------------------------------- |
 | `registerFramework`      | Registers a binding without the alias                         |
-| `findConfigFile`         | Finds `flags.config.ts` in a directory or its `src`           |
+| `findConfigFile`         | Finds `flags/config.ts` in a directory or its `src`           |
 | `hasUseFlagsDirective`   | Finds the `'use flags'` directive in the directive prologue   |
 | `addSelfRegistration`    | Appends the registration to a `'use flags'` module            |
 | `findFlagsModules`       | Finds the `'use flags'` modules of a project                  |
 | `writeManifestFromBuild` | Writes the manifest from the built modules                    |
 | `MANIFEST_FILE`          | `flags-manifest.json`                                         |
 | `optionIndex`            | The index of a value in the options of a flag                 |
+| `generateFlags`          | Generates the modules of `flags:<source>` one time            |
+| `watchFlags`             | Generates them again after each change of a catalog           |
+| `renderSourceModule`     | Renders the module of one source from its catalog             |
+| `GENERATED_DIRECTORY`    | `.flags`                                                      |
 
 ## For deployment platforms
 
-- Set the alias of `flags/default-provider` for your builds, not for
-  development. The module exports `createDefaultProvider()`, which returns
-  an OpenFeature provider. The runtime calls it one time for each process.
-- A `defaultConnection` in `flags.config.ts` always wins over your
-  provider.
+- There is no default provider for now. Each flag of a provider names its
+  source, and the configuration has no source. A default can come later on
+  the level of the files, e.g. a default of the platform for
+  `flags/sources/self/provider.ts`.
 - Put `flags-manifest.json` of the build into your build output, so that
-  tools can read it.
-- For Next.js, use the Adapter API (`modifyConfig` for the alias,
-  `onBuildComplete` for the manifest). Vite frameworks have no such step
-  after the build, so their plugin sets the alias, e.g. on Vercel when
-  `VERCEL` is set.
+  tools can read it. For Next.js, use `onBuildComplete` of the Adapter API.
 
 ## A new flag management system
 
 A system adds itself with a pull request to `flags`:
 
-- its fields in `ProjectFieldsBySystem` (`src/connection.ts`), e.g.
+- its fields in `ProjectFieldsBySystem` (`src/source.ts`), e.g.
   `{ projectId: string }`;
 - the URL of its system manifest in `systemManifestUrls`. The system
   manifest has the templates of the links to its dashboard (see
@@ -176,11 +196,10 @@ suite and more end-to-end tests over HTTP. Each app tests:
 
 - the evaluation with the request, and one evaluation context for each
   request;
-- `flags.config.ts` without code in the application;
+- `flags/config.ts` without code in the application;
 - an override cookie;
 - a signal of the framework from `getEvaluationContext`, e.g. a redirect;
 - the registration of a `'use flags'` module, and the manifest in
-  development and in the build;
-- for platforms: a variant with the default provider of the platform.
+  development and in the build.
 
 The bindings in `packages/framework-*` are the reference implementations.

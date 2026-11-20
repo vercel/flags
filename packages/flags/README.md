@@ -12,9 +12,12 @@ const sale = await summerSale();
 
 - **Any flag management system.** Use the OpenFeature provider of Vercel
   Flags, LaunchDarkly, Statsig or any other system, without a wrapper.
-- **Zero configuration on Vercel.** Without configuration, flags use Vercel
-  Flags. A deployment on Vercel uses a fast provider, and development uses
-  the OIDC token of `vercel env pull`.
+- **Explicit sources.** Each flag names its source. By convention, the main
+  source of an application is `flags/sources/self`.
+- **Code generation, if you want it.** Put each source into
+  `flags/sources/<source>`, and import its flags with
+  `import { 'summer-sale' as summerSale } from 'flags:self'`. The generated
+  code is the same as `defineSource` and `bindFlag` by hand.
 - **One value for each request.** Each flag is evaluated one time for each
   request, so all parts of a page get the same value.
 - **Typed.** Flags have a type and options, and TypeScript checks the
@@ -74,14 +77,18 @@ Declare a flag one time, and call it where you need it:
 
 ```ts
 // flags.ts
-export const summerSale = defineFlag('summer-sale', false);
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: self,
+  defaultValue: false,
+});
 
 // app/page.tsx
 const sale = await summerSale();
 ```
 
-The connection to the flag management system, and the evaluation context,
-are set up one time, for all flags.
+The source (the provider of the flag management system, and the evaluation
+context) is set up one time, for all its flags.
 
 ## How it works
 
@@ -97,39 +104,16 @@ export default withFlags({});
 ```
 
 The framework package gives the SDK the current request, loads
-`flags.config.ts`, and lets the signals of the framework through, e.g. a
+`flags/config.ts`, and lets the signals of the framework through, e.g. a
 redirect.
 
-### 2️⃣ Connect to your flag management system
+### 2️⃣ Connect your flag management system
 
-Optional. Without `flags.config.ts`, flags use Vercel Flags. With it, you
-choose the OpenFeature provider, and how the evaluation context is created:
+A source connects flags to an OpenFeature provider, and creates the
+evaluation context from the request:
 
 ```sh
 pnpm add @vercel/flags-core @openfeature/server-sdk
-```
-
-```ts
-// flags.config.ts
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineConnection } from 'flags';
-
-export const config = defineConfig({
-  defaultConnection: defineConnection({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
-  }),
-});
-
-// Gives flags without a connection the types of this connection
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
 ```
 
 ### 3️⃣ Define your flags
@@ -138,20 +122,39 @@ declare module 'flags' {
 // flags.ts
 'use flags';
 
-import { defineFlag } from 'flags';
+import { bindFlag, defineFlag, defineSource } from 'flags';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-export const summerSale = defineFlag('summer-sale', false);
-export const checkout = defineFlag({
+// The main source of the application
+const self = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+
+// A flag of the source
+export const checkout = bindFlag({
   key: 'checkout',
+  source: self,
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
   description: 'The checkout flow',
 });
+
+// An inline flag, which the code decides
+export const summerSale = defineFlag({
+  key: 'summer-sale',
+  decide: () => Date.now() > Date.parse('2026-06-21'),
+});
 ```
 
 `'use flags'` is optional. It lets Flags Explorer find the flags (see
-[Discovery](#discovery)).
+[Discovery](#discovery)). Code generation can write the sources and flags
+for you, so that you import them from `flags:<source>` (see
+[Code generation](#code-generation)).
 
 ### 4️⃣ Evaluate them on the server
 
@@ -162,28 +165,41 @@ import { checkout, summerSale } from '../flags';
 
 export default async function Page() {
   const [sale, flow] = await evaluate([summerSale, checkout]);
-  // flow has the type 'control' | 'express'
+  // flow has the type 'control' | 'express' | (string & {})
 }
 ```
 
 TL;DR:
 
 - The framework package connects the SDK to the request, one time.
-- `flags.config.ts` connects the flags to your flag management system.
+- A source connects the flags to your flag management system.
 - Your code defines flags and calls them.
+- Optional: `flags/config.ts` holds settings for all flags: hooks and
+  overrides.
 
 ## Flags
 
 ```ts
-defineFlag('summer-sale'); // a boolean, without a default value
-defineFlag('banner-text', 'Welcome'); // the type comes from the default value
-defineFlag(connection, 'max-items', 10); // a flag of a different connection
-defineFlag({ key, type, options, defaultValue, description, connection });
+// A flag of a source: its provider decides the value
+bindFlag({ key: 'summer-sale', source: self }); // a boolean
+bindFlag({ key: 'banner-text', source: self, type: 'string', defaultValue: 'Welcome' });
+bindFlag({ key: 'max-items', source: shop, type: 'number', defaultValue: 10 });
+bindFlag({ key, source, type, options, defaultValue, description, getEvaluationContext });
+
+// An inline flag: the code decides the value
+defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const, // optional
+});
 ```
 
-- The types are `boolean` (the default), `string`, `number` and `object`.
-- `options` makes the type a union of the options, and a value which is not
-  an option fails.
+- The types are `boolean` (the default), `string`, `number` and `object`
+  (any JSON value). Set `type` for each type other than `boolean`.
+- `options` are for Flags Explorer and precompute. The editor suggests
+  them, but the provider can also return other values of the type, e.g. a
+  variant which was added after the deployment.
+- `source` is required for `bindFlag`. There is no default source.
 - **With `defaultValue`**, a flag which can not be evaluated returns it and
   logs one line. **Without `defaultValue`**, it throws a
   `FlagEvaluationError`.
@@ -197,22 +213,27 @@ user. It is created in a chain, one time for each request:
 
 1. the call side can give a context: `teamInsights({ evaluationContext: { teamId } })`;
 2. the flag can convert it with its own `getEvaluationContext`;
-3. the connection creates the context for the provider, also from the
+3. the source creates the context for the provider, also from the
    request: its headers, its cookies and its URL.
 
-TypeScript checks that each flag gets the context which its connection
+Each `getEvaluationContext` and each `decide` receives the request first,
+then the context: `(request, context)`. `request` is `undefined` outside of
+a request.
+
+TypeScript checks that each flag gets the context which its source
 needs. `evaluate([a, b], { evaluationContext })` gives one context to
 several flags.
 
 ## More than one flag management system
 
-A connection is a provider plus a project in a flag management system.
-Flags without a connection use the default connection. Other flags name
-their connection:
+A source is a provider plus a project in a flag management system, plus
+the function which creates the evaluation context.
+Each flag names its source, so a second source can use a different
+provider or a different project:
 
 ```ts
 // The flags of a different Vercel project, e.g. of a different team
-const blog = defineConnection({
+const blog = defineSource({
   provider: new VercelProvider(process.env.BLOG_FLAGS!),
   project: {
     system: 'vercel-flags',
@@ -221,7 +242,7 @@ const blog = defineConnection({
   },
 });
 
-export const newSearch = defineFlag(blog, 'new-search');
+export const newSearch = bindFlag({ key: 'new-search', source: blog });
 ```
 
 - With `project: { system: 'vercel-flags' }`, the flag project is the
@@ -233,6 +254,32 @@ export const newSearch = defineFlag(blog, 'new-search');
 
 A system which the SDK does not list yet adds itself with a pull request
 (see [For framework authors](./FRAMEWORK-AUTHORS.md)).
+
+## Code generation
+
+Code generation is optional. Each source is a directory
+`flags/sources/<source>` with two files and one optional file:
+
+- `catalog.ts` loads the flags of the flag management system;
+- `provider.ts` exports the OpenFeature provider;
+- `context.ts` (optional) exports `getEvaluationContext(request, input)`.
+  Without it, the provider gets only the evaluation context of the call
+  side.
+
+By convention, the main source is `flags/sources/self`. The SDK generates
+`.flags/self.ts` from it, and your code imports its flags from `flags:self`:
+
+```ts
+import { 'summer-sale' as summerSale } from 'flags:self';
+```
+
+The framework packages with a bundler generate the modules for you, by
+default, e.g. `withFlags({})` for Next.js. They generate one time for a
+build, and watch the catalogs in development. They also write the types in
+`flags/generated.d.ts`, so you do not configure TypeScript. To turn it off,
+use `disableCodeGeneration: true`. Without a
+bundler, e.g. with Hono or Express, run `flags sync` (or `flags watch`),
+and import `./.flags/self.ts`.
 
 ## Overrides
 
@@ -277,7 +324,7 @@ const content = serializeFlagValues(await encryptFlagValues(values));
 The SDK runs the OpenFeature parts which the OpenFeature client usually runs:
 
 ```ts
-// flags.config.ts
+// flags/config.ts
 import { defineConfig, OVERRIDE_REASON } from 'flags';
 
 export const config = defineConfig({
@@ -291,10 +338,11 @@ export const config = defineConfig({
 });
 ```
 
-- **Hooks** of the configuration, of a connection, of a call, and of the
+- **Hooks** of the configuration, of a source, of a call, and of the
   provider. An override has the reason `OVERRIDE`.
 - **Events:** `runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', handler)`.
-- **Tracking:** `await track('purchase', { details: { value: 99 } })`.
+- **Tracking:** `await track(self, 'purchase', { details: { value: 99 } })`.
+  `track` needs the source.
 
 ## Discovery
 
@@ -314,7 +362,7 @@ secrets.
 
 ```ts
 import { runtime } from 'flags';
-import { config } from './flags.config';
+import { config } from './flags/config';
 
 runtime.configure(config);
 await runtime.onInit(); // optional: initialize the providers at startup
@@ -326,6 +374,7 @@ await runtime.onInvoke(request, () => handle(request));
 - `request` is a Web `Request`, or an object with `headers`, `cookies` or
   `url`.
 - `flags manifest` writes the manifest of the flags after the build.
+- For code generation, run `flags sync`, and import `./.flags/self.ts`.
 - Call `runtime.onShutdown()` when the process stops.
 
 ## The packages

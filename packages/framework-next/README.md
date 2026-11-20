@@ -1,7 +1,7 @@
 # @flags-sdk/next
 
 The Next.js package of the [Flags SDK](../flags). It connects the SDK to
-Next.js: the request of each page, `flags.config.ts`, the signals of
+Next.js: the request of each page, `flags/config.ts`, the signals of
 Next.js, discovery for Flags Explorer, and precompute.
 
 ```ts
@@ -55,49 +55,75 @@ export default withFlags({
 ```
 
 That is the only required step. `withFlags` keeps your configuration, also
-your aliases and rules of Turbopack. If `flags.config.ts` is not in the
+your aliases and rules of Turbopack. If `flags/config.ts` is not in the
 directory of the application or in its `src`, give the directory:
 `withFlags({}, { dir: '/path/to/the/app' })`.
 
-### 2️⃣ Connect the project to Vercel (zero configuration)
+The configuration can also be a function of the phase. Pass the function to
+`withFlags`: `export default withFlags((phase) => ({ ... }))`. Do not call
+`withFlags` inside your own function of the phase: by default, `withFlags`
+returns a function of the phase itself. The type of the function is
+`NextConfigFunction<T>`, an export of `@flags-sdk/next/plugin`.
 
-Without `flags.config.ts`, flags without a connection use Vercel Flags.
-Locally, they use OFREP with the OIDC token of the project:
-
-```sh
-vercel link
-vercel env pull
-```
-
-The token expires. Run `vercel env pull` again when the flags fail with an
-error about the credential.
-
-### 3️⃣ Optional: `flags.config.ts`
+`withFlags` must be the outer plugin. It needs the phase to know the
+command (`next dev` watches the catalogs, `next build` generates once,
+`next start` does nothing), and only a configuration function gets the
+phase and can wait for the code generation. Most other plugins take an
+object, so give `withFlags` their result:
 
 ```ts
-// flags.config.ts
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineConnection } from 'flags';
+// Correct
+export default withFlags(withVercelToolbar()({}));
+// Wrong: withVercelToolbar gets a function
+export default withVercelToolbar()(withFlags({}));
+```
 
-export const config = defineConfig({
-  defaultConnection: defineConnection({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
+If another plugin must be the outer plugin, use
+`withFlags(config, { disableCodeGeneration: true })`, which returns an
+object, and run `flags sync` before `next build`.
+
+### 2️⃣ Give the flags a source
+
+Each flag of a provider names its source:
+
+```ts
+// flags.ts
+'use flags';
+
+import { bindFlag, defineSource } from 'flags';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+// The main source of the application
+const self = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
 });
 
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
+export const summerSale = bindFlag({ key: 'summer-sale', source: self });
 ```
 
-The file must export `config`. It can be `flags.config.ts`, `.mts`, `.js`
-or `.mjs`. In development, a change applies without a restart.
+There is no default source. Code generation can write the sources and
+flags for you (see "Code generation").
+
+### 3️⃣ Optional: `flags/config.ts`
+
+You do not need a configuration file. Add `flags/config.ts` (or
+`src/flags/config.ts`), next to `flags/sources`, for settings of all flags:
+OpenFeature `hooks`, and the options of `overrides`. It has no source.
+`withFlags` loads it automatically. The file must
+export `config`. In development, a change applies without a restart.
+
+```ts
+// flags/config.ts
+import { defineConfig } from 'flags';
+
+export const config = defineConfig({
+  hooks: [myLoggingHook],
+});
+```
 
 ## Usage
 
@@ -202,7 +228,9 @@ code in the URL, and renders a static page for each combination of values.
 Thus, a page can be static and still show the values of each visitor.
 
 ```ts
-// flags.ts
+// marketing-flags.ts: not in a 'use flags' module, which exports only flags
+import { checkout, summerSale } from './flags';
+
 export const marketingFlags = [summerSale, checkout] as const;
 ```
 
@@ -210,7 +238,7 @@ export const marketingFlags = [summerSale, checkout] as const;
 // proxy.ts
 import { precompute } from '@flags-sdk/next/precompute';
 import { type NextRequest, NextResponse } from 'next/server';
-import { marketingFlags } from './flags';
+import { marketingFlags } from './marketing-flags';
 
 export async function proxy(request: NextRequest) {
   // The request goes to the evaluation context chain and to the overrides
@@ -224,7 +252,8 @@ export const config = { matcher: '/marketing' };
 ```tsx
 // app/marketing/[code]/page.tsx
 import { generatePermutations, getPrecomputed } from '@flags-sdk/next/precompute';
-import { checkout, marketingFlags, summerSale } from '../../../flags';
+import { checkout, summerSale } from '../../../flags';
+import { marketingFlags } from '../../../marketing-flags';
 
 // Optional: build a page for each combination at build time
 export async function generateStaticParams() {
@@ -268,6 +297,43 @@ export default async function Page({
 - Precompute is not a part of the standard of the SDK. It uses only its
   public API.
 
+## Code generation
+
+By default, `withFlags` writes the modules of `flags:<source>`
+from the catalogs of `flags/sources/<source>` (see the SPEC of `flags`,
+"Code generation"). By convention, the main source of the application is
+`flags/sources/self` (`catalog.ts`, `provider.ts` and an optional
+`context.ts`):
+
+```ts
+// next.config.ts
+import { withFlags } from '@flags-sdk/next/plugin';
+
+export default withFlags({});
+```
+
+```ts
+// app/page.tsx
+import { checkout, 'summer-sale' as summerSale } from 'flags:self';
+```
+
+- `withFlags` returns a function of the phase. `next build` generates
+  `.flags/<source>.ts` one time and closes the catalogs. `next dev` generates and watches the
+  catalogs. `next start` does no catalog work.
+- Next.js loads the configuration more than once, also in its workers. One
+  process owns the generation, and the others see its PID in the
+  environment.
+- The folder `flags` is in the directory of the application or in its
+  `src`. Without `flags/sources`, `withFlags` writes nothing.
+- For the types, `withFlags` writes `flags/generated.d.ts`. TypeScript
+  finds it with its default `include`, so `tsconfig.json` needs no change.
+  Commit the file, or ignore it and run `flags sync` before `tsc`.
+- `.flags` has its own `.gitignore`, so `.gitignore` needs no change.
+- `withFlags({}, { disableCodeGeneration: true })` turns the generation off,
+  and returns the configuration object as it is. `withFlags` still points
+  the aliases of `.flags/aliases.json` to the modules, e.g. after
+  `flags sync` or with `flags watch -- next dev`.
+
 ## Discovery
 
 Put your flags into modules which start with `'use flags'`, and add one
@@ -285,22 +351,6 @@ export { GET } from '@flags-sdk/next/manifest';
 - `next build` writes `flags-manifest.json` into `distDir`. The deployment
   adapter of the platform puts it into the build output.
 
-## Deployment
-
-On Vercel, the deployment adapter of Next.js points the module
-`flags/default-provider` to the fast provider of Vercel Flags
-(`@vercel/flags-core/default-provider`). Thus, flags without a connection
-evaluate without a request for each flag, also with zero configuration.
-
-- The adapter does this only for builds. Development uses OFREP, or the
-  connection of `flags.config.ts`.
-- A `defaultConnection` in `flags.config.ts` always wins over the provider of
-  the platform.
-- Without the deployment adapter, e.g. on a different host, flags without a
-  connection use OFREP, and the SDK logs a warning in production: OFREP sends
-  one request for each evaluation. Set a `defaultConnection` in
-  `flags.config.ts` for production.
-
 ## How it works
 
 `withFlags` sets two aliases of Turbopack (`turbopack.resolveAlias`):
@@ -308,7 +358,7 @@ evaluate without a request for each flag, also with zero configuration.
 | Alias               | Points to          | Default without the plugin |
 | ------------------- | ------------------ | -------------------------- |
 | `flags/framework` | `@flags-sdk/next/binding`       | no framework binding       |
-| `flags/config`      | `flags.config.ts`  | no configuration           |
+| `flags/config`      | `flags/config.ts`  | no configuration           |
 
 The SDK imports `flags/framework` itself, so the binding works in each
 bundle that uses `flags`. The application never imports `@flags-sdk/next/binding`.
@@ -330,10 +380,10 @@ Before the first evaluation, the SDK calls `setupFramework` of
    such errors to `unstable_rethrow`, so that they reach Next.js unchanged.
    It also throws a `FlagInCacheError` again, so that a flag in a cache
    scope does not return its default value.
-3. **The config source.** It loads `flags.config.ts` with
+3. **The config source.** It loads `flags/config.ts` with
    `import('flags/config')`. In production, the SDK loads it one time. In
    development, it loads it again before each evaluation, so a change of
-   `flags.config.ts` applies without a restart.
+   `flags/config.ts` applies without a restart.
 
 Next.js can put more than one copy of the SDK into one process, e.g. one for
 each layer. All copies share one runtime through `globalThis`, so they share
@@ -359,29 +409,15 @@ the configuration, the providers and their clients.
   the route with its own error.
 - **No `'use client'`.** The SDK uses `node:async_hooks`, and it is only for
   the server.
-- **The registration of the type must be in the TypeScript program.** If
-  `tsconfig.json` does not include `flags.config.ts`, flags without a
-  connection lose the types of the configured connection. The type check
-  does not fail, but it is less strict.
-- **The export must be `config`.** A default export of `flags.config.ts` is
+- **The export must be `config`.** A default export of `flags/config.ts` is
   not read.
-- **A conditional configuration loses its types.** E.g.
-  `export const config = condition ? configA : configB` is a union, so the
-  registered type falls back to the open context.
-- **In production, a change of `flags.config.ts` needs a new build**, as
+- **In production, a change of `flags/config.ts` needs a new build**, as
   with each other source file. Only development loads it again without a
   restart.
-- **The adapter of the platform runs only for builds.** In development, the
-  flags use OFREP or `flags.config.ts`, not the fast provider of the
-  platform. Install `@vercel/flags-core` and set it in `flags.config.ts` for
-  fast evaluations during development.
-- **`VERCEL_OIDC_TOKEN` expires.** Run `vercel env pull` again when OFREP
-  reports a credential that is not accepted.
 - **Without `defaultValue`, each issue throws a `FlagEvaluationError`**: a
   provider that throws, an `errorCode`, the reason `ERROR`, a value of the
-  wrong type or outside of the options, and an OFREP response which asks for
-  the default of the code. With `defaultValue`, the flag returns it and logs
-  one line instead.
+  wrong type. With `defaultValue`, the flag returns it and logs one line
+  instead.
 - **One case can not be detected**: a provider that returns its default value
   without any sign of an issue, e.g. a disabled flag of
   `TypedInMemoryProvider`. OpenFeature requires a default, so the SDK passes
@@ -420,21 +456,15 @@ the configuration, the providers and their clients.
   (`compiler.runAfterProductionCompile`), it calls the compiled route of the
   manifest in a child process, and writes `flags-manifest.json`.
 - A deployment adapter can read `flags-manifest.json` in `onBuildComplete`.
-  See `tests/standard/next/adapter.mjs`.
-- A deployment adapter sets the alias of `flags/default-provider` in
-  `modifyConfig`, during `phase-production-build`. The adapter API is stable
-  since Next.js 16.2, and the platform enables its adapter with
-  `NEXT_ADAPTER_PATH`. See `tests/standard/next/adapter.mjs`.
-- `tests/standard/next` runs 16 end-to-end tests with HTTP requests, without
-  a browser:
+  The adapter API is stable since Next.js 16.2, and the platform enables
+  its adapter with `NEXT_ADAPTER_PATH`.
+- `tests/standard/next` runs end-to-end tests with HTTP requests, without
+  a browser, on a build of Turbopack:
 
   ```sh
   cd tests/standard/next
   pnpm test:e2e
   ```
-
-  It builds two variants: Turbopack (`.next`), and Turbopack with the test
-  adapter of the platform (`.next-platform`).
 
 See also [For framework authors](../flags/FRAMEWORK-AUTHORS.md).
 

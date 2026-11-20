@@ -1,0 +1,90 @@
+---
+title: Flag values in the page
+navTitle: FlagValues
+description: Write the flag values of a request into the page for Flags Explorer and Vercel Web Analytics.
+---
+
+`FlagValues` of `@flags-sdk/next/flag-values` writes the values of flags into the HTML of a page. [Flags Explorer](/docs/tooling/flags-explorer) reads them to show which values the current page used, and Vercel Web Analytics can attach them to events.
+
+```tsx title="app/layout.tsx"
+import { FlagValues } from '@flags-sdk/next/flag-values';
+import { checkout, summerSale } from '../flags';
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <FlagValues flags={[summerSale, checkout]} />
+      </body>
+    </html>
+  );
+}
+```
+
+`FlagValues` is a server component. It evaluates the flags in `flags`. Each flag is evaluated one time for each request, so the page and `FlagValues` get the same value, and the provider is not called twice.
+
+It renders one element:
+
+```html
+<script type="application/json" data-flag-values>…</script>
+```
+
+## Props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `flags` | `FlagDefinition[]` | Flags to evaluate for this request. |
+| `values` | `Record<string, JsonValue>` | Values that are already known, for example of `getPrecomputed`. A value replaces the value of a flag in `flags` with the same key. |
+| `plain` | `boolean` | Writes the values without encryption. Every visitor can read them. Default: `false`. |
+| `encryption` | `{ method?, secret?, expirationTime?, ... }` | Options of the encryption, for example `method: 'platform'` or `method: 'secret'`. |
+
+## Encryption
+
+The values are encrypted by default, because flag values can reveal unreleased features:
+
+- **Without `FLAGS_SECRET`**, `FlagValues` encrypts with the public key of Vercel. Only Vercel can read the values.
+- **With `FLAGS_SECRET`**, it encrypts with that secret, in the same format as v4.
+- **With `plain`**, it writes the values as plain JSON. Use this only for values that may be public.
+
+If the values can not be encrypted, for example because the public key can not be loaded, `FlagValues` writes no element and logs one warning. The page does not fail.
+
+## Static pages and precompute
+
+With only `values`, `FlagValues` does not read the request. A [precomputed](/docs/frameworks/next/precompute) page then stays fully static and gets its token at build time:
+
+```tsx title="app/marketing/[code]/page.tsx"
+const [sale, flow] = await getPrecomputed(
+  [summerSale, checkout],
+  marketingFlags,
+  code,
+);
+
+return (
+  <main>
+    <h1>{sale ? 'Summer sale' : `Checkout: ${flow}`}</h1>
+    <FlagValues values={{ [summerSale.key]: sale, [checkout.key]: flow }} />
+  </main>
+);
+```
+
+With Cache Components, `FlagValues` encrypts in `'use cache'` (`cacheLife('max')`), because Next.js allows random values and the time in a prerender only inside a cache scope. The values of a static page are the same for each visitor, so one token for them is correct.
+
+`FlagValues` has its own `<Suspense>` boundary. When it evaluates `flags`, only `FlagValues` is dynamic, and the rest of the layout can stay in the static shell. You do not need to wrap it yourself.
+
+## Other frameworks
+
+`FlagValues` is a React server component for Next.js. In other frameworks, write the same element yourself on the server with `encryptFlagValues` and `serializeFlagValues` of `flags`:
+
+```ts
+import { encryptFlagValues, evaluate, serializeFlagValues } from 'flags';
+import { checkout, summerSale } from './flags';
+
+const [sale, flow] = await evaluate([summerSale, checkout]);
+const token = await encryptFlagValues({ 'summer-sale': sale, checkout: flow });
+
+// serializeFlagValues escapes the content, so it can not end the element
+const html = `<script type="application/json" data-flag-values>${serializeFlagValues(token)}</script>`;
+```
+
+See the [API reference](/docs/api-reference/flags).

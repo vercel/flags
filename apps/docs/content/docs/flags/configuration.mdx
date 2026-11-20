@@ -1,0 +1,109 @@
+---
+title: Configuration
+description: Set hooks and override options for all flags in flags/config.ts.
+---
+
+`flags/config.ts` holds settings for all flags of your application. **It is optional**: without it, flags work, each provider flag names its source, and overrides work with `FLAGS_SECRET` or on Vercel. Add the file when you want to:
+
+- add **hooks**: OpenFeature hooks that run for every flag;
+- change the **overrides**: which override cookies the SDK accepts.
+
+The configuration has no source. Each provider flag names its source, e.g. the source `self` of [`flags/sources/self`](/docs/flags/code-generation).
+
+```ts title="flags/config.ts"
+import { defineConfig } from 'flags';
+
+export const config = defineConfig({
+  hooks: [
+    {
+      after(hookContext, details) {
+        console.log(`${hookContext.flagKey}: ${details.value} (${details.reason})`);
+      },
+    },
+  ],
+});
+```
+
+## The file
+
+- It lives in the `flags` folder of your application, next to `flags/sources`: `flags/config.ts`, or `src/flags/config.ts` if your application has a `src` directory. The names `flags/config.ts`, `flags/config.mts`, `flags/config.js` and `flags/config.mjs` work.
+- Export the configuration as `config`, a named export. A default export is not read.
+- Wrap it in `defineConfig`. It returns the configuration as it is, with its exact type.
+
+### How it is loaded
+
+How your application gets the file depends on the framework (see [Frameworks](/docs/frameworks)):
+
+- The plugins of Next.js, SvelteKit, Nuxt and TanStack Start find the file and load it automatically. In development, a change of the file applies without a restart.
+- The middlewares of Hono and Express take it as an option: `app.use(flags({ config }))`.
+- Without a framework, pass it to the runtime at startup:
+
+```ts title="server.ts"
+import { runtime } from 'flags';
+import { config } from './flags/config';
+
+runtime.configure(config);
+```
+
+`runtime.configure` checks the whole configuration at once, and throws before it changes anything. A new call replaces the configuration, e.g. after a reload in development.
+
+## Options
+
+| Option | Meaning |
+| --- | --- |
+| `hooks` | OpenFeature hooks for all flags. They run first, before the hooks of the source, of the call and of the provider. |
+| `overrides` | Which override cookies the SDK accepts. |
+
+### `hooks`
+
+Hooks for all flags, e.g. to log each evaluation, or to report overrides:
+
+```ts title="flags/config.ts"
+import { defineConfig, OVERRIDE_REASON } from 'flags';
+
+export const config = defineConfig({
+  hooks: [
+    {
+      after(hookContext, details) {
+        if (details.reason === OVERRIDE_REASON) {
+          console.log(`${hookContext.flagKey} is overridden: ${details.value}`);
+        }
+      },
+    },
+  ],
+});
+```
+
+See [OpenFeature](/docs/flags/openfeature#hooks).
+
+### `overrides`
+
+Flags Explorer overrides flags for your browser with the cookie `flag-overrides`. The SDK only accepts trusted cookies, and needs no configuration for this:
+
+1. If `FLAGS_SECRET` is set, the SDK accepts only cookies that are encrypted with it.
+2. Otherwise, on Vercel or locally after `vercel env pull`, it accepts only cookies that Vercel signed for this project.
+3. Otherwise, it accepts no override cookies.
+
+The option `overrides` changes these defaults:
+
+| Option | Meaning |
+| --- | --- |
+| `secret` | The shared secret. The default is `FLAGS_SECRET`. `false` accepts no cookies of a shared secret. |
+| `vercel` | `true` accepts cookies that Vercel signs, `false` accepts none, and an object sets options, e.g. `project` (`projectId`, `environment`, `teamId`) or `maxLifetimeSeconds` (the default is 24 hours). |
+
+With an explicit `vercel` option, both kinds of cookies can be active, e.g. during a migration:
+
+```ts title="flags/config.ts"
+import { defineConfig } from 'flags';
+
+export const config = defineConfig({
+  overrides: {
+    vercel: {
+      project: { projectId: 'prj_shop', environment: 'preview' },
+      maxLifetimeSeconds: 7 * 24 * 60 * 60, // one week
+    },
+  },
+});
+```
+
+See [Overrides](/docs/tooling/overrides) for how overrides work and how to create them.

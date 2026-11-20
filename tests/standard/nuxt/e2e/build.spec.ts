@@ -34,7 +34,7 @@ test('writes the manifest of the flags into the server output', () => {
 
   expect(manifest).toEqual({
     version: 1,
-    connections: {
+    sources: {
       'in-memory': { system: 'in-memory', variables: {} },
     },
     definitions: {
@@ -43,40 +43,49 @@ test('writes the manifest of the flags into the server output', () => {
         defaultValue: 'Welcome',
         description: 'The text of the banner',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'lib/flags.ts', export: 'bannerText' }],
+        source: 'in-memory',
+        declarations: [{ module: 'lib/flags.ts', export: 'bannerText' }],
+      },
+      enableSale: {
+        type: 'boolean',
+        options: [{ value: false }, { value: true }],
+        defaultValue: false,
+        declaredInCode: true,
+        declarations: [{ module: '.flags/self.ts', export: 'enableSale' }],
       },
       greeting: {
         type: 'string',
         defaultValue: 'Hi',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'lib/default-flags.ts', export: 'greeting' }],
+        source: 'in-memory',
+        declarations: [{ module: 'lib/default-flags.ts', export: 'greeting' }],
       },
       'new-checkout': {
         type: 'boolean',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'lib/default-flags.ts', export: 'newCheckout' }],
+        source: 'in-memory',
+        declarations: [
+          { module: 'lib/default-flags.ts', export: 'newCheckout' },
+        ],
       },
       'plain-flag': {
         type: 'boolean',
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'lib/lazy-flags.ts', export: 'plainFlag' }],
+        source: 'in-memory',
+        declarations: [{ module: 'lib/lazy-flags.ts', export: 'plainFlag' }],
       },
       'summer-sale': {
         type: 'boolean',
         defaultValue: false,
         declaredInCode: true,
-        connection: 'in-memory',
-        sources: [{ module: 'lib/flags.ts', export: 'summerSale' }],
+        source: 'in-memory',
+        declarations: [{ module: 'lib/flags.ts', export: 'summerSale' }],
       },
     },
   });
 });
 
-test('uses flags.config.ts and the request without onInvoke', async ({
+test('uses flags/config.ts and the request without onInvoke', async ({
   request,
 }) => {
   const [anonymous, alice] = await Promise.all([
@@ -86,7 +95,7 @@ test('uses flags.config.ts and the request without onInvoke', async ({
 
   expect(await anonymous.json()).toEqual({
     checkout: false,
-    text: 'Hello from flags.config.ts',
+    text: 'Hello from flags/config.ts',
   });
   expect(await alice.json()).toMatchObject({ checkout: true });
 });
@@ -106,4 +115,15 @@ test('lets an error of Nitro through', async ({ request }) => {
   });
 
   expect(response.status()).toBe(403);
+});
+
+test('evaluates a flag of code generation through flags:self', async ({
+  request,
+}) => {
+  const alice = await request.get('/api/generated', {
+    headers: { cookie: 'user=alice' },
+  });
+  expect(await alice.json()).toEqual({ sale: true });
+  const bob = await request.get('/api/generated');
+  expect(await bob.json()).toEqual({ sale: false });
 });

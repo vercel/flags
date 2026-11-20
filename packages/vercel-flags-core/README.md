@@ -33,6 +33,18 @@ export default app;
 
 Outside Vercel, pass an SDK key explicitly: `createClient(process.env.FLAGS)`.
 
+### Read a connected project's flags
+
+Grant your project access from the source project's **Flags → Connections** page, then create a client with the source project's ID:
+
+```ts
+const sharedClient = createClient({ projectId: 'prj_source' });
+```
+
+The client uses your project's OIDC token. Both projects must belong to the same team. Connections apply across environments; the token selects the source environment, with custom environments mapped to preview. Run `vercel env pull` in your project for local development. The `projectId` option cannot be combined with an SDK key.
+
+See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections) for permissions and setup.
+
 ## Header-driven reads on Vercel
 
 When `VERCEL=1`, the client defaults to `vercel: true`. Initialization loads provided
@@ -182,6 +194,47 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 await OpenFeature.setProviderAndWait(new VercelProvider());
 const client = OpenFeature.getClient();
 ```
+
+## Catalog for code generation
+
+The code generation of the Flags SDK (the `flags` package) reads the flags of
+a source from its `catalog.ts`. `@vercel/flags-core/catalog` is the catalog of
+Vercel Flags. It reads the flags of your project from the stream of Vercel
+Flags:
+
+```ts
+// flags/sources/self/catalog.ts
+export { default } from '@vercel/flags-core/catalog';
+```
+
+A build takes the first catalog. A development server stays connected, and
+the SDK generates the code again after each change in Vercel. The catalog
+sets `project` (`{ system: 'vercel-flags', projectId }`) and `revision`. It
+gives no `defaultValue`, so a generated flag throws when its evaluation
+fails. If you need a `defaultValue`, write a static catalog instead.
+
+For options, use `createCatalogLoader`:
+
+```ts
+// flags/sources/self/catalog.ts
+import { createCatalogLoader } from '@vercel/flags-core/catalog';
+
+export default createCatalogLoader({
+  // A connected project of the same team, with the OIDC token
+  projectId: 'prj_source',
+});
+```
+
+| Option      | Description                                                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------- |
+| `sdkKey`    | The SDK key or connection string. The default is the `FLAGS` environment variable, then the OIDC token. |
+| `projectId` | The flags of a connected project of the same team, with the OIDC token. Not together with `sdkKey`. |
+| `fetch`     | The `fetch` for the stream, e.g. in tests.                                                        |
+
+For the OIDC token, run `vercel link` and `vercel env pull` once. The catalog
+throws on a `401` response. `catalogFromDatafile(datafile)` turns a
+datafile into a catalog, if you load the datafile yourself. The catalog has
+the description of a flag if the datafile has one.
 
 ## Client debug logging
 

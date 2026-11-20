@@ -1,0 +1,122 @@
+---
+title: Errors and default values
+description: What happens when a flag can not be evaluated, and how defaultValue changes it.
+---
+
+A flag can fail: the provider is down, the flag does not exist in your flag management system, the value has the wrong type, or `getEvaluationContext` throws. What happens then depends on one option, `defaultValue`.
+
+- **With `defaultValue`**, the flag returns it and logs one line.
+- **Without `defaultValue`**, the call throws a `FlagEvaluationError`.
+
+```ts title="flags.ts"
+import { bindFlag } from 'flags';
+
+// Returns false when the evaluation fails
+export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });
+
+// Throws when the evaluation fails
+export const pricingTable = bindFlag({ key: 'pricing-table', type: 'string' });
+```
+
+## With a default value
+
+The flag returns `defaultValue`, and the SDK logs one line:
+
+```text
+flags: Could not evaluate flag "summer-sale": no flag found with key summer-sale. Returned the default value: false.
+```
+
+One line keeps your logs small when a flag fails on each request. The full error goes to the debug level.
+
+Use a `defaultValue` for flags where a safe value exists, e.g. `false` for a new feature. Your page then keeps working when the flag management system is not reachable.
+
+## Without a default value
+
+The call rejects with a `FlagEvaluationError`:
+
+```ts
+import { FlagEvaluationError } from 'flags';
+import { pricingTable } from './flags';
+
+try {
+  const table = await pricingTable();
+} catch (error) {
+  if (error instanceof FlagEvaluationError) {
+    console.log(error.flagKey); // 'pricing-table'
+    console.log(error.code); // e.g. 'FLAG_NOT_FOUND'
+  }
+  throw error;
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `flagKey` | The key of the flag |
+| `code` | An OpenFeature error code, e.g. `FLAG_NOT_FOUND`, `TYPE_MISMATCH`, `PROVIDER_FATAL` or `GENERAL` (for errors without a code) |
+| `message` | e.g. `flags: Could not evaluate flag "pricing-table": no flag found with key pricing-table` |
+| `cause` | The original error, if there is one |
+
+Leave out `defaultValue` when no value is safe, and an error page is better than a wrong value, e.g. for a flag that selects a price.
+
+## What counts as a failure
+
+Each of these fails the evaluation. The flag then returns its `defaultValue` or throws:
+
+- the provider throws, or returns an `errorCode`, or the reason `ERROR`;
+- the provider returns a value of a different type (`TYPE_MISMATCH`, see [Types and options](/docs/flags/types-and-options#the-type-is-checked-at-runtime));
+- the provider has no method for the type of the flag;
+- `decide` of an inline flag throws, or returns a value of a different type;
+- a `getEvaluationContext` step throws. The flags that use its result fail for the rest of the request;
+- a hook throws in `before` or `after` (see [OpenFeature](/docs/flags/openfeature#hooks)).
+
+A value that is not one of the `options` is not a failure. It goes through, see [Options do not limit the value](/docs/flags/types-and-options#options-do-not-limit-the-value).
+
+A failure is kept for the request: during one request, a failed flag is evaluated once, and logs once.
+
+## Several flags
+
+`evaluate` handles each flag on its own. A flag with a `defaultValue` returns it. If a flag without `defaultValue` fails, the whole call rejects with its `FlagEvaluationError`, as `flag()` would:
+
+```ts
+// Rejects if pricingTable fails. summerSale alone would return false.
+const [sale, table] = await evaluate([summerSale, pricingTable]);
+```
+
+## Without a default value, the provider gets a placeholder
+
+OpenFeature requires a default value of the correct type in each call of a provider. For a flag without `defaultValue`, the SDK passes a placeholder: `false`, `''`, `0` or `{}`.
+
+Most providers report a problem with an error code, and the flag throws. But a provider can also return its default without an error, e.g. the in-memory provider for a disabled flag. Then the flag returns the placeholder. The SDK can not tell this case from a real value. If the difference matters to you, set a `defaultValue`.
+
+## Generated flags
+
+A flag from [code generation](/docs/flags/code-generation) has a `defaultValue` only if its catalog gives one. Set `defaultValue` for each flag in `catalog.ts` where a safe value exists. For the other flags, catch the error where a fallback makes sense:
+
+```ts title="app/page.tsx"
+import { FlagEvaluationError } from 'flags';
+import { checkout } from 'flags:self';
+
+async function checkoutFlow(): Promise<string> {
+  try {
+    return await checkout();
+  } catch (error) {
+    if (error instanceof FlagEvaluationError) {
+      return 'control';
+    }
+    throw error;
+  }
+}
+```
+
+Or define the flag by hand with a `defaultValue` (see [Flags of a source](/docs/flags/provider-flags)).
+
+## Errors of the framework pass through
+
+Some frameworks use errors as signals, e.g. Next.js for `redirect()`, `notFound()` or to stop static rendering. The framework package tells the SDK about them, and the SDK rethrows them unchanged, before it uses the `defaultValue`. Thus, a flag never hides such a signal. Rethrow errors that are not a `FlagEvaluationError` in your own `catch` blocks too, as in the examples above.
+
+## Errors outside an evaluation
+
+- **Provider initialization.** An error is logged with the full error, and the provider is initialized again on the next evaluation. Each flag of that provider fails until then. A provider that reports `PROVIDER_FATAL` stays failed until `runtime.onShutdown()`.
+- **Tracking.** `track` logs errors, and never throws.
+- **Hooks.** An error in an `error` or `finally` hook is logged, and does not change the result.
+- **Override cookies.** An invalid override cookie is ignored with one warning, e.g. `flags: The override cookie was ignored. Reason: malformed-token.` See [Overrides](/docs/tooling/overrides).

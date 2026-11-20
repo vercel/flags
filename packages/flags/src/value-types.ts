@@ -6,9 +6,12 @@ import type { JsonValue } from './overrides/types';
 export type FlagType = 'boolean' | 'string' | 'number' | 'object';
 
 /**
- * The value of a flag of the type `object`: a JSON object or a JSON array.
+ * The value of a flag of the type `object`: any JSON value, as with
+ * `resolveObjectEvaluation` of OpenFeature. Usually an object, but also an
+ * array, a string, a number, a boolean or `null`, e.g. for a flag whose
+ * variants mix types.
  */
-export type FlagObjectValue = { [key: string]: JsonValue } | JsonValue[];
+export type FlagObjectValue = JsonValue;
 
 /**
  * The value of any flag.
@@ -51,13 +54,28 @@ export type FlagOptionsOf<T extends FlagType> = T extends 'object'
 type OptionValue<O> = O extends FlagOptionObject<infer V> ? V : O;
 
 /**
- * The value of a flag: the union of its options, if it has a fixed list of
- * options, else the value of its type.
+ * The values of each type which are not in a fixed list of options. A
+ * provider can return a value which the code does not know yet, e.g. a
+ * variant which was added after the deployment. `string & {}` keeps the
+ * options as suggestions in the editor.
+ */
+interface OtherValues {
+  boolean: never;
+  string: string & {};
+  number: number & {};
+  object: FlagObjectValue;
+}
+
+/**
+ * The value of a flag: the union of its options and of the other values of
+ * its type, if it has a fixed list of options, else the value of its type.
  */
 export type FlagValueFrom<
   T extends FlagType,
   O extends readonly unknown[],
-> = number extends O['length'] ? FlagValueOf<T> : OptionValue<O[number]>;
+> = number extends O['length']
+  ? FlagValueOf<T>
+  : OptionValue<O[number]> | OtherValues[T];
 
 const types: readonly FlagType[] = ['boolean', 'string', 'number', 'object'];
 
@@ -99,13 +117,35 @@ export function isFlagType(value: unknown): value is FlagType {
   return types.includes(value as FlagType);
 }
 
+function isJsonValue(value: unknown): boolean {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean'
+  ) {
+    return true;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue);
+  }
+  if (typeof value === 'object') {
+    return Object.values(value).every(isJsonValue);
+  }
+  return false;
+}
+
 /**
  * Whether a value has the type of the flag.
  *
  * @internal
  */
 export function hasType(value: unknown, type: FlagType): boolean {
-  if (type === 'object') return typeof value === 'object' && value !== null;
+  if (type === 'object') {
+    return isJsonValue(value);
+  }
   if (type === 'number') {
     return typeof value === 'number' && Number.isFinite(value);
   }

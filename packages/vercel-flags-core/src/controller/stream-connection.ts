@@ -190,7 +190,7 @@ export async function connectStream(
             rejectInit!(error);
           }
           onDisconnect?.();
-          abortController.abort();
+          abortController.abort(error);
           break;
         }
 
@@ -318,7 +318,7 @@ export async function connectStream(
         }
         if (error instanceof TokenResolutionError && !initialDataReceived) {
           rejectInit!(error.cause);
-          abortController.abort();
+          abortController.abort(error.cause);
           break;
         }
         // Ping timeout aborts only the per-connection controller; this is

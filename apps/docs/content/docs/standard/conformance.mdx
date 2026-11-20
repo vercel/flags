@@ -1,0 +1,199 @@
+---
+title: Conformance
+description: Check a framework binding against the Flags SDK standard with @flags-sdk/conformance.
+---
+
+`@flags-sdk/conformance` is the conformance suite of the [Flags SDK standard](/docs/standard). It checks a framework binding in a running application, over HTTP, so that a framework can show that it works with the Flags SDK.
+
+A framework binding SHOULD pass the suite (section 12 of [STANDARD.md](https://github.com/vercel/flags/blob/main/packages/flags/STANDARD.md)).
+
+- **Over HTTP.** It tests the real framework, with real requests, in development or after a build.
+- **For each test runner.** `conformanceChecks` is a list, so Playwright, Vitest or any other runner can make one test of each check.
+- **Clear errors.** A failed check names the section of the standard which is not met.
+
+## The checks
+
+| Check | Section | When it runs |
+| --- | --- | --- |
+| The headers, the cookies and the URL of the request | 3.1 | Always. The URL only without `url: false` |
+| The evaluation context one time for each request | 3.2 | Always |
+| The requests apart | 3.2 | Always |
+| A signal of the framework | 5.2 | With `signal: true` |
+| An override cookie | 10.1 | With `flagsSecret` |
+| The manifest in development | 7.2 | With `devManifest: true` |
+| The manifest in the build | 7.2, 7.3 | With `manifestFile` |
+
+## Set up the suite
+
+### 1. Install the package
+
+```bash
+npm install -D @flags-sdk/conformance
+```
+
+### 2. Add the route
+
+The application serves `GET /conformance` with the result of `conformanceResult()`. A framework with signals registers one with `setConformanceSignal`; the suite expects it as a response with the status 307.
+
+```ts tab="Next.js" title="app/conformance/route.ts"
+import {
+  conformanceResult,
+  setConformanceSignal,
+} from '@flags-sdk/conformance';
+import { redirect } from 'next/navigation';
+
+// redirect() of Next.js is the signal
+setConformanceSignal(() => redirect('/'));
+
+export async function GET() {
+  return Response.json(await conformanceResult());
+}
+```
+
+```ts tab="SvelteKit" title="src/routes/conformance/+server.ts"
+import {
+  conformanceResult,
+  setConformanceSignal,
+} from '@flags-sdk/conformance';
+import { json, redirect } from '@sveltejs/kit';
+
+// redirect() of SvelteKit is the signal
+setConformanceSignal(() => redirect(307, '/'));
+
+export async function GET() {
+  return json(await conformanceResult());
+}
+```
+
+```ts tab="Nuxt" title="server/routes/conformance.get.ts"
+import {
+  conformanceResult,
+  setConformanceSignal,
+} from '@flags-sdk/conformance';
+
+// createError() of Nitro is the signal
+setConformanceSignal(() => createError({ statusCode: 307 }));
+
+export default defineEventHandler(() => conformanceResult());
+```
+
+```ts tab="TanStack Start" title="src/routes/conformance.ts"
+import {
+  conformanceResult,
+  setConformanceSignal,
+} from '@flags-sdk/conformance';
+import { createFileRoute, redirect } from '@tanstack/react-router';
+
+// redirect() of TanStack Router is the signal
+setConformanceSignal(() => redirect({ href: '/', statusCode: 307 }));
+
+export const Route = createFileRoute('/conformance')({
+  server: {
+    handlers: {
+      GET: async () => Response.json(await conformanceResult()),
+    },
+  },
+});
+```
+
+```ts tab="Hono" title="src/server.ts"
+import {
+  conformanceResult,
+  setConformanceSignal,
+} from '@flags-sdk/conformance';
+import { HTTPException } from 'hono/http-exception';
+
+// An HTTPException is the signal
+setConformanceSignal(() => new HTTPException(307));
+
+app.get('/conformance', async (c) => c.json(await conformanceResult()));
+```
+
+```ts tab="Express" title="src/server.ts"
+import { conformanceResult } from '@flags-sdk/conformance';
+
+// Express has no signals
+app.get('/conformance', async (_request, response) => {
+  response.json(await conformanceResult());
+});
+```
+
+The route runs in your application with your binding, like any other route. For the override check, the application needs a `FLAGS_SECRET`.
+
+### 3. Run the checks
+
+Make one test of each check, and skip the checks which do not apply:
+
+```ts title="e2e/conformance.spec.ts"
+import {
+  type ConformanceOptions,
+  conformanceChecks,
+} from '@flags-sdk/conformance';
+import { test } from '@playwright/test';
+
+for (const check of conformanceChecks) {
+  test(`conformance ${check.name}`, async ({ baseURL }) => {
+    const options: ConformanceOptions = {
+      baseURL: baseURL as string,
+      flagsSecret: process.env.FLAGS_SECRET,
+      signal: true,
+      manifestFile: '.next/flags-manifest.json',
+      // Server components of Next.js have no URL of the request
+      url: false,
+    };
+    test.skip(!check.applies(options), 'Does not apply');
+    await check.run(options);
+  });
+}
+```
+
+Run the suite against the development server and against the build, with `devManifest: true` in development and `manifestFile` after the build. This is how `tests/standard/sveltekit` does it:
+
+```ts title="e2e/conformance.spec.ts"
+const options: ConformanceOptions = {
+  baseURL: baseURL as string,
+  flagsSecret: FLAGS_SECRET,
+  signal: true,
+  ...(testInfo.project.name === 'dev'
+    ? { devManifest: true }
+    : { manifestFile: '.svelte-kit/output/server/flags-manifest.json' }),
+};
+```
+
+Without a test runner, `runConformance(options)` runs all checks, and returns the name and the error of each.
+
+## Options
+
+| Option | Meaning |
+| --- | --- |
+| `baseURL` | The origin of the running application. |
+| `path` | The path of the route. The default is `/conformance`. |
+| `flagsSecret` | `FLAGS_SECRET` of the application, for the override cookie. |
+| `signal` | Whether the application registered a signal with `setConformanceSignal`. |
+| `devManifest` | Whether the application runs in development, for the manifest at `/.well-known/flags/manifest.json`. |
+| `manifestFile` | The path of `flags-manifest.json` of the build. |
+| `url` | `false` if the binding does not know the URL of the request in all places. Next.js sets it, because server components have no URL. |
+| `fetch` | Another `fetch`, e.g. for a test without a server. |
+
+## How it works
+
+- The suite has its own source (`conformanceSource`). Its provider returns the evaluation context which it receives, so the suite sees exactly what the binding gives the SDK.
+- The route evaluates the flags of the suite twice. The source counts how often it creates the evaluation context for each request, to check that it runs once.
+- The suite sends a header with an ID with each request, so the checks can run at the same time.
+
+## The reference applications
+
+Each application in [`tests/standard`](https://github.com/vercel/flags/tree/main/tests/standard) runs the suite, next to more end-to-end tests over HTTP:
+
+| Framework | Application | Signal |
+| --- | --- | --- |
+| Next.js | `tests/standard/next` | `redirect()` |
+| SvelteKit | `tests/standard/sveltekit` | `redirect(307, '/')` |
+| Nuxt | `tests/standard/nuxt` | `createError({ statusCode: 307 })` |
+| TanStack Start | `tests/standard/tanstack-start` | `redirect({ statusCode: 307 })` |
+| Hono | `tests/standard/hono` | `new HTTPException(307)` |
+| Express | `tests/standard/express` | None |
+
+Beyond the suite, each application also tests `flags/config.ts` without code in the application, a signal from `getEvaluationContext`, and the registration of `'use flags'` modules. Use them as a template for the tests of a new binding.
+
+The suite does not check everything yet, e.g. `runtime.onInit()` and `runtime.onShutdown()`, and the reload of `flags/config.ts` in development. A binding which passes the suite should still follow the whole of STANDARD.md.

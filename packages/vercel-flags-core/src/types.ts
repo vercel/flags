@@ -208,7 +208,8 @@ export type FlagsClient<Entities = Record<string, unknown>> = {
   /**
    * Origin information for this client.
    * sdkKey is only present when the client was explicitly created with one.
-   * projectId is only present when the client reads another project's flags.
+   * projectId is present when the client reads another project's flags, or
+   * its own project's flags with OIDC while VERCEL_PROJECT_ID is set.
    */
   origin?: {
     provider: string;
@@ -1056,6 +1057,8 @@ export namespace Packed {
     variantIds?: string[];
     /**  variants, packed down to just their values */
     variants: Value[];
+    /** Description of the flag. */
+    description?: string;
     /** Experiment linked to this flag. */
     experiment?: experimental_ExperimentDefinition;
     /**  environments */

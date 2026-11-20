@@ -1,0 +1,138 @@
+---
+title: The flags manifest
+navTitle: Flags manifest
+description: How the framework plugins find your flags in 'use flags' modules, and describe them in a manifest for tools.
+---
+
+The **flags manifest** is a JSON description of the flags of your application: their keys, types, options, default values, descriptions, and the projects of their sources. Tools such as [Flags Explorer](/docs/tooling/flags-explorer) read it to show your flags.
+
+The manifest is optional. Your flags work the same without it.
+
+- It has **no values** of flags and **no secrets**.
+- The SDK creates it **without evaluating** a flag.
+- It is served only **in development**. A build writes it to a file, `flags-manifest.json`, which a platform can put into its build output. There is no public endpoint in production.
+
+## `'use flags'` modules
+
+A module which starts with the `'use flags'` directive is a **flags module**. The framework plugins find these modules, register their flags, and put them into the manifest.
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag, defineFlag } from 'flags';
+import { shop } from './sources';
+
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: shop,
+  defaultValue: false,
+  description: 'Shows the summer sale banner',
+});
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
+});
+```
+
+The rules of a flags module:
+
+- **Each export is a flag.** Export sources, helpers and types from other modules. An export which is not a flag makes the manifest fail.
+- **No side effects.** Importing the module only defines flags and sources. It must not open network connections, because tools import it to read the flags.
+- **The directive comes first**, as with `'use client'`: only comments, whitespace and other directives can be before it.
+
+You can have as many flags modules as you like, e.g. one for each feature. Two exports with the same key must declare the same flag. The modules which [code generation](/docs/flags/code-generation) writes into `.flags`, e.g. `.flags/self.ts` for `flags:self`, are flags modules too.
+
+The plugins also append a registration to each flags module, which calls `registerFlags` with its exports. Without a plugin, call it yourself where needed: `registerFlags(await import('./flags'))`.
+
+## Where the manifest is
+
+| Framework | Development | After a build |
+| --- | --- | --- |
+| Next.js | The route `app/.well-known/flags/manifest.json/route.ts` (see below) | `flags-manifest.json` in `distDir`, e.g. `.next` |
+| SvelteKit | `/.well-known/flags/manifest.json` | `flags-manifest.json` in the server output |
+| Nuxt | `/.well-known/flags/manifest.json` | `flags-manifest.json` in `.output/server` |
+| TanStack Start | `/.well-known/flags/manifest.json` | `flags-manifest.json` in `.output/server` |
+| Hono, Express, no framework | None | Run [`flags manifest`](/docs/tooling/cli#flags-manifest) after the build |
+
+In development, the endpoint answers with `cache-control: no-store`, and a new flags module appears without a restart. In production, it does not exist.
+
+### Next.js
+
+A plugin of Next.js cannot add a route, so add one route file:
+
+```ts title="app/.well-known/flags/manifest.json/route.ts"
+export { GET } from '@flags-sdk/next/manifest';
+```
+
+In production, the route returns 404. `next build` writes `flags-manifest.json` into `distDir`.
+
+### Without a bundler
+
+Without a bundler, run `flags manifest` after your build:
+
+```json title="package.json"
+{
+  "scripts": {
+    "build": "tsc",
+    "postbuild": "flags manifest dist"
+  }
+}
+```
+
+`flags manifest` imports the flags modules of the directory with Node.js. Run it on the output of `tsc`, which keeps the directive, or on your TypeScript source with Node.js 22.18 or newer. A bundled output loses the directive. See [CLI](/docs/tooling/cli#flags-manifest).
+
+## What is in the manifest
+
+For the module above, with `shop` an in-memory source, the manifest is:
+
+```json title="flags-manifest.json"
+{
+  "version": 1,
+  "sources": {
+    "in-memory": {
+      "system": "in-memory",
+      "variables": {}
+    }
+  },
+  "definitions": {
+    "beta-banner": {
+      "type": "boolean",
+      "options": [{ "value": false }, { "value": true }],
+      "description": "Shows the beta banner to testers",
+      "declaredInCode": true,
+      "declarations": [{ "module": "flags.ts", "export": "betaBanner" }]
+    },
+    "summer-sale": {
+      "type": "boolean",
+      "defaultValue": false,
+      "description": "Shows the summer sale banner",
+      "declaredInCode": true,
+      "source": "in-memory",
+      "declarations": [{ "module": "flags.ts", "export": "summerSale" }]
+    }
+  }
+}
+```
+
+- **`definitions`** has one entry for each flag, sorted by key, so the file is stable between builds.
+- **`sources`** has the flag projects of the sources, by an ID which the definitions use in `source`. The `variables` are the fields of the `project` of the source, e.g. `projectId`, never credentials.
+- An inline flag has no `source`, because no flag management system decides its value. A source without a `project` also gives its flags no `source`.
+
+For a Vercel Flags source, the variables come from the environment of the build, e.g. the project ID of the deployment, unless the `project` of the source sets them. The format is defined by a JSON Schema; see [The flags manifest format](/docs/standard/flags-manifest-format).
+
+## Create a manifest in code
+
+The framework plugins use `createManifest` of `flags/manifest`. You can use it too, e.g. in a test or a custom build step:
+
+```ts title="scripts/manifest.ts"
+import { createManifest } from 'flags/manifest';
+import * as flags from '../flags';
+
+const manifest = createManifest([{ id: 'flags.ts', exports: { ...flags } }]);
+console.log(JSON.stringify(manifest, null, 2));
+```
+
+`id` is the path of the module, relative to your project. It becomes the `module` of each declaration.

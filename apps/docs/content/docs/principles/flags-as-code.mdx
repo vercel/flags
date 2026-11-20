@@ -1,128 +1,154 @@
 ---
 title: Flags as Code
+description: Why the Flags SDK turns each feature flag into a typed function that you declare once and call anywhere.
 ---
 
-The Flags SDK is conceptually different from the SDKs of most feature
-flag providers. It puts a few constraints in place that lead to a better
-experience when using flags.
+The Flags SDK works differently from the SDKs of most feature flag providers.
+It puts a few constraints in place, and these constraints lead to a better
+experience when you use flags across a codebase.
 
 ## Consistent, predictable call sites
 
-Using the SDK of a typical feature flag provider looks similar to the
-code example below, where the SDK is called with the name of the feature
-flag as a string:
+With the SDK of a typical feature flag provider, you call a client with the
+key of the flag as a string:
 
-```tsx
-// a typical feature flag SDK, such as OpenFeature in this example
-const exampleValue = await client.getBooleanValue('exampleFlag', false);
-```
-
-Compare this to what it looks like when using a feature flag in the
-Flags SDK:
-
-```tsx
-// the Flags SDK
-const exampleValue = await exampleFlag();
-```
-
-Using a feature flag first requires declaring it like so:
-
-```tsx
-import { flag } from 'flags/next';
-
-export const exampleFlag = flag({
-  key: 'example-flag',
-  defaultValue: false,
-  decide() {
-    return false;
-  },
+```ts
+// A typical feature flag SDK, here the OpenFeature client
+const showBanner = await client.getBooleanValue('summer-sale', false, {
+  targetingKey: user.id,
 });
 ```
+
+With the Flags SDK, you call the flag itself:
+
+```ts
+// The Flags SDK
+const showBanner = await summerSale();
+```
+
+To get there, you declare the flag once:
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag } from 'flags';
+import { self } from './flags/self';
+
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: self,
+  defaultValue: false,
+  description: 'Shows the summer sale banner',
+});
+```
+
+`bindFlag` declares a flag whose value comes from a flag management system,
+through a [source](/docs/flags/provider-flags). With
+[code generation](/docs/flags/code-generation), you do not write this code:
+the SDK writes it from the catalog of `flags/sources/self/`, and you import
+the flag with `import { summerSale } from 'flags:self'`. If the code decides the value,
+use `defineFlag` with a `decide` function instead. Both return the same kind of
+flag, and you call both the same way. See
+[the two kinds of flags](/docs/flags).
 
 ## Feature flags are functions
 
-Turning each feature flag into its own function means the implementation
-can change without having to touch the call site. It also lets you
-use your well-known editor shortcuts like "Find All References" to see
-if a flag is still in use.
+Each flag is its own function, so the implementation can change without
+touching the call sites. You can move a flag from an inline `decide` function
+to a provider, or from one provider to another, and no page needs to change.
 
-## Feature flags declare their default value
+Because flags are regular exports, your editor's tools work with them. "Find
+all references" shows where a flag is still used, "Rename symbol" renames it,
+and deleting the export shows every place that still needs it as a type error.
 
-Each feature flag's declaration can contain the default value. This
-value is used in case the feature flag can not be evaluated. Containing
-the default value on the declaration means it will be consistent across
-all evaluations.
+## Feature flags declare their type and default value
+
+The declaration contains everything the call site needs to know: the `type`
+(`boolean`, `string`, `number` or `object`), the known `options`, and the
+`defaultValue`.
+
+```ts title="flags.ts"
+export const checkout = bindFlag({
+  key: 'checkout',
+  source: self,
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+});
+
+// The type of the value is 'control' | 'express' | (string & {})
+const flow = await checkout();
+```
+
+The default value lives on the declaration, so it is the same for every
+evaluation. When the provider fails, the flag returns its `defaultValue` and
+logs one line. A flag without a `defaultValue` throws a `FlagEvaluationError`
+instead, so you decide per flag whether a failure is acceptable. See
+[Errors and default values](/docs/flags/errors-and-default-values).
 
 ## Feature flags declare how their context is established
 
-Traditional feature flag SDKs require passing in the context on the call
-site, as shown below:
+Traditional SDKs ask for the evaluation context on each call:
 
-```tsx
-// a typical feature flag SDK, such as OpenFeature in this example
-
-// add a value to the invocation context
-const context = {
-  user: { id: '123' },
-};
-
-const boolValue = await client.getBooleanValue('boolFlag', false, context);
+```ts
+// A typical feature flag SDK, here the OpenFeature client
+const context = { targetingKey: user.id, plan: user.plan };
+const value = await client.getBooleanValue('summer-sale', false, context);
 ```
 
-The downside of this approach is that every call site needs to recreate
-the evaluation context. If the evaluation context is created differently
-or not provided, the feature flag may evaluate differently across the
-codebase.
+Every call site has to build the context again. If one call site builds it
+differently, or forgets a field, the same flag can return different values on
+the same page.
 
-The Flags SDK does not require the context to be passed in on each
-invocation. Instead, the context is established when you declare the
-feature flag.
+The Flags SDK moves this work out of the call site. A source creates the
+evaluation context once, from the current request, for all of its flags. For
+the source `self`, this is the default export of `context.ts`:
 
-```tsx title="flags.ts#next"
-import { flag } from 'flags/next';
+```ts title="flags/sources/self/context.ts"
+import type { FlagsRequest } from 'flags';
 
-export const exampleFlag = flag({
-  key: 'example-flag',
-  identify() {
-    return { user: { id: '123' } };
-  },
-  decide({ entities }) {
-    return entities.user.id === '123';
-  },
-});
+export default function getEvaluationContext(
+  request: FlagsRequest | undefined,
+) {
+  return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+}
 ```
 
-<LearnMore href="/principles/evaluation-context" icon="arrow">
-  Learn more about `identify`
-</LearnMore>
+The call site only passes what it alone knows, for example a team from the
+URL, and TypeScript checks that it passes it. The source runs once per request,
+and each flag is evaluated once per request, so all parts of a page see the
+same value. See [Evaluation Context](/docs/principles/evaluation-context).
 
 ## Avoid vendor lock-in
 
-A downside of using the SDK of a specific provider is that it makes it
-hard to switch to a different feature flag provider at a later point.
-Often, the provider's SDK becomes deeply integrated into the
-codebase over time.
+When you use the SDK of one provider directly, it tends to spread through the
+codebase over time, and switching providers later means changing every call
+site.
 
-The Flags SDK does not lock you into a specific provider. You can switch
-to a different provider by changing the definition of the feature flag.
-Switching providers is possible without changing where your feature flag
-is used.
+The Flags SDK is built on [OpenFeature](https://openfeature.dev). A source
+takes any OpenFeature server provider as it is, without a wrapper or an
+adapter. To switch providers, change the provider of the source:
 
-The Flags SDK further contains an adapter pattern for this, which
-streamlines swapping providers.
+```ts title="flags/sources/self/provider.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-```tsx title="flags.ts#next"
-import { flag } from 'flags/next';
-import { statsigAdapter } from '@flags-sdk/statsig';
-
-export const exampleFlag = flag({
-  key: 'example-flag',
-  // You can replace the adapter with a different one
-  // This example loads a feature gate from Statsig
-  adapter: statsigAdapter.featureGate((config) => config.value),
-});
+// Any OpenFeature server provider, e.g. of Vercel Flags,
+// LaunchDarkly, GrowthBook or flagd
+export default new VercelProvider();
 ```
 
-<LearnMore href="/providers" icon="arrow">
-  Learn more about `adapters`
-</LearnMore>
+Your flag declarations and call sites stay the same. See
+[Providers](/docs/providers) for the providers you can use.
+
+## Define once, use in any framework
+
+Your application code imports only `flags`. The framework package
+(`@flags-sdk/next`, `@flags-sdk/sveltekit`, `@flags-sdk/nuxt`,
+`@flags-sdk/tanstack-start`, `@flags-sdk/hono` or `@flags-sdk/express`) gives
+the SDK the current request, loads the optional `flags/config.ts`, and lets the signals of
+the framework through. The same flag module works in Next.js, in SvelteKit, in
+a Hono server, or in a plain Node.js script, because the
+[standard](/docs/standard) defines the contract between frameworks and the
+SDK.
+
+See [Frameworks](/docs/frameworks) for the setup of each framework.

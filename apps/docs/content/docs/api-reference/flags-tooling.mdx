@@ -1,0 +1,337 @@
+---
+title: flags/tooling, flags/manifest and the CLI
+navTitle: Tooling and CLI
+description: The API for framework packages and build tools, the flags manifest, and the flags command line.
+---
+
+These entry points are for framework packages, build tools and other tools,
+such as Flags Explorer. Application code does not use them. They are a public
+contract: a framework that provides the binding of the Flags SDK itself uses
+them in the same way as the `@flags-sdk/*` packages. See
+[Custom frameworks](/docs/frameworks/custom-frameworks) and the
+[standard](/docs/standard).
+
+## `flags/tooling`
+
+```ts
+import {
+  addSelfRegistration,
+  findConfigFile,
+  findFlagsModules,
+  generateFlags,
+  GENERATED_DIRECTORY,
+  hasUseFlagsDirective,
+  MANIFEST_FILE,
+  optionIndex,
+  registerFramework,
+  renderSourceModule,
+  watchFlags,
+  writeManifestFromBuild,
+} from 'flags/tooling';
+```
+
+### `registerFramework`
+
+```ts
+function registerFramework(setup: SetupFramework): void;
+```
+
+Registers a framework binding directly, instead of through the alias of
+`flags/framework`. Use it when the runtime loads `flags` from `node_modules`,
+so that no alias reaches it, e.g. Nitro in development. Call it at startup,
+before the first evaluation. The first binding wins, as with the alias.
+
+```ts
+import { registerFramework } from 'flags/tooling';
+import { setupFramework } from './binding';
+
+registerFramework(setupFramework);
+```
+
+### `findConfigFile`
+
+```ts
+function findConfigFile(dir: string): string | undefined;
+```
+
+Returns the path of `flags/config.ts`, `.mts`, `.js` or `.mjs` in `dir` or in
+`dir/src`, or `undefined`.
+
+### `hasUseFlagsDirective`
+
+```ts
+function hasUseFlagsDirective(source: string): boolean;
+```
+
+Whether the source code of a module starts with the `'use flags'` directive.
+It reads only the directive prologue (comments, whitespace and string
+literals at the start), as for `'use client'`. It is not a parser.
+
+### `addSelfRegistration`
+
+```ts
+function addSelfRegistration(source: string, fileName: string): string;
+```
+
+Appends code to a `'use flags'` module that imports the module itself and
+passes its exports to `registerFlags`. A build plugin calls it in its
+transform step, so nobody has to call `registerFlags` by hand. `fileName` is
+the file name of the module, for the self import.
+
+### `findFlagsModules`
+
+```ts
+function findFlagsModules(projectDir: string): string[];
+```
+
+Returns the paths of all modules with `'use flags'` in the project, relative
+to the project with `/`, in a fixed order. Skips `node_modules`, `out`,
+`build`, `dist`, `coverage` and hidden directories, except the generated
+`.flags` directory.
+
+### `writeManifestFromBuild`
+
+```ts
+function writeManifestFromBuild(options: {
+  projectDir: string;
+  modules: readonly { id: string; file: string }[];
+  output: string;
+}): Promise<void>;
+```
+
+Writes the flags manifest from the built `'use flags'` modules. It imports
+them in a child process, so they do not run in the process of the build. `id`
+is the path in the project, `file` the built file. Throws with the error
+output of the child process if it fails.
+
+### `MANIFEST_FILE`
+
+`'flags-manifest.json'`, the file name of the manifest in the output of a
+build.
+
+### `generateFlags`
+
+```ts
+function generateFlags(directory?: string): Promise<FlagsAliases>;
+```
+
+The function behind `flags sync`. Reads the catalog of each source in
+`flags/sources/<source>/catalog.ts` once, writes `.flags/<source>.ts`, closes
+the catalogs, and returns the aliases, e.g.
+`{ 'flags:self': './.flags/self.ts' }`. The default directory is the current
+directory. See [Code generation](/docs/flags/code-generation).
+
+### `watchFlags`
+
+```ts
+function watchFlags(
+  directory: string,
+  options: { signal: AbortSignal },
+): Promise<WatchResult>;
+```
+
+The function behind `flags watch`. Generates the modules, and again after each
+change of a catalog, until the signal aborts. Resolves when the first modules
+exist, with `WatchResult`:
+
+- `aliases: FlagsAliases`: the aliases after the first generation.
+- `done: Promise<void>`: resolves when all catalogs end or the signal aborts.
+  Rejects when a catalog fails. The files of the last good catalogs stay.
+
+### `renderSourceModule`
+
+```ts
+function renderSourceModule(
+  name: string,
+  catalog: Catalog,
+  sourcesPath?: string,
+  files?: SourceFiles,
+): string;
+```
+
+Returns the source code of the generated module of one source: a `'use flags'`
+module with one `defineSource` and one `bindFlag` per flag of the catalog. The
+type of each flag comes from its variants (mixed types become `object`), the
+variants become its `options`, and the `defaultValue` of the catalog becomes
+its `defaultValue`. Throws for a source name that is not
+`[a-z][a-z0-9_-]*` (case-insensitive).
+
+`sourcesPath` is the path from the generated module to `flags/sources`. The
+default is `'../flags/sources'`. `files` tells which optional files the source
+has. With `{ context: false }`, the module does not import `context.ts`, and
+the source has no `getEvaluationContext`. The default is `{ context: true }`.
+
+### `GENERATED_DIRECTORY`
+
+`'.flags'`, the directory of the generated modules. It also contains
+`aliases.json`, which framework plugins read to point `flags:<source>` to the
+modules.
+
+### `optionIndex`
+
+```ts
+function optionIndex(value: unknown, options: readonly FlagOptionObject<FlagValue>[]): number;
+```
+
+The index of the option with this value, or `-1`. Compares JSON values by
+their content. Precompute uses it to encode values.
+
+### Types
+
+- `FlagsAliases`: `Record<string, string>`, e.g.
+  `{ 'flags:self': './.flags/self.ts' }`, relative to the application.
+- `WatchResult`: the result of `watchFlags`.
+- `SourceFiles`: `{ context?: boolean }`, the optional files of a source, for
+  `renderSourceModule`. `context` is `true` if the source has `context.ts`.
+  The default is `true`.
+
+## `flags/manifest`
+
+Creates, checks and reads the flags manifest: the list of flags of an
+application, which Flags Explorer reads. See
+[Flags manifest](/docs/tooling/flags-manifest) and the
+[manifest format](/docs/standard/flags-manifest-format).
+
+```ts
+import {
+  createManifest,
+  expandTemplate,
+  resolveFlagLinks,
+  validateFlagsManifest,
+  validateSystemManifest,
+} from 'flags/manifest';
+```
+
+### `createManifest`
+
+```ts
+function createManifest(modules: readonly FlagsModule[]): FlagsManifest;
+```
+
+Creates the manifest from the exports of the `'use flags'` modules. It does not
+evaluate flags.
+
+Throws if an export is not a flag, or if two exports declare the same key with
+different values.
+
+```ts
+import { createManifest } from 'flags/manifest';
+
+const manifest = createManifest([
+  { id: 'flags.ts', exports: { ...(await import('./flags')) } },
+]);
+```
+
+### `validateFlagsManifest`
+
+```ts
+function validateFlagsManifest(value: unknown): FlagsManifest;
+```
+
+Checks a manifest, e.g. after a tool reads `flags-manifest.json`. Throws a
+`TypeError` if it does not follow version 1 of the format
+(`https://flags-sdk.dev/schemas/flags-manifest.v1.json`). Unknown fields are
+allowed.
+
+### `validateSystemManifest`
+
+```ts
+function validateSystemManifest(value: unknown): SystemManifest;
+```
+
+Checks a system manifest, e.g. after a fetch: version 1, a `name`, and `links`
+that are HTTPS URLs without a placeholder in their origin. Throws a
+`TypeError` if it is not valid.
+
+### `resolveFlagLinks`
+
+```ts
+function resolveFlagLinks(
+  systemManifest: SystemManifest,
+  variables: Readonly<Record<string, string>>,
+  flagKey: string,
+): FlagLinks;
+```
+
+Builds the links of a flag to the dashboard of its system, from the system
+manifest and the `variables` of the flag's source in the flags manifest. A
+link whose variables are not all known is left out.
+
+### `expandTemplate`
+
+```ts
+function expandTemplate(template: string, values: Readonly<Record<string, string>>): string | undefined;
+```
+
+Replaces the `{name}` placeholders of a URL template (RFC 6570 level 1) with
+URL-encoded values. Returns `undefined` if a value is missing, so a tool shows
+no link instead of a broken one.
+
+### Types
+
+| Type                     | Description                                                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `FlagsModule`            | `{ id: string; exports: Record<string, unknown> }`: a `'use flags'` module and its exports.                                  |
+| `FlagsManifest`          | `{ version: 1; sources: Record<string, FlagManifestSource>; definitions: Record<string, FlagManifestDefinition> }`        |
+| `FlagManifestDefinition` | `type`, `options?`, `defaultValue?`, `description?`, `declaredInCode: true`, `source?` (an id in `sources`), `declarations` |
+| `FlagManifestSource`     | `{ system: string; systemManifest?: string; variables: Record<string, string> }`. Variables are public identifiers, never credentials. |
+| `FlagDeclaration`        | `{ module: string; export: string }`: where a flag is declared.                                                             |
+| `SystemManifest`         | `{ version: 1; name: string; logo?: string; variables?: Record<string, { description?: string }>; links: SystemManifestLinks }` |
+| `SystemManifestLinks`    | `{ flag?: string; createFlag?: string; project?: string }`: URL templates. `flag` has the variable `flagKey`.               |
+| `FlagLinks`              | `{ flag?: string; createFlag?: string; project?: string }`: resolved URLs.                                                  |
+
+## The CLI
+
+The `flags` package has a `flags` command.
+
+```sh
+flags manifest [dir] [--out <file>]
+flags sync [dir] [--production]
+flags watch [dir] [--production] [-- command ...args]
+```
+
+See [CLI](/docs/tooling/cli) for a guide.
+
+### `flags sync`
+
+Writes the modules of `flags:<source>` from the catalogs in
+`flags/sources/<source>/` once, into `.flags/<source>.ts`. Loads the `.env`
+files of the directory first, for the credentials of the catalogs.
+
+| Argument       | Description                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| `dir`          | The directory of the application. The default is the current directory.                               |
+| `--production` | Loads the `.env` files for production. The default is production when `NODE_ENV` is `production`.    |
+
+```sh
+flags sync
+```
+
+### `flags watch`
+
+Like `flags sync`, and writes the modules again after each change of a
+catalog. With `-- command`, it starts the command after the first modules
+exist, e.g. a development server, and stops when the command ends.
+
+```sh
+flags watch -- vite dev
+```
+
+### `flags manifest`
+
+Writes the flags manifest for applications without a framework plugin, e.g.
+Hono or Express on Node.js. It imports the `'use flags'` modules in `dir`
+with Node.js, loads `flags/config.ts` if it finds one (in `dir`, its `src`,
+or the current directory), and writes the manifest.
+
+| Argument       | Description                                                                 |
+| -------------- | --------------------------------------------------------------------------- |
+| `dir`          | The directory to search. The default is the current directory.              |
+| `--out <file>` | The output file. The default is `flags-manifest.json` in `dir`.             |
+
+Run it after the build, on the output of the build, or on the source if
+Node.js can run it, e.g. TypeScript with type stripping.
+
+```sh
+flags manifest dist
+```

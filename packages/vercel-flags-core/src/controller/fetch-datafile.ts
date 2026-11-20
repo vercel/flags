@@ -1,6 +1,11 @@
 import { version } from '../../package.json';
 import type { BundledDefinitions } from '../types';
-import { type Auth, authHeaders, unauthorizedMessage } from './auth';
+import {
+  type Auth,
+  authHeaders,
+  OidcTokenError,
+  unauthorizedMessage,
+} from './auth';
 import { debug } from './debug';
 
 export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
@@ -125,7 +130,9 @@ export async function fetchDatafile(options: {
         signal.throwIfAborted();
         if (
           attempt === maxAttempts - 1 ||
-          (error instanceof DatafileHttpError && !error.retryable)
+          (error instanceof DatafileHttpError && !error.retryable) ||
+          // Retrying will not produce a token that is not there.
+          error instanceof OidcTokenError
         ) {
           throw error instanceof Error
             ? error

@@ -30,7 +30,12 @@ vi.mock('./lib/report-value', () => ({
 
 const getVercelOidcTokenMock = vi.hoisted(() =>
   vi.fn<() => Promise<string>>(() =>
-    Promise.reject(new Error('no oidc token')),
+    // What @vercel/oidc throws outside Vercel in a project that is not linked.
+    Promise.reject(
+      new Error(
+        "The 'x-vercel-oidc-token' header is missing from the request.\nUnable to find project root directory. Have you linked your project with `vc link?`",
+      ),
+    ),
   ),
 );
 
@@ -461,6 +466,375 @@ describe('Controller (black-box)', () => {
           polling: { intervalMs: 1000, initTimeoutMs: 3000 },
         }),
       ).toThrow('Polling interval must be at least 30000ms');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Reading another project's flags via the projectId option
+  // ---------------------------------------------------------------------------
+  describe('projectId option', () => {
+    const oidcToken = [
+      'header',
+      Buffer.from(JSON.stringify({ project_id: 'prj_consumer' })).toString(
+        'base64url',
+      ),
+      'signature',
+    ].join('.');
+    const sourceHeaders = Object.freeze({
+      Authorization: `Bearer ${oidcToken}`,
+      'X-Vercel-Flags-Project-Id': 'prj_source',
+    });
+
+    beforeEach(() => {
+      getVercelOidcTokenMock.mockResolvedValue(oidcToken);
+    });
+
+    afterEach(() => {
+      getVercelOidcTokenMock.mockReset();
+    });
+
+    it('reads the named project with the OIDC token and the source header', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            Response.json(makeBundled({ projectId: 'prj_source' })),
+          );
+        }
+        return Promise.resolve(new Response());
+      });
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      expect(client.origin).toEqual({
+        provider: 'vercel',
+        sdkKey: undefined,
+        projectId: 'prj_source',
+      });
+      await client.initialize();
+
+      const datafileCall = fetchMock.mock.calls.find(([input]) =>
+        String(input).includes('/v1/datafile'),
+      );
+      expect(datafileCall?.[1]?.headers).toMatchObject(sourceHeaders);
+    });
+
+    it('rejects a projectId together with an SDK key', () => {
+      expect(() =>
+        createClient('vf_server_key', {
+          projectId: 'prj_source',
+          fetch: fetchMock,
+          stream: false,
+          polling: false,
+        }),
+      ).toThrow(
+        '@vercel/flags-core: projectId cannot be combined with an SDK key',
+      );
+    });
+
+    it('rejects an invalid projectId', () => {
+      expect(() =>
+        createClient({
+          projectId: 'prj_a/b',
+          fetch: fetchMock,
+          stream: false,
+          polling: false,
+        }),
+      ).toThrow(
+        '@vercel/flags-core: Invalid projectId "prj_a/b". Expected a project id like "prj_…"',
+      );
+    });
+
+    it('should resume usage tracking after recovering from a 401', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+      let authorized = false;
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            authorized
+              ? Response.json(makeBundled({ projectId: 'prj_source' }))
+              : new Response(null, { status: 401, statusText: 'Unauthorized' }),
+          );
+        }
+        if (url.includes('/v1/ingest')) {
+          return Promise.resolve(new Response());
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        stream: false,
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
+      });
+
+      await expect(client.evaluate('flagA')).rejects.toThrow(
+        'unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+      );
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).includes('/v1/ingest'),
+        ),
+      ).toHaveLength(0);
+
+      authorized = true;
+      expect((await client.evaluate('flagA')).value).toBe(true);
+      await client.shutdown();
+
+      const ingestCalls = fetchMock.mock.calls.filter((call) =>
+        String(call[0]).includes('/v1/ingest'),
+      );
+      expect(ingestCalls).toHaveLength(1);
+      const body = JSON.parse(ingestCalls[0]![1]!.body as string) as Array<{
+        type: string;
+        payload: { evaluationCount: number };
+      }>;
+      const evaluation = body.find((e) => e.type === 'FLAG_EVALUATION');
+      expect(evaluation?.payload.evaluationCount).toBe(1);
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+      cleanupCtx();
+    });
+
+    it('should send the OIDC token and the source project header on the stream', async () => {
+      vi.useRealTimers();
+      const stream = createMockStream();
+
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream')) return stream.response;
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        datafile: makeBundled({ projectId: 'prj_source' }),
+      });
+
+      const initPromise = client.initialize();
+      await new Promise((r) => setTimeout(r, 0));
+      stream.push({
+        type: 'primed',
+        revision: 1,
+        projectId: 'prj_source',
+        environment: 'production',
+      });
+      await initPromise;
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/stream',
+        {
+          headers: {
+            ...streamRequestHeaders,
+            ...sourceHeaders,
+            'X-Revision': '1',
+          },
+          signal: expect.any(AbortSignal),
+        },
+      );
+
+      stream.close();
+      await client.shutdown();
+    });
+
+    it('should send the OIDC token and the source project header when polling', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            Response.json(makeBundled({ projectId: 'prj_source' })),
+          );
+        }
+        if (url.includes('/v1/ingest')) return Promise.resolve(new Response());
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        stream: false,
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
+      });
+
+      await client.initialize();
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://flags.vercel.com/v1/datafile',
+        {
+          headers: { ...datafileRequestHeaders, ...sourceHeaders },
+          signal: expect.any(AbortSignal),
+        },
+      );
+
+      await client.shutdown();
+    });
+
+    it('should send the OIDC token and the source project header on ingest', async () => {
+      const cleanupCtx = setRequestContext({ host: 'example.com' });
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        datafile: makeBundled({ projectId: 'prj_source' }),
+      });
+
+      await client.evaluate('flagA');
+      await client.shutdown();
+
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'https://flags.vercel.com/v1/ingest',
+        expect.objectContaining({
+          headers: { ...ingestRequestHeaders, ...sourceHeaders },
+        }),
+      );
+
+      cleanupCtx();
+    });
+
+    it('should look up bundled definitions by the source project id without an OIDC token', async () => {
+      getVercelOidcTokenMock.mockRejectedValue(new Error('no oidc token'));
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled({ projectId: 'prj_source' }),
+      });
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        disableMetrics: true,
+      });
+
+      const result = await client.evaluate('flagA');
+      expect(result.value).toBe(true);
+      expect(result.metrics?.source).toBe('embedded');
+
+      const auth = vi.mocked(readBundledDefinitions).mock.calls[0]![0];
+      await expect(auth.resolveBundledDefinitionsLookup()).resolves.toEqual({
+        type: 'project-id',
+        projectId: 'prj_source',
+      });
+
+      await client.shutdown();
+    });
+
+    it('should name the source project when the stream is unauthorized and no fallback exists', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/stream') || url.includes('/v1/datafile')) {
+          return Promise.resolve(new Response(null, { status: 401 }));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        polling: false,
+      });
+
+      const expectation = expect(client.evaluate('flagA')).rejects.toThrow(
+        'unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+      );
+      await vi.advanceTimersByTimeAsync(100);
+      await expectation;
+
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).includes('/v1/stream'),
+        ),
+      ).toHaveLength(1);
+      await client.shutdown();
+    });
+
+    it('should name the source project when polling is unauthorized and no fallback exists', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            new Response(null, { status: 401, statusText: 'Unauthorized' }),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        stream: false,
+        polling: { intervalMs: 30_000, initTimeoutMs: 5000 },
+      });
+
+      await expect(client.evaluate('flagA')).rejects.toThrow(
+        'Failed to fetch data: unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+
+      await client.shutdown();
+    });
+
+    it('should name the source project when getDatafile falls back to an unauthorized fetch', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            new Response(null, { status: 401, statusText: 'Unauthorized' }),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+      });
+
+      await expect(client.getDatafile()).rejects.toThrow(
+        'No flag definitions available. Initialize the client or provide a datafile. Request was unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+      );
+
+      await client.shutdown();
+    });
+
+    it('should name the source project when the build-step fetch is unauthorized', async () => {
+      fetchMock.mockImplementation((input) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/v1/datafile')) {
+          return Promise.resolve(
+            new Response(null, { status: 401, statusText: 'Unauthorized' }),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      });
+
+      const client = createClient({
+        projectId: 'prj_source',
+        fetch: fetchMock,
+        buildStep: true,
+      });
+
+      await expect(client.evaluate('flagA')).rejects.toThrow(
+        'No flag definitions available during build. Provide a datafile or bundled definitions. Request was unauthorized (401): this deployment is not allowed to read the flags of project "prj_source"',
+      );
+
+      await client.shutdown();
     });
   });
 
@@ -1073,8 +1447,8 @@ describe('Controller (black-box)', () => {
       expect(result.value).toBe(true);
       expect(result.metrics?.source).toBe('embedded');
 
-      // Polling gave up on the 401 as well, so the read revalidates the
-      // unconfirmed bundled entry once in the background and logs the failure.
+      // Polling would get the same 401, so the client skips it and the read
+      // revalidates the unconfirmed bundled entry once in the background.
       await vi.advanceTimersByTimeAsync(0);
       expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
         '@vercel/flags-core: Revalidation failed:',
@@ -1082,8 +1456,8 @@ describe('Controller (black-box)', () => {
       );
       errorSpy.mockRestore();
 
-      // One stream call, one immediate fallback poll, one read revalidation; none retries a 401
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      // One stream call and one read revalidation; nothing polls or retries a 401
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenNthCalledWith(
         1,
         'https://flags.vercel.com/v1/stream',
@@ -1098,7 +1472,7 @@ describe('Controller (black-box)', () => {
 
       // Advance time to allow any potential retries (should not happen)
       await vi.advanceTimersByTimeAsync(5_000);
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenNthCalledWith(
         1,
         'https://flags.vercel.com/v1/stream',
@@ -1110,8 +1484,8 @@ describe('Controller (black-box)', () => {
 
       await client.shutdown();
       await vi.advanceTimersByTimeAsync(0);
-      // Still only the stream, the poll, and the revalidation, with no ingest calls
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      // Still only the stream and the revalidation, with no ingest calls
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('should use custom initTimeoutMs value', async () => {
@@ -1270,6 +1644,43 @@ describe('Controller (black-box)', () => {
       await vi.advanceTimersByTimeAsync(90_000);
 
       expect(pollCount).toBeGreaterThanOrEqual(3);
+
+      await client.shutdown();
+    });
+
+    it('should not poll when the stream has no OIDC token', async () => {
+      const client = createClient({ buildStep: false, fetch: fetchMock });
+
+      const evalPromise = client.evaluate('flagA', false);
+      await vi.advanceTimersByTimeAsync(0);
+      expect((await evalPromise).value).toBe(false);
+
+      // Polling would need the same token, so nothing keeps a timer running.
+      await vi.advanceTimersByTimeAsync(90_000);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      await client.shutdown();
+    });
+
+    it('should stop polling after the first poll has no OIDC token', async () => {
+      getVercelOidcTokenMock.mockClear();
+      const client = createClient({
+        buildStep: false,
+        fetch: fetchMock,
+        stream: false,
+      });
+
+      const evalPromise = client.evaluate('flagA', false);
+      await vi.advanceTimersByTimeAsync(0);
+      expect((await evalPromise).value).toBe(false);
+
+      // The first poll gives up without retrying, and no interval remains.
+      await vi.advanceTimersByTimeAsync(90_000);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(fetchMock).not.toHaveBeenCalled();
+      // The poll and the read's own fetch each ask for a token once.
+      expect(getVercelOidcTokenMock).toHaveBeenCalledTimes(2);
 
       await client.shutdown();
     });
@@ -3950,7 +4361,7 @@ describe('Controller (black-box)', () => {
   // Lazy initialization
   // ---------------------------------------------------------------------------
   describe('lazy initialization', () => {
-    it('should not load bundled definitions or stream or poll on creation', () => {
+    it('should load bundled definitions but not stream or poll on creation', () => {
       const client = createClient(sdkKey, {
         buildStep: false,
         fetch: fetchMock,
@@ -3958,7 +4369,71 @@ describe('Controller (black-box)', () => {
 
       expect(client).toBeDefined();
       expect(fetchMock).not.toHaveBeenCalled();
-      // Bundled definitions are loaded lazily, not at construction time
+      // Bundled definitions are read eagerly when the SDK key is known
+      expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
+    });
+
+    it('should read bundled definitions only once across creation and evaluation', async () => {
+      vi.mocked(readBundledDefinitions).mockResolvedValue({
+        state: 'ok',
+        definitions: makeBundled(),
+      });
+      const client = createClient(sdkKey, {
+        buildStep: false,
+        stream: false,
+        polling: false,
+        fetch: fetchMock,
+      });
+
+      const result = await client.evaluate('flagA');
+
+      expect(result.metrics?.source).toBe('embedded');
+      expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
+      await client.shutdown();
+    });
+
+    it('should load bundled definitions on creation by VERCEL_PROJECT_ID in OIDC mode', async () => {
+      vi.stubEnv('VERCEL_PROJECT_ID', 'prj_env');
+      getVercelOidcTokenMock.mockClear();
+      try {
+        createClient({ buildStep: false, fetch: fetchMock });
+
+        expect(readBundledDefinitions).toHaveBeenCalledTimes(1);
+        const auth = vi.mocked(readBundledDefinitions).mock.calls[0]![0];
+        await expect(auth.resolveBundledDefinitionsLookup()).resolves.toEqual({
+          type: 'project-id',
+          projectId: 'prj_env',
+        });
+        expect(getVercelOidcTokenMock).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('should not load bundled definitions on creation in OIDC mode without VERCEL_PROJECT_ID', () => {
+      vi.stubEnv('VERCEL_PROJECT_ID', '');
+      getVercelOidcTokenMock.mockClear();
+      try {
+        createClient({ buildStep: false, fetch: fetchMock });
+
+        expect(readBundledDefinitions).not.toHaveBeenCalled();
+        expect(getVercelOidcTokenMock).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('should not load bundled definitions on creation when a datafile is provided', () => {
+      createClient(sdkKey, {
+        buildStep: false,
+        datafile: {
+          definitions: {},
+          environment: 'production',
+          projectId: 'prj_123',
+        },
+        fetch: fetchMock,
+      });
+
       expect(readBundledDefinitions).not.toHaveBeenCalled();
     });
   });

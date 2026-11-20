@@ -1,0 +1,23 @@
+{
+  "name": "standard-example-plain",
+  "private": true,
+  "type": "module",
+  "description": "The Flags SDK without a framework: a plain Node.js HTTP server",
+  "scripts": {
+    "start": "node src/main.ts",
+    "test": "node --test test/*.test.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openfeature/core": "1.12.0",
+    "@openfeature/server-sdk": "1.23.0",
+    "flags": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.14.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

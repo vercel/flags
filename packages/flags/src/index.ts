@@ -1,20 +1,13 @@
+export type {
+  Catalog,
+  CatalogFlag,
+  CatalogLoader,
+  CatalogLoadOptions,
+} from './catalog';
 export {
   type Config,
-  type ConfiguredConnection,
   defineConfig,
-  type Register,
 } from './config';
-export {
-  type Connection,
-  type ConnectionInput,
-  type ConnectionOptions,
-  type DefaultConnectionInput,
-  defineConnection,
-  type FlagManagementSystem,
-  type GetEvaluationContext,
-  type Project,
-  type ProjectFieldsBySystem,
-} from './connection';
 export { FlagEvaluationError } from './errors';
 export {
   type Evaluate,
@@ -25,11 +18,13 @@ export {
   type FlagValueOfFlag,
 } from './evaluate';
 export {
+  bindFlag,
   defineFlag,
   type EvaluationArgs,
   type EvaluationOptions,
   type Flag,
   type FlagOptions,
+  type InlineFlagOptions,
 } from './flag';
 export {
   decryptFlagValues,
@@ -39,7 +34,7 @@ export {
   serializeFlagValues,
 } from './flag-values';
 export type { SetupFramework } from './framework';
-export { OVERRIDE_REASON } from './hooks';
+export { DECIDE_REASON, OVERRIDE_REASON } from './hooks';
 export {
   decryptOverrides,
   encryptOverrides,
@@ -51,14 +46,25 @@ export {
   type PlatformProject,
   type VercelOverridesOptions,
 } from './overrides';
-export { registerConnections, registerFlags } from './register';
+export { registerFlags, registerSources } from './register';
 export {
-  type ConfigSource,
   type FlagDefinition,
-  type RequestSource,
+  type GetRequest,
+  type LoadConfig,
   type Runtime,
   runtime,
 } from './runtime';
+export {
+  type DefaultSourceInput,
+  defineSource,
+  type FlagManagementSystem,
+  type GetEvaluationContext,
+  type Project,
+  type ProjectFieldsBySystem,
+  type Source,
+  type SourceInput,
+  type SourceOptions,
+} from './source';
 export { type TrackArgs, type TrackOptions, track } from './track';
 export type {
   BeforeHookContext,

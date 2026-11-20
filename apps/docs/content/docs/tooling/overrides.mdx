@@ -1,0 +1,152 @@
+---
+title: Overrides
+description: Set the value of a flag for one browser with a trusted cookie, signed by Vercel or encrypted with FLAGS_SECRET.
+---
+
+An **override** sets the value of a flag for one browser, without changing the flag for anyone else. Flags Explorer uses overrides, and so can your tests and your CI.
+
+An override comes from the `flag-overrides` cookie of the request. The SDK trusts only two kinds of cookies:
+
+- **Signed by Vercel.** Flags Explorer creates them. They need no configuration on Vercel, or locally after `vercel env pull`.
+- **Encrypted with `FLAGS_SECRET`**, a secret which you share between your application and the tool which creates the cookie. This is the format of v4 of the SDK.
+
+A cookie which is neither signed nor encrypted is ignored, so a visitor cannot set the value of a flag.
+
+## How an override works
+
+When the request has a valid override for a flag:
+
+- The flag returns the value of the override. The SDK does not call the provider, does not wait for its initialization, and does not create the evaluation context.
+- The hooks still run, with the reason `OVERRIDE` in the evaluation details.
+- The value must have the type of the flag. Otherwise, the SDK logs a warning, and evaluates the flag as usual.
+- The SDK reads the cookie once per request. Outside of a request, there are no overrides.
+
+Overrides work the same for [inline flags](/docs/flags/inline-flags) and for [provider flags](/docs/flags/provider-flags).
+
+React to overrides with a hook, e.g. to report them:
+
+```ts title="flags/config.ts"
+import { defineConfig, OVERRIDE_REASON } from 'flags';
+
+export const config = defineConfig({
+  hooks: [
+    {
+      after(hookContext, details) {
+        if (details.reason === OVERRIDE_REASON) {
+          console.log(`Override of ${hookContext.flagKey}: ${details.value}`);
+        }
+      },
+    },
+  ],
+});
+```
+
+## Which cookies the SDK accepts
+
+The SDK chooses with the environment, without configuration:
+
+1. If `FLAGS_SECRET` is set, it accepts only cookies encrypted with `FLAGS_SECRET`.
+2. Otherwise, on Vercel, or locally with a linked project (when `VERCEL` or `VERCEL_OIDC_TOKEN` is set), it accepts only cookies which Vercel signed for this project and environment.
+3. Otherwise, it accepts no overrides.
+
+The trust comes only from your configuration and the environment, never from the cookie.
+
+## Signed by Vercel
+
+Flags Explorer signs the override with a key of Vercel, for one project and its environments. Your application verifies the signature with the public keys of Vercel. You do not need a secret.
+
+- **On Vercel**, the SDK knows the project and the environment of the deployment from `VERCEL_PROJECT_ID` and `VERCEL_TARGET_ENV`.
+- **Locally**, run `vercel link` and `vercel env pull`. The SDK reads the project from the `VERCEL_OIDC_TOKEN` in `.env.local`, or from `.vercel/project.json`, with the environment `development`.
+
+The SDK rejects a token of a different project, of a different environment, or with a lifetime longer than 24 hours. It loads the public keys on the first signed cookie, and keeps them for 5 minutes. If the keys cannot be loaded, the flags of that request fail: they return their `defaultValue`, or throw. Overrides are a tool for development, so a visible error is better than a silent one.
+
+The payload of a signed token is readable by anyone who has the cookie. Do not put secret values into an override.
+
+## Encrypted with `FLAGS_SECRET`
+
+Use `FLAGS_SECRET` to create overrides yourself, e.g. in end-to-end tests, or when your application does not run on Vercel.
+
+### 1. Create a secret
+
+`FLAGS_SECRET` is 32 random bytes, encoded as base64url:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Set it as an environment variable of your application, e.g. in `.env.local`, and in the environments of your Vercel project, so that Flags Explorer encrypts its overrides with the same secret. When you create the first flag in Vercel Flags, Vercel creates a `FLAGS_SECRET` for each environment of the project; then `vercel env pull` gives it to your local environment.
+
+### 2. Create an override cookie
+
+`encryptOverrides` creates the value of the cookie. It reads `FLAGS_SECRET` by default:
+
+```ts title="e2e/checkout.spec.ts"
+import { expect, test } from '@playwright/test';
+import { encryptOverrides } from 'flags';
+
+test('the express checkout', async ({ page, context, baseURL }) => {
+  const token = await encryptOverrides({ checkout: 'express' });
+  await context.addCookies([
+    { name: 'flag-overrides', value: token, url: baseURL! },
+  ]);
+
+  await page.goto('/checkout');
+  await expect(page.getByText('Express checkout')).toBeVisible();
+});
+```
+
+- `encryptOverrides(overrides, secret?, expirationTime?)`: the default secret is `FLAGS_SECRET`, the default expiration one year.
+- `decryptOverrides(token, secret?)` reads a token. It returns `undefined` for a token which is not valid.
+
+Anyone with the secret can create overrides. Use a different secret for each application, unless the applications must share their overrides.
+
+## Configuration
+
+The `overrides` option of the optional [`flags/config.ts`](/docs/flags/configuration) changes the defaults. Without the file, overrides work with `FLAGS_SECRET` or on Vercel.
+
+```ts title="flags/config.ts"
+import { defineConfig } from 'flags';
+
+export const config = defineConfig({
+  overrides: {
+    // The shared secret. The default is FLAGS_SECRET. false accepts no such tokens.
+    secret: process.env.FLAGS_SECRET,
+    // Cookies signed by Vercel. true, false, or an object with options.
+    vercel: true,
+  },
+});
+```
+
+With an explicit `vercel`, the rule "only the shared secret if `FLAGS_SECRET` is set" does not apply. Thus, the configuration above accepts both kinds, e.g. while you move from `FLAGS_SECRET` to overrides signed by Vercel.
+
+The options of `vercel`:
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `project` | From the environment | `projectId`, `environment` and `teamId` of this application. |
+| `maxLifetimeSeconds` | 24 hours | The longest lifetime of a token which the SDK accepts. |
+| `issuer`, `jwksUrl` | The issuer of the Vercel Toolbar | For a test issuer. HTTPS only. |
+| `cacheMaxAgeMs` | 5 minutes | How long the public keys stay in the cache. |
+| `cooldownMs` | 30 seconds | The minimum time between two loads of the keys for an unknown key ID. |
+
+To turn overrides off, set `overrides: { secret: false, vercel: false }`.
+
+## Troubleshooting
+
+An invalid cookie gives no overrides. The SDK logs one warning with the reason, and never logs the token:
+
+```
+flags: The override cookie was ignored. Reason: wrong-scope.
+```
+
+- **`wrong-scope`**: the token is for a different project or environment. Check the linked project, and run `vercel env pull` again.
+- **`missing-secret`**: the cookie is encrypted, but the application has no `FLAGS_SECRET`. Set the same secret as the tool which created the cookie.
+- **`untrusted-jws`**: the cookie is signed by Vercel, but the application does not accept signed cookies here, e.g. because `FLAGS_SECRET` is set, or the project is not linked. Link the project, or configure `overrides.vercel`.
+- **`expired-token`**, **`invalid-signature`**, **`unknown-key`**: create the override again in Flags Explorer.
+- **An override of one flag is ignored**: its value has a different type than the flag. The SDK logs `flags: The override of flag "<key>" was ignored`.
+
+The SDK also reads `vercel-flag-overrides`, the cookie of v4. If both cookies are set, `flag-overrides` wins.
+
+## For tool authors
+
+The format of both kinds of tokens is part of the standard: see section 10 of [STANDARD.md](https://github.com/vercel/flags/blob/main/packages/flags/STANDARD.md). A tool which writes one of the two cookies should delete the other one.

@@ -9,6 +9,8 @@
  * of v4: one secret for each purpose.
  */
 
+// Through the package name, so that withFlags can replace the module
+import { verifyCode } from '@flags-sdk/next/verify-code';
 import {
   type EvaluateContext,
   type EvaluateResults,
@@ -20,7 +22,7 @@ import {
   runtime,
 } from 'flags';
 import { optionIndex } from 'flags/tooling';
-import { base64url, CompactSign, compactVerify } from 'jose';
+import { base64url, CompactSign } from 'jose';
 
 type Flags = readonly FlagDefinition[];
 
@@ -187,10 +189,8 @@ function verify(code: string, secret: string): Promise<Uint8Array> {
   if (lastVerification?.code === code && lastVerification.secret === secret) {
     return lastVerification.payload;
   }
-  const payload = compactVerify(code, base64url.decode(secret), {
-    algorithms: ['HS256'],
-  }).then(
-    (result) => result.payload,
+  const payload = verifyCode(code, secret).then(
+    (result) => result,
     (error: unknown) => {
       throw new Error('flags: The precomputed code is not valid.', {
         cause: error,

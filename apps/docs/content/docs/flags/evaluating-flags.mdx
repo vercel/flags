@@ -1,0 +1,119 @@
+---
+title: Evaluating flags
+description: Call a flag, evaluate several flags at once, and get one consistent value per request.
+---
+
+A flag is an async function. Call it on the server to get its value:
+
+```ts
+import { summerSale, teamInsights } from './flags';
+
+const sale = await summerSale();
+const insights = await teamInsights({ evaluationContext: { teamId: 'team-1' } });
+```
+
+The call is the same for [inline flags](/docs/flags/inline-flags) and [flags of a source](/docs/flags/provider-flags), and the same in every framework: in a page, a layout, an API route, a middleware, a server function or a script.
+
+## Call options
+
+```ts
+await myFlag({ evaluationContext, hooks, hookHints });
+```
+
+| Option | Meaning |
+| --- | --- |
+| `evaluationContext` | The input of the call side. It goes to the `getEvaluationContext` of the flag, or of its source. See [The evaluation context](/docs/flags/evaluation-context). |
+| `hooks` | OpenFeature hooks for this call only. See [OpenFeature](/docs/flags/openfeature#hooks). |
+| `hookHints` | Hints for the hooks. |
+
+All options are optional when the flag accepts no context. If the source or the flag requires a context, TypeScript requires `evaluationContext`.
+
+## Several flags at once
+
+`evaluate` evaluates a list of flags in parallel, and returns their values in the order of the list. Each value has the type of its flag:
+
+```ts title="app/page.tsx"
+import { evaluate } from 'flags';
+import { bannerText, checkout, summerSale } from '../flags';
+
+// [boolean, 'control' | 'express' | (string & {}), string]
+const [sale, flow, banner] = await evaluate([summerSale, checkout, bannerText]);
+```
+
+Use `evaluate` instead of awaiting flags one after the other. Awaiting each flag in turn adds up their latencies.
+
+`evaluate` also takes an evaluation context. Each flag receives the same object, so it must fit each flag:
+
+```ts
+const [insights, reports] = await evaluate([teamInsights, teamReports], {
+  evaluationContext: { teamId },
+});
+```
+
+`evaluate(flag)` with one flag is the same as `flag()`.
+
+### A key that is known only at runtime
+
+`evaluate` also accepts a plain definition with a `key` and a `source`, e.g. for a key from a database:
+
+```ts
+const enabled = await evaluate({ key: `feature-${name}`, source: self });
+```
+
+The definition can also have `type` and `defaultValue`. The `source` is required. Flags that you know in advance should be defined with `bindFlag`, so that they have types and are in the [flags manifest](/docs/tooling/flags-manifest).
+
+## One value per request
+
+During one request, each flag is evaluated once for each evaluation context. A header and a footer that both call `summerSale()` get the same value, and the provider is called once:
+
+```ts
+// In the header
+await summerSale(); // calls the provider
+
+// In the footer, in the same request
+await summerSale(); // the same value, without a second call
+```
+
+This keeps a page consistent, also when a rule of the flag changes during the request, and it removes duplicate work. You do not need to pass values from component to component, or wrap flags with a helper: call the flag where you need it.
+
+- Concurrent calls share one evaluation.
+- `flag()`, `flag()` in another component and `evaluate([flag])` share one evaluation.
+- Calls with different contexts are different evaluations, e.g. `teamInsights` for two teams. Plain data is compared by its content.
+- The steps of the evaluation context also run once per request (see [The evaluation context](/docs/flags/evaluation-context#once-per-request)).
+- A call with its own `hooks` or `hookHints` gets its own evaluation, so that its hooks run.
+- A failure is kept for the request too: a flag that failed fails again in the same request, and logs once.
+
+### What a request is
+
+The framework package tells the SDK which request is running (see [Frameworks](/docs/frameworks)). Without a framework, wrap the handling of each request in `runtime.onInvoke`:
+
+```ts title="server.ts"
+import { runtime } from 'flags';
+
+// request is a Web Request, or { headers?, cookies?, url? }
+const response = await runtime.onInvoke(request, () => handle(request));
+```
+
+See [No framework](/docs/frameworks/node).
+
+Outside of a request, e.g. in a script, a test, or a page that is rendered at build time, there is no request: each call evaluates the flag again, `request` is `undefined` in each step, and there are no overrides.
+
+## Where flags run
+
+Flags run only on the server. Their sources contain providers with SDK keys, and their evaluation context can contain private data. To use a value in the browser, evaluate the flag on the server and give the value to the client, e.g. as a prop:
+
+```tsx title="app/page.tsx"
+import { summerSale } from '../flags';
+import { Banner } from './banner'; // a client component
+
+export default async function Page() {
+  const sale = await summerSale();
+  return <Banner sale={sale} />;
+}
+```
+
+To show the values of a page in Flags Explorer, and to use them in analytics, see [Flag values](/docs/frameworks/next/flag-values).
+
+## Static pages and precompute
+
+A page that is rendered at build time has no request, so its flags see no cookies and no overrides. To serve static pages that still depend on flags, precompute the flags in a middleware, and render one page for each combination. See [Precompute](/docs/frameworks/next/precompute) and the principle of [precompute](/docs/principles/precompute).

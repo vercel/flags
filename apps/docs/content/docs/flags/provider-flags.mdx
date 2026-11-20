@@ -1,0 +1,201 @@
+---
+title: Flags of a source
+navTitle: Provider flags
+description: Connect flags to a flag management system with defineSource and bindFlag.
+---
+
+A flag of a source gets its value from a flag management system, e.g. Vercel Flags. Each flag of a source has two parts:
+
+- a **source** with `defineSource`: the OpenFeature provider of the system, the project in that system, and how to create the evaluation context;
+- one **flag** for each key with `bindFlag`.
+
+There are two ways to get these calls:
+
+- **The file system API**, for frameworks with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start). You put the provider, the evaluation context and the catalog of the source in the folder `flags/sources/self`, and [code generation](/docs/flags/code-generation) writes the `defineSource` and `bindFlag` calls for you. You import the flags with `import { summerSale } from 'flags:self'`.
+- **By hand**, for frameworks without a bundler (Hono, Express, plain Node.js), or when you prefer to write the code. This page shows that code. It is the same code that the code generation writes.
+
+By convention, the main source of an application is called `self`:
+
+```ts title="flags/self.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { defineSource } from 'flags';
+
+export const self = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+```
+
+```ts title="flags.ts"
+'use flags';
+
+import { bindFlag } from 'flags';
+import { self } from './flags/self';
+
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: self,
+  defaultValue: false,
+  description: 'The summer sale banner',
+});
+
+export const checkout = bindFlag({
+  key: 'checkout',
+  source: self,
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+});
+```
+
+```ts title="app/page.tsx"
+import { evaluate } from 'flags';
+import { checkout, summerSale } from '../flags';
+
+const [sale, flow] = await evaluate([summerSale, checkout]);
+```
+
+`'use flags'` at the top of `flags.ts` is optional. It marks a module that exports only flags, so that Flags Explorer can find them (see [Flags manifest](/docs/tooling/flags-manifest)). That is why the source has its own module.
+
+<Callout type="info">
+  With the file system API, you do not write this module. The folder `flags/sources/self` has a `provider.ts`, a `catalog.ts` and an optional `context.ts`, and the code generation writes `.flags/self.ts` with the same `defineSource` and `bindFlag` calls. See [Code generation](/docs/flags/code-generation).
+</Callout>
+
+## Sources
+
+```ts
+defineSource({ provider, project?, getEvaluationContext?, hooks? });
+```
+
+| Option | Meaning |
+| --- | --- |
+| `provider` | Any OpenFeature server provider, as it is. No adapter or wrapper. See [Providers](/docs/providers). |
+| `project` | Optional. The project in the flag management system, e.g. for the links of Flags Explorer to your dashboard. |
+| `getEvaluationContext(request, input)` | Optional. Creates the evaluation context for the provider, e.g. from the cookies of the request. See [The evaluation context](/docs/flags/evaluation-context). |
+| `hooks` | Optional. OpenFeature hooks for all flags of this source. See [OpenFeature](/docs/flags/openfeature#hooks). |
+
+A source does not change the provider. Several sources can share one provider: the SDK initializes it once.
+
+### The provider
+
+The provider is the OpenFeature server provider of your flag management system, e.g. `VercelProvider` of `@vercel/flags-core/openfeature`. For a demo or a test, the in-memory provider of OpenFeature works too:
+
+```ts title="flags/self.ts"
+import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+import { defineSource } from 'flags';
+
+export const self = defineSource({
+  provider: new TypedInMemoryProvider({
+    'summer-sale': {
+      variants: { on: true, off: false },
+      defaultVariant: 'off',
+      disabled: false,
+      // On for alice only
+      contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+    },
+  } as const),
+  project: { system: 'in-memory' },
+  getEvaluationContext: (request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+```
+
+See [OpenFeature providers](/docs/providers/openfeature) for the providers of other systems, and [Custom providers](/docs/providers/custom-providers) to write your own.
+
+### The project
+
+`project` names the project of the flags in the flag management system. Tools use it, e.g. Flags Explorer for a link from each flag to your dashboard. It does not change how flags are evaluated, and you can leave it out.
+
+| `system` | Fields |
+| --- | --- |
+| `'vercel-flags'` | `projectId?`, `teamId?`. Without them, the project is the Vercel project of the deployment. |
+| `'launchdarkly'` | `projectId` (the project key), `teamId`, `environment?` (needed for the link to a flag) |
+| `'in-memory'` | none |
+
+TypeScript checks the fields of each system:
+
+```ts
+// Type error: launchdarkly needs projectId and teamId
+defineSource({ provider, project: { system: 'launchdarkly' } });
+```
+
+A system that is not in the list can add itself with a pull request to the SDK. Until then, leave out `project`: the flags work the same, only without links to the dashboard.
+
+## Flags
+
+```ts
+bindFlag({ key, source, type?, options?, defaultValue?, description?, getEvaluationContext? });
+```
+
+| Option | Meaning |
+| --- | --- |
+| `key` | The key of the flag in the flag management system. |
+| `source` | Required. A source of `defineSource`, e.g. `self`. Without it, `bindFlag` throws. |
+| `type` | `'boolean'` (the default), `'string'`, `'number'` or `'object'`. See [Types and options](/docs/flags/types-and-options). |
+| `options` | The known values, for Flags Explorer and precompute. They do not limit the value. |
+| `defaultValue` | Returned when the evaluation fails. Without it, the call throws. See [Errors and default values](/docs/flags/errors-and-default-values). |
+| `description` | What the flag is for, e.g. for Flags Explorer. |
+| `getEvaluationContext(request, input)` | Optional. Converts the context of the call side into the context that the source needs. See [The evaluation context](/docs/flags/evaluation-context#the-step-of-the-flag). |
+
+The returned function has the fields of its definition, so tools and your code can read them:
+
+```ts
+summerSale.key; // 'summer-sale'
+summerSale.type; // 'boolean'
+summerSale.source.project; // { system: 'vercel-flags' }
+checkout.options; // [{ value: 'control' }, { value: 'express' }]
+```
+
+## More than one flag management system
+
+Each flag names its own source, so one application can use several systems, or several projects of one system. With the file system API, each source is a folder of `flags/sources`, e.g. `flags/sources/blog`, and you import its flags from `flags:blog`. By hand:
+
+```ts title="flags.ts"
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+import { bindFlag, defineSource } from 'flags';
+
+// The flags of a different Vercel project, e.g. of a different team
+const blog = defineSource({
+  provider: new VercelProvider(process.env.BLOG_FLAGS!),
+  project: {
+    system: 'vercel-flags',
+    projectId: 'prj_blog',
+    teamId: 'team_acme',
+  },
+});
+
+// The flags of the Vercel project of this deployment
+const self = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+});
+
+export const newSearch = bindFlag({ key: 'new-search', source: blog });
+export const summerSale = bindFlag({ key: 'summer-sale', source: self });
+```
+
+With `projectId` and `teamId`, the SDK key of the provider must belong to the same project.
+
+## The provider lifecycle
+
+You do not start or stop providers yourself:
+
+- Defining a flag makes its source known to the SDK. Flags are usually defined at module scope, so the SDK knows all sources before the first request.
+- The SDK initializes each provider before its first evaluation. Concurrent evaluations share one initialization, and a failed initialization is retried on the next evaluation.
+- A slow provider does not delay the flags of other providers: each flag waits only for the provider of its own source.
+- `runtime.onShutdown()` closes the providers, e.g. on `SIGTERM` of a long-running server. See your [framework](/docs/frameworks) for whether it does this for you.
+
+If a source has no flag yet when the process starts, e.g. because its flags are defined in a module that is imported later, register it so that the SDK initializes it early:
+
+```ts title="startup.ts"
+import { registerSources } from 'flags';
+import { reports } from './reports-source';
+
+registerSources([reports]);
+```
+
+To initialize providers before the first request, e.g. in the init phase of a serverless function without a framework, call `await runtime.onInit()`. See [No framework](/docs/frameworks/node).

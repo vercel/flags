@@ -6,7 +6,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   resolve: { tsconfigPaths: true },
-  // The framework binding gives the SDK the request and flags.config.ts.
+  // The framework binding gives the SDK the request and flags/config.ts.
   // The plugin also registers 'use flags' modules and writes the manifest.
   plugins: [nitro(), tanstackStart(), viteReact(), flags()],
 });

@@ -4,7 +4,6 @@
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
     "paths": {
-      "flags/default-provider": ["./src/default-provider.ts"],
       "flags/framework": ["./src/framework.ts"],
       "flags/config": ["./src/config-module.ts"]
     },

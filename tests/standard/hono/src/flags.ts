@@ -1,10 +1,10 @@
 'use flags';
 
-import { defineConnection, defineFlag } from 'flags';
+import { bindFlag, defineSource } from 'flags';
 
 // A 'use flags' module: it exports only flags. Without a bundler, the
 // script `flags manifest` imports it to write the manifest.
-const shop = defineConnection({
+const shop = defineSource({
   provider: {
     metadata: { name: 'shop' },
     resolveBooleanEvaluation: async () => ({ value: true }),
@@ -13,11 +13,15 @@ const shop = defineConnection({
   project: { system: 'in-memory' },
 });
 
-export const summerSale = defineFlag(shop, 'summer-sale', false);
-export const bannerText = defineFlag({
+export const summerSale = bindFlag({
+  key: 'summer-sale',
+  source: shop,
+  defaultValue: false,
+});
+export const bannerText = bindFlag({
   key: 'banner-text',
   type: 'string',
   defaultValue: 'Welcome',
   description: 'The text of the banner',
-  connection: shop,
+  source: shop,
 });

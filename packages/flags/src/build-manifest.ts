@@ -9,8 +9,8 @@ export const MANIFEST_FILE = 'flags-manifest.json';
 // Imports the built modules, and writes the manifest. `flags/manifest` is
 // resolved from the project, which is the working directory.
 // The built modules contain the SDK with the framework binding, if the
-// build has one. Then runtime.prepare() loads flags.config.ts, which gives
-// the default connection of the flags without a connection.
+// build has one. Then runtime.prepare() loads flags/config.ts, if the
+// project has one.
 const script = `
 import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';

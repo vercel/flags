@@ -48,6 +48,14 @@
       "import": "./dist/encrypt-values-cached.js",
       "require": "./dist/encrypt-values-cached.cjs"
     },
+    "./verify-code": {
+      "import": "./dist/verify-code.js",
+      "require": "./dist/verify-code.cjs"
+    },
+    "./verify-code-cached": {
+      "import": "./dist/verify-code-cached.js",
+      "require": "./dist/verify-code-cached.cjs"
+    },
     "./manifest": {
       "import": "./dist/manifest.js",
       "require": "./dist/manifest.cjs"
@@ -87,6 +95,14 @@
         "dist/encrypt-values-cached.d.ts",
         "dist/encrypt-values-cached.d.cts"
       ],
+      "verify-code": [
+        "dist/verify-code.d.ts",
+        "dist/verify-code.d.cts"
+      ],
+      "verify-code-cached": [
+        "dist/verify-code-cached.d.ts",
+        "dist/verify-code-cached.d.cts"
+      ],
       "manifest": [
         "dist/manifest.d.ts",
         "dist/manifest.d.cts"
@@ -125,7 +141,7 @@
     "typescript": "^5.9.3",
     "@types/node": "22.14.0",
     "vitest": "4.1.11",
-    "next": "16.3.8",
+    "next": "16.4.6",
     "@openfeature/server-sdk": "1.23.0",
     "@openfeature/core": "1.12.0",
     "react": "19.2.4",
