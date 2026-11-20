@@ -16,6 +16,6 @@
     "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.58.1"
+    "@playwright/test": "1.65.1"
   }
 }
