@@ -1,3 +1,4 @@
+import { precomputeSecretOrThrow } from '../lib/precompute-secret';
 import { addEnv } from '../lib/vercel-platform';
 
 // We're doing this dance so that the flags package is usable both in the SvelteKit environment
@@ -22,28 +23,28 @@ async function loadSecret(): Promise<void> {
     // and in case it's not available through that it should be via process.env above.
     const env = await import('$env/static/private');
     default_secret ||= env.FLAGS_SECRET;
+    // The secrets which precompute reads, by name: the other variables of the
+    // build stay out of the server bundle
+    addEnv({
+      FLAGS_SECRET: env.FLAGS_SECRET,
+      FLAGS_PRECOMPUTE_SECRET: env.FLAGS_PRECOMPUTE_SECRET,
+    });
   } catch {
     // ignore, could happen when importing from an environment that doesn't know this import
   }
 }
 
 /**
- * Reads the variables of the Vercel project from the dynamic environment,
- * which is read at runtime: the static one puts the values of the build
- * (e.g. its `VERCEL_OIDC_TOKEN`) into the server bundle. Only the names which
- * `findVercelProject` and `canVerifyVercelSignedTokens` read are copied.
+ * Reads the OIDC token of `vercel env pull` from the dynamic environment,
+ * which is read at runtime: the static one puts the value of the build into
+ * the server bundle. The other variables of Vercel only exist on Vercel,
+ * where they are in `process.env`.
  */
 async function loadVercelEnv(): Promise<void> {
   try {
     // @ts-expect-error SvelteKit will know about this
     const { env } = await import('$env/dynamic/private');
-    addEnv({
-      VERCEL: env.VERCEL,
-      VERCEL_PROJECT_ID: env.VERCEL_PROJECT_ID,
-      VERCEL_TARGET_ENV: env.VERCEL_TARGET_ENV,
-      VERCEL_ENV: env.VERCEL_ENV,
-      VERCEL_OIDC_TOKEN: env.VERCEL_OIDC_TOKEN,
-    });
+    addEnv({ VERCEL_OIDC_TOKEN: env.VERCEL_OIDC_TOKEN });
   } catch {
     // ignore: not SvelteKit, or prerendering, where the dynamic environment
     // can not be read. `process.env` has the variables then.
@@ -65,4 +66,18 @@ export async function tryGetSecret(secret?: string): Promise<string> {
   }
 
   return secret;
+}
+
+/**
+ * The secret of precompute: `secret`, or else `FLAGS_SECRET`, or else
+ * `FLAGS_PRECOMPUTE_SECRET`, or else the secret which Vercel provides for the
+ * deployment, or else a public secret in local development after
+ * `vercel env pull`.
+ */
+export async function getPrecomputeSecret(secret?: string): Promise<string> {
+  await loadEnv();
+  return precomputeSecretOrThrow(
+    secret,
+    'flags: No secret provided. Set an environment variable FLAGS_SECRET or provide a secret to the function.',
+  );
 }
