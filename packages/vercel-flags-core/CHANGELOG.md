@@ -1,5 +1,19 @@
 # @vercel/flags-core
 
+## 1.12.0-standard.0
+
+### Minor Changes
+
+- [#612](https://github.com/vercel/flags/pull/612) [`c491455`](https://github.com/vercel/flags/commit/c4914553614063355e10ff54df06430fa5235a5f) Thanks [@dferber90](https://github.com/dferber90)! - Add `@vercel/flags-core/catalog`, a catalog loader of Vercel Flags for the code generation of the Flags SDK: `export { default } from '@vercel/flags-core/catalog'` in `flags/sources/<source>/catalog.ts`. It streams the flags of the project with the SDK key of `FLAGS` or the OIDC token, and supports `projectId` for connected projects. It passes on the description of a flag if the datafile has one.
+
+- [#563](https://github.com/vercel/flags/pull/563) [`ee725aa`](https://github.com/vercel/flags/commit/ee725aa3107bd35dd2aa8366a6fa80aeae966c92) Thanks [@github-actions](https://github.com/apps/github-actions)! - Add the subpath `@vercel/flags-core/default-provider`. It exports `createDefaultProvider()`, which returns a `VercelProvider`. A framework or a platform can use it as a bundler alias of `flags/default-provider`, so that flags of the Flags SDK without a connection use Vercel Flags.
+
+- [#563](https://github.com/vercel/flags/pull/563) [`397ca22`](https://github.com/vercel/flags/commit/397ca2240adc68ccc10f2b83caed57dc6b86dadd) Thanks [@github-actions](https://github.com/apps/github-actions)! - `VercelProvider` reports an override of the Flags SDK v5 with the reason `override`, as v4 of the Flags SDK did. The SDK resolves an override without the provider, so a hook of the provider reports it. It also reports the override to `experimental_reportOverride` of the client.
+
+### Patch Changes
+
+- [#612](https://github.com/vercel/flags/pull/612) [`c491455`](https://github.com/vercel/flags/commit/c4914553614063355e10ff54df06430fa5235a5f) Thanks [@dferber90](https://github.com/dferber90)! - The client's `origin` now includes the `projectId` of the deployment's own project when it authenticates with OIDC and `VERCEL_PROJECT_ID` is set. Flags discovery endpoints that pass the origin through, such as `getProviderData` from `flags/next`, now report which project a Vercel Flags flag belongs to.
+
 ## 1.11.0
 
 ### Minor Changes

@@ -1,7 +1,7 @@
 {
   "name": "@flags-sdk/conformance",
   "description": "The conformance suite of the Flags SDK standard, for framework bindings",
-  "version": "0.0.0",
+  "version": "0.1.0-standard.0",
   "license": "MIT",
   "author": "Dominik Ferber <dominik@vercel.com>",
   "homepage": "https://flags-sdk.dev",
