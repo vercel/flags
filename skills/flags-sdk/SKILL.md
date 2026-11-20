@@ -1,410 +1,292 @@
 ---
 name: flags-sdk
 description: >
-  Implement feature flags in Next.js or SvelteKit code with the Flags SDK (`flags` npm package).
-  Use when installing or configuring the SDK, declaring flags with `flag()`, setting up Project
-  Connections, wiring a provider adapter (`@flags-sdk/vercel`, Statsig, LaunchDarkly, PostHog, GrowthBook, Global Config,
-  OpenFeature, Split, Flagsmith, Reflag, Optimizely, or custom), using `identify`, `dedupe`, or
-  `evaluate`, keeping pages static with precompute, setting up Flags Explorer and the Vercel
-  Toolbar, or encrypting flag values. Triggers: `flags/next`, `flags/sveltekit`, `flags/react`,
-  `@flags-sdk/*`, `vercelAdapter`, precompute. For planning a flag, for Vercel Flags rollouts,
-  experiments, and the `vercel flags` CLI, or for other frameworks, use the `vercel-flags` skill.
+  Write feature flag code with the Flags SDK v5 (the `flags` npm package) and Vercel Flags.
+  Use when installing or configuring the SDK, adding a flag to code, or changing flag code:
+  `defineFlag` (inline flags), `bindFlag` and `defineSource` (provider flags), the file system
+  API (`flags/sources/<source>/provider.ts`, `catalog.ts`, `context.ts`) with
+  `import { ... } from 'flags:<source>'`, code generation (`flags sync`, `flags watch`,
+  `.flags/`, `flags/generated.d.ts`), `'use flags'` modules, `evaluate`, `runtime`,
+  `flags/config.ts`, the framework packages (`withFlags` of `@flags-sdk/next/plugin`,
+  `@flags-sdk/sveltekit`, `@flags-sdk/nuxt`, `@flags-sdk/tanstack-start`, `@flags-sdk/hono`,
+  `@flags-sdk/express`, `@flags-sdk/vite`), precompute (`@flags-sdk/next/precompute`),
+  `FlagValues`, Flags Explorer and its manifest route, overrides, `FLAGS_SECRET`,
+  `signOverrides`, `encryptOverrides`, OpenFeature providers (`VercelProvider` of
+  `@vercel/flags-core/openfeature`, LaunchDarkly, GrowthBook, Flagsmith, Statsig, PostHog,
+  in-memory, custom), Project Connections in code, and upgrading from v4 (`flag()` of
+  `flags/next`, adapters, `identify`, `dedupe`). For planning a flag, the `vercel flags` CLI
+  beyond create and inspect, rollouts, experiments, and archiving or deleting flags, use the
+  `vercel-flags` skill.
 ---
 
-# Set up and use the Flags SDK
+# Use the Flags SDK v5
 
-The Flags SDK (`flags` npm package) is a feature flags toolkit for Next.js and SvelteKit. It turns each feature flag into a callable function, works with any flag provider via adapters, and keeps pages static using the precompute pattern. Vercel Flags is the first-party provider; its adapter is `@flags-sdk/vercel`.
+The Flags SDK (npm package `flags`) turns each feature flag into an async function that runs on the server. It works in Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express and plain Node.js. Providers are OpenFeature server providers, used as they are. Vercel Flags is the first-party provider: `VercelProvider` of `@vercel/flags-core/openfeature`.
 
 - Docs: https://flags-sdk.dev
 - Repo: https://github.com/vercel/flags
 
-This skill covers the code. Planning a flag, choosing between the Flags SDK, `@vercel/flags-core`, and OpenFeature, and managing flags in the dashboard or with the `vercel flags` CLI belong to the `vercel-flags` skill. Archiving a flag, deleting it, or removing a variant requires the checks in that skill (remove the code first, confirm no evaluations over the Skew Protection window, archive before `rm`); do not run those commands without it. If it is not available, suggest `npx skills add vercel/flags@vercel-flags` (do not auto-install) and run `vercel flags <cmd> --help` in the meantime. For a project on another framework, `@vercel/flags-core` replaces this SDK ([Core SDK](https://vercel.com/docs/flags/vercel-flags/sdks/core)).
+This skill covers the code. The `vercel-flags` skill covers planning a flag, the `vercel flags` CLI, rollouts, experiments and cleanup. Archiving a flag, deleting it, or removing a variant needs the checks of that skill (remove the code first, check that there are no evaluations over the Skew Protection window, archive before `rm`). Do not run these commands without it. If it is not available, suggest `npx skills add vercel/flags@vercel-flags` (do not install it yourself), and use `vercel flags <cmd> --help` in the meantime.
 
-When the user asks to install, configure, or set up the SDK, follow [Set up the SDK](#set-up-the-sdk) (including `vercel env pull` when `.env.local` is missing). When they ask to add a flag to the code, follow [Create a flag](#create-a-flag) or [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel). Inside an app repository, treat an ambiguous request as the full flow. Do not leave CLI steps as "next steps" for the user; execute them yourself.
+Run the CLI steps of this skill yourself. Do not leave them to the user as "next steps". Inside an app repository, treat an ambiguous request ("add a flag for X") as the full flow: set up the SDK if needed, create the flag, and use it in code.
 
 ## Core concepts
 
-### Flags as code
+- **A flag is an async function.** Call it on the server: `const sale = await enableSale()`. It returns the value, not the details.
+- **Two kinds of flags.**
+  - An **inline flag**, `defineFlag({ key, decide })`, decides its value in code. `decide(request, context)` receives the current request (`undefined` outside a request) and the evaluation context of the call side.
+  - A **provider flag**, `bindFlag({ key, source })`, asks the OpenFeature provider of a source.
+- **A source** is `defineSource({ provider, project?, getEvaluationContext?, hooks? })`. Each provider flag names its source. There is no default source. By convention, the main source of an app is `self`.
+- **The evaluation context** comes from a chain: call side (`flag({ evaluationContext })`) → flag (`getEvaluationContext` of `bindFlag`) → source (`getEvaluationContext(request, input)`) → provider. Each step is optional and runs once per request and input. This replaces `identify` and `dedupe` of v4. The SDK does not merge the steps: each step returns the complete input of the next one.
+- **Types.** Without `type`, a flag is a boolean. Set `type: 'string' | 'number' | 'object'` for every other flag. The SDK does not infer the type from `defaultValue` or `options`. `object` is any JSON value.
+- **`options`** list the known values, for Flags Explorer and precompute. They do not limit the value: a new variant goes through.
+- **`defaultValue`** is returned when the evaluation fails, and the SDK logs one line. Without it, the call throws a `FlagEvaluationError`.
+- **One value per request.** Each flag is evaluated once per request and context. Use `evaluate([a, b])` to evaluate several flags in parallel.
+- **`'use flags'` modules.** A module that starts with `'use flags'` exports only flags. The framework plugins register these flags, and the flags manifest for Flags Explorer lists them. Generated modules have the directive already.
+- **The runtime** (`runtime` of `flags`) knows the current request, initializes each provider once, and closes it at shutdown. The framework package connects it to the request. Without a framework, call `runtime.onInvoke(request, next)` yourself.
+- **App code imports only `flags`** (and `flags:<source>`). The framework packages are only for the setup, plus precompute and `FlagValues` in Next.js.
 
-Each flag is declared as a function. No string keys at call sites:
+## Decide the setup
 
-```ts
-import { flag } from 'flags/next';
+**File system API with code generation** (recommended for Next.js, SvelteKit, Nuxt, TanStack Start). Put a source into a folder. The plugin generates `.flags/<source>.ts` and the types in `flags/generated.d.ts`, and resolves `import { enableSale } from 'flags:self'`:
 
-export const exampleFlag = flag({
-  key: 'example-flag',
-  decide() { return false; },
-});
-
-const value = await exampleFlag();
+```txt
+flags/                    # in the app root or in src/ (SvelteKit: always src/flags)
+  config.ts               # optional: export const config = defineConfig({ hooks?, overrides? })
+  sources/
+    self/
+      provider.ts         # default export: an OpenFeature provider
+      catalog.ts          # default export: a CatalogLoader (build and dev only, in Node.js)
+      context.ts          # optional: default export getEvaluationContext(request, input)
+  generated.d.ts          # generated types, commit it or run `flags sync` before tsc
+.flags/                   # generated modules, ignored by its own .gitignore
 ```
 
-### Server-side evaluation
+**Hand-written sources** (Hono, Express, plain Node.js, or when the user prefers code): write `defineSource` in one module (e.g. `flags/self.ts`) and the `bindFlag` calls in a `'use flags'` module (e.g. `flags.ts`). The generated code is the same code, so the call sites do not change when you switch.
 
-Flags evaluate server-side to avoid layout shift, keep pages static, and maintain confidentiality. Combine routing middleware with the precompute pattern to serve static variants from CDN.
+Inline flags (`defineFlag`) go into a hand-written `'use flags'` module in both setups.
 
-### Adapter pattern
+| Framework      | Package                     | Setup                                                    |
+| -------------- | --------------------------- | -------------------------------------------------------- |
+| Next.js        | `@flags-sdk/next`           | `export default withFlags({...})` in `next.config.ts`    |
+| SvelteKit      | `@flags-sdk/sveltekit`      | `flags()` of `@flags-sdk/sveltekit/vite` in `vite.config.ts` |
+| Nuxt           | `@flags-sdk/nuxt`           | `modules: ['@flags-sdk/nuxt']` in `nuxt.config.ts`       |
+| TanStack Start | `@flags-sdk/tanstack-start` | `flags()` of `@flags-sdk/tanstack-start/vite` in `vite.config.ts` |
+| Hono           | `@flags-sdk/hono`           | `app.use(flags())`, sources by hand                      |
+| Express        | `@flags-sdk/express`        | `app.use(flags())`, sources by hand                      |
+| No framework   | none                        | `runtime.onInvoke(request, next)` per request            |
+| Other Vite app | `@flags-sdk/vite`           | `flags()` Vite plugin (for framework packages)           |
 
-Adapters replace `decide` and `origin` on a flag declaration, connecting your flags to a provider. Vercel Flags (`@flags-sdk/vercel`) is the first-party adapter. Third-party adapters are available for Statsig, LaunchDarkly, PostHog, and others.
+Precompute exists for Next.js only. See [references/frameworks.md](references/frameworks.md) for the full setup of each framework.
 
-```ts
-import { flag } from 'flags/next';
-import { vercelAdapter } from '@flags-sdk/vercel';
+## Before you start
 
-export const exampleFlag = flag({
-  key: 'example-flag',
-  adapter: vercelAdapter,
-});
-```
+Check the project, and skip the steps that are done:
 
-> **Version note**: The SDK is published as `flags` (renamed from `@vercel/flags`; that old name still appears in changelog history). `flags` 4.2.0+ accepts the adapter factory by reference (`adapter: vercelAdapter`) and resolves it once per declaration. Older versions require calling it (`adapter: vercelAdapter()`). The called form still works on new versions, so prefer the shorthand unless you're targeting `flags` < 4.2.0.
+- **Package manager**: use the lockfile (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `bun.lock`/`bun.lockb`) to pick `pnpm add`, `npm install`, `yarn add` or `bun add`.
+- **SDK version**: is `flags` in `package.json`, and which major? Code with `flag()` from `flags/next` or `flags/sveltekit`, `@flags-sdk/vercel`, `identify`, `dedupe` or `app/.well-known/vercel/flags/route.ts` is v4. Do not mix v4 and v5 APIs. Ask the user before you upgrade, then follow [references/upgrading-from-v4.md](references/upgrading-from-v4.md).
+- **Framework**: which framework, and does it have a bundler? This selects the package and the setup.
+- **Sources**: does `flags/sources/` (or `src/flags/sources/`) exist? Which sources? Is there a hand-written `defineSource`?
+- **Vercel link**: run `vercel project inspect --non-interactive` and check the owner and project name. A `.vercel/` folder alone does not prove a link. If it reports `link_required`, run `vercel link`. If the user named a project or team and the output differs, stop and ask.
+- **Credentials**: does `.env.local` contain `VERCEL_OIDC_TOKEN=` (or an SDK key in `FLAGS=`)? Do not print the values.
+- **Flags Explorer**: in Next.js, does `app/.well-known/flags/manifest.json/route.ts` exist? Is `@vercel/toolbar` installed?
 
-## Set up the SDK
+> **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or link problems, follow the `vercel-cli` skill if it is available. If it is not, suggest `npx skills add vercel/vercel@vercel-cli` (do not install it yourself), and use `vercel <command> --help` in the meantime.
 
-One-time project setup. Run this when the Flags SDK is not installed yet, or when Toolbar / Flags Explorer / `.env.local` are missing. Skip any step that is already done.
+## Set up the SDK with Vercel Flags
 
-### Before you start
+One-time setup. The example is Next.js; the other frameworks differ only in steps 1, 2 and 6 ([references/frameworks.md](references/frameworks.md)).
 
-Check the project state to adapt commands and decide which steps you can skip:
-
-- Which lockfile is present (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `bun.lockb`)? → Adapt all package manager commands accordingly (`pnpm add`, `npm install`, `yarn add`, `bun add`).
-- Is `flags` in `package.json`? → Skip install (step 1)
-- Is the project linked? → Skip `vercel link` in step 2
-- Does `.env.local` contain `VERCEL_OIDC_TOKEN=` (or a `FLAGS=` SDK key)? → Env vars already pulled, skip step 3
-- Is `@vercel/toolbar` in `package.json`? → Skip toolbar setup (step 4)
-- Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Skip creating it (step 5)
-- Does `app/.well-known/vercel/flags/route.ts` exist? → Flags Explorer already set up, skip step 6
-
-### Steps
-
-1. **Install packages** (if not already in `package.json`):
-   ```bash
-   pnpm i flags @flags-sdk/vercel
+1. **Install the packages**:
+   ```sh
+   pnpm add flags @flags-sdk/next @vercel/flags-core @openfeature/server-sdk
    ```
+   `@openfeature/server-sdk` is a peer dependency of `VercelProvider`. Your code does not import it.
+2. **Add the plugin**. `withFlags` returns a function of the phase, so it must be the outer plugin:
+   ```ts
+   // next.config.ts
+   import { withFlags } from '@flags-sdk/next/plugin';
 
-2. **Link the project to Vercel** (required for `vercel env pull` and local OIDC token refresh):
-   > **Prerequisite**: The Vercel CLI must be installed and authenticated. If it is not installed, run `pnpm i -g vercel`. For authentication or linking issues, follow the `vercel-cli` skill if it's already available. If it isn't, suggest the user install it with `npx skills add vercel/vercel@vercel-cli` (don't auto-install it) and rely on `vercel <command> --help` in the meantime.
+   export default withFlags({
+     // Your Next.js configuration, as usual
+   });
+   ```
+   With other plugins: `withFlags(withVercelToolbar()(nextConfig))`, never `withVercelToolbar()(withFlags(nextConfig))`. A phase function config: `withFlags((phase) => ({ ... }))`. Turbopack only.
+3. **Link and pull credentials**: `vercel link` (if not linked), then `vercel env pull`. This writes the OIDC token to `.env.local`. `VercelProvider` and the catalog use it. Deployments on Vercel get the token automatically.
+4. **Create the source `self`**:
+   ```ts
+   // flags/sources/self/provider.ts
+   import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-   Verify the link with `vercel project inspect --non-interactive` and check the reported owner and project name; a `.vercel/` directory alone does not prove a link. If it reports `link_required`, run `vercel link`. If the user named a project or team and the output differs, stop and ask instead of relinking.
+   export default new VercelProvider();
+   ```
+   ```ts
+   // flags/sources/self/catalog.ts
+   export { default } from '@vercel/flags-core/catalog';
+   ```
+   Add `context.ts` when targeting rules use entities. Return the entity and attribute names that the dashboard defines under Flags → Entities:
+   ```ts
+   // flags/sources/self/context.ts
+   import type { FlagsRequest } from 'flags';
 
-3. **Pull environment variables**: If `.env.local` lacks `VERCEL_OIDC_TOKEN=`, follow [Pull environment variables](#pull-environment-variables).
+   export default function getEvaluationContext(
+     request: FlagsRequest | undefined,
+   ) {
+     return {
+       user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
+     };
+   }
+   ```
+5. **Generate the code**: start the dev server, or run `npx flags sync`. Check that `.flags/self.ts` and `flags/generated.d.ts` exist.
+6. **Flags Explorer** (Next.js): add the manifest route. The plugins of the other frameworks serve the manifest without a route.
+   ```ts
+   // app/.well-known/flags/manifest.json/route.ts
+   export { GET } from '@flags-sdk/next/manifest';
+   ```
+   For local development, add the Vercel Toolbar: `pnpm add @vercel/toolbar`, wrap the config as `withFlags(withVercelToolbar()(nextConfig))` (`import { withVercelToolbar } from '@vercel/toolbar/plugins/next'`), and render `{process.env.NODE_ENV === 'development' && <VercelToolbar />}` (`import { VercelToolbar } from '@vercel/toolbar/next'`) in the root layout.
+7. **Verify**: run the type check (`flags sync && tsc --noEmit`) and the build.
 
-4. **Set up the Vercel Toolbar** (if not already present):
-   - Run `pnpm i @vercel/toolbar`
-   - Wrap `next.config.ts` with the toolbar plugin
-   - Render `<VercelToolbar />` in the root layout
-   See [references/nextjs.md — Toolbar Setup](references/nextjs.md#toolbar-setup) for the full code.
-
-5. **Ensure `flags.ts` exists**: If missing, create `flags.ts` (or `lib/flags.ts` / `src/flags.ts` to match the project) with `export {}` so TypeScript treats it as a module. Flags Explorer imports this file — create it before the discovery route.
-
-6. **Set up Flags Explorer** (if not already present): Create `app/.well-known/vercel/flags/route.ts` — see [Flags Explorer setup](#flags-explorer-setup). Do this only after `flags.ts` exists. Point the import at the real flags file path (the snippet assumes root `flags.ts`).
-
-## Pull environment variables
-
-`vercel env pull` writes the Development credentials to `.env.local`: the Vercel OIDC token that `vercelAdapter` uses locally (deployments receive it automatically, [Getting started](https://vercel.com/docs/flags/vercel-flags/quickstart#pull-local-openid-connect-credentials)) and the Development `FLAGS_SECRET` for Flags Explorer and overrides. Run it when:
-
-- `.env.local` lacks `VERCEL_OIDC_TOKEN=` (or a `FLAGS=` SDK key)
-- you created the project's first flag; activating Vercel Flags creates a `FLAGS_SECRET` per environment
-- local evaluation fails with an authentication error; the SDK refreshes an expired token through the linked project, re-pulling is the fallback
-
-Use SDK keys (`FLAGS`) for apps outside Vercel or to select an environment explicitly ([SDK Keys](https://vercel.com/docs/flags/vercel-flags/dashboard/sdk-keys)). To read another same-team project's flags on Vercel, use [Project Connections](references/providers.md#project-connections) with your project's OIDC token. If `FLAGS_SECRET` is still missing after the pull, generate it per [FLAGS_SECRET](#flags_secret).
+Details of the Vercel provider, the catalog, SDK keys and other projects: [references/providers.md](references/providers.md#vercel-flags).
 
 ## Create a flag
 
-When a user asks you to create or add a feature flag that does not exist on Vercel yet, follow these steps in order. If the flag was already created in the dashboard (the prompt says so, or `vercel flags create` reports the key exists), follow [Add a flag that already exists on Vercel](#add-a-flag-that-already-exists-on-vercel) instead.
+Use this flow when the flag does not exist on Vercel yet. If it exists (the prompt says so, or `vercel flags create` reports that the key exists), follow [Add a flag that exists on Vercel](#add-a-flag-that-exists-on-vercel).
 
-### Before you start
-
-- Complete [Set up the SDK](#set-up-the-sdk) first if packages, Vercel link, `.env.local`, Toolbar, `flags.ts`, or Flags Explorer are missing. Skip steps that are already done.
-- Does `.env.local` contain `VERCEL_OIDC_TOKEN=`? → Env vars already pulled; see [Pull environment variables](#pull-environment-variables) if local evaluation fails with an authentication error.
-- Does `flags.ts` (or `lib/flags.ts`, `src/flags.ts`) exist? → Add to it rather than creating from scratch.
-
-### Steps
-
-1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed, then continue.
-
-2. **Register the flag with Vercel**: Run `vercel flags create <flag-key> --kind boolean --description "<description>"` against the linked project, or pass `--project <name-or-id>` and `--scope <team>`. Pick the kind to match the flag's type parameter; it cannot be changed later.
-
-3. **Pull environment variables**: If this is the project's first flag, follow [Pull environment variables](#pull-environment-variables) again; activation created the `FLAGS_SECRET`.
-
-4. **Declare the flag in code**: Add it to `flags.ts` (or create the file if it doesn't exist) using `vercelAdapter`:
-   ```ts
-   import { flag } from 'flags/next';
-   import { vercelAdapter } from '@flags-sdk/vercel';
-
-   export const myFlag = flag({
-     key: 'my-flag',
-     adapter: vercelAdapter,
-   });
-   ```
-
-5. **Use the flag**: Call it in your page or component and conditionally render based on the result:
+1. **Set up the SDK** if needed ([Set up the SDK with Vercel Flags](#set-up-the-sdk-with-vercel-flags)).
+2. **Create the flag on Vercel**: `vercel flags create <key> --kind boolean --description "<description>"` against the linked project, or with `--project <name-or-id> --scope <team>`. Pick the kind to match the type of the flag (`boolean`, `string`, `number`, `json`). The kind cannot be changed later. Run `vercel flags create --help` for the variants of other kinds.
+3. **Pull the credentials** if `.env.local` has no `VERCEL_OIDC_TOKEN=`: `vercel env pull`.
+4. **Generate the code**:
+   - File system API: a running dev server picks up the new flag. Otherwise run `npx flags sync`. Check that `flags/generated.d.ts` declares the key.
+   - Hand-written source: add a `bindFlag` to the `'use flags'` module:
+     ```ts
+     export const myFlag = bindFlag({
+       key: 'my-flag',
+       source: self,
+       defaultValue: false,
+       description: 'What the flag is for',
+     });
+     ```
+5. **Use the flag** on the server. A generated module exports each flag under its key. Import a key that is not a valid name with a string import:
    ```tsx
-   import { myFlag } from '../flags';
+   import { 'my-flag' as myFlag } from 'flags:self';
 
    export default async function Page() {
      const enabled = await myFlag();
      return <div>{enabled ? 'Feature on' : 'Feature off'}</div>;
    }
    ```
+6. **Plan the failure case.** The Vercel catalog gives no `defaultValue`, so a generated flag throws a `FlagEvaluationError` when its evaluation fails. Where a safe value exists, catch the error at the call site, or declare the flag by hand with `defaultValue`, or use a static catalog ([references/code-generation.md](references/code-generation.md#default-values)).
+7. **Verify**: type check and build. Then use the `vercel-flags` skill to enable, roll out or split the flag.
 
-## Add a flag that already exists on Vercel
+## Add a flag that exists on Vercel
 
-Use this flow when the flag was created in the dashboard or by someone else, for example when the prompt says the flag "has already been created" or asks you to run `vercel flags inspect`. Do not run `vercel flags create` for an existing key.
+Use this flow when the flag was created in the dashboard or by someone else. Do not run `vercel flags create` for an existing key.
 
-1. **Ensure the SDK is set up**: Follow [Set up the SDK](#set-up-the-sdk) if needed.
-2. **Read the definition**: Run `vercel flags inspect <flag-key>`. Note the kind, the variants (value and label), the description, and what each environment serves.
-3. **Pull environment variables**: If `.env.local` lacks `VERCEL_OIDC_TOKEN=`, follow [Pull environment variables](#pull-environment-variables).
-4. **Declare the flag**: Add it to `flags.ts` with `vercelAdapter`. Map the `inspect` output:
-   - `key`: the flag key exactly as printed
-   - kind → type parameter: `boolean` → `flag<boolean>`, `string` → `flag<string>`, `number` → `flag<number>`, `json` → `flag<YourType>`
-   - `description`: copy from `inspect`
-   - `defaultValue`: the value to serve when the flag is archived or evaluation fails (usually what production serves today)
-   - `options`: optional; mirror the variants when you use precompute or want them listed in Flags Explorer
-   - `identify`: add or reuse one when the flag has targeting, using the entity attributes configured in the dashboard (see [Flag with evaluation context](#flag-with-evaluation-context))
-   ```ts
-   export const welcomeMessage = flag<string>({
-     key: 'welcome-message',
-     description: 'Copy shown on the landing page',
-     defaultValue: 'control',
-     adapter: vercelAdapter,
-   });
-   ```
-5. **Use the flag** as in [Create a flag](#create-a-flag) step 5.
+1. **Set up the SDK** if needed.
+2. **Read the definition**: `vercel flags inspect <key>`. Note the kind, the variants, the description, and what each environment serves.
+3. **Pull the credentials** if `.env.local` has no `VERCEL_OIDC_TOKEN=`.
+4. **Get the flag into code**:
+   - File system API: the catalog already generates it. Run `npx flags sync` (or let the dev server do it), and import the flag from `flags:self`. Its type and options come from the variants.
+   - Hand-written: map the `inspect` output to `bindFlag`:
+     - `key`: the key exactly as printed.
+     - kind → `type`: `boolean` → no `type` (or `'boolean'`), `string` → `'string'`, `number` → `'number'`, `json` → `'object'`.
+     - `options`: the variants, when you use precompute or want them in Flags Explorer.
+     - `description`: copy it.
+     - `defaultValue`: the value for a failed evaluation or an archived flag, usually what production serves today.
+     ```ts
+     export const welcomeMessage = bindFlag({
+       key: 'welcome-message',
+       source: self,
+       type: 'string',
+       description: 'Copy shown on the landing page',
+       defaultValue: 'control',
+     });
+     ```
+5. **Targeting**: if the flag has rules, splits or rollouts, check that `context.ts` (or `getEvaluationContext` of the source) returns the entities and attributes that the rules use, e.g. `user.id` for `--by user.id`.
+6. **Use the flag** as in [Create a flag](#create-a-flag), step 5.
 
-## Vercel Flags adapter
+What a flag serves (enable, set, split, rollout, rules) changes in the dashboard or with `vercel flags`, not in code. The `vercel-flags` skill covers these flows.
 
-`@flags-sdk/vercel` connects `flag()` declarations to Vercel Flags. `vercelAdapter` authenticates with the project's Vercel OIDC token and evaluates the configuration of the current environment. Use `@flags-sdk/vercel` version 1.6.0 or later and `createVercelAdapter({ projectId })` for a connected same-team project's flags; see [Project Connections](references/providers.md#project-connections). SDK keys (`FLAGS`) are for manual authentication, such as apps outside Vercel or selecting an environment explicitly. Activating Vercel Flags creates a `FLAGS_SECRET` per environment for Flags Explorer.
-
-For user targeting, attribute types, custom adapter configuration, sharing a `@vercel/flags-core` client, and the Flags Explorer endpoint, see [references/providers.md — Vercel](references/providers.md#vercel).
-
-Changing what a flag serves (enable, set, split, rollout, rules, archive) happens in the dashboard or with `vercel flags`, not in code. The `vercel-flags` skill covers those flows; `vercel flags <cmd> --help` lists the options.
-
-## Declaring flags
-
-When using Vercel Flags, declare flags with `vercelAdapter` as shown in [Create a flag](#create-a-flag). For other providers, see [references/providers.md](references/providers.md). Below are the general `flag()` patterns.
-
-### Basic flag
+## Inline flags
 
 ```ts
-import { flag } from 'flags/next'; // or 'flags/sveltekit'
+// flags.ts
+'use flags';
 
-export const showBanner = flag<boolean>({
-  key: 'show-banner',
-  description: 'Show promotional banner',
-  defaultValue: false,
-  options: [
-    { value: false, label: 'Hide' },
-    { value: true, label: 'Show' },
-  ],
-  decide() { return false; },
+import { defineFlag } from 'flags';
+
+export const betaBanner = defineFlag({
+  key: 'beta-banner',
+  decide: (request) => request?.cookies?.get('beta')?.value === '1',
+  options: [false, true] as const,
+  description: 'Shows the beta banner to testers',
 });
 ```
 
-### Flag with evaluation context
+A typed second parameter of `decide` makes the context required at each call: `decide: async (_request, context: { teamId: string }) => ...` and `await teamInsights({ evaluationContext: { teamId } })`. To move an inline flag to a provider, replace `defineFlag` with `bindFlag` (or the generated flag) and keep the key. The call sites do not change.
 
-Use `identify` to establish who the request is for. The returned entities are passed to `decide`:
-
-```ts
-import { dedupe, flag } from 'flags/next';
-import type { ReadonlyRequestCookies } from 'flags';
-
-interface Entities {
-  user?: { id: string };
-}
-
-const identify = dedupe(
-  ({ cookies }: { cookies: ReadonlyRequestCookies }): Entities => {
-    const userId = cookies.get('user-id')?.value;
-    return { user: userId ? { id: userId } : undefined };
-  },
-);
-
-export const dashboardFlag = flag<boolean, Entities>({
-  key: 'new-dashboard',
-  identify,
-  decide({ entities }) {
-    if (!entities?.user) return false;
-    return ['user1', 'user2'].includes(entities.user.id);
-  },
-});
-```
-
-With `vercelAdapter`, the entity and attribute names in the returned object (`user.id` here) are what dashboard rules and `vercel flags split|rollout|rules --by` target. They must match the entities and attribute types configured in the dashboard. See [references/providers.md — User targeting](references/providers.md#user-targeting) and [Attribute types](references/providers.md#attribute-types).
-
-### Flag with another adapter
-
-Adapters connect flags to third-party providers. Each adapter replaces `decide` and `origin`:
+## Evaluate flags
 
 ```ts
-import { flag } from 'flags/next';
-import { statsigAdapter } from '@flags-sdk/statsig';
+import { evaluate } from 'flags';
+import { enableSale } from 'flags:self';
+import { betaBanner } from './flags';
 
-export const myGate = flag({
-  key: 'my_gate',
-  adapter: statsigAdapter.featureGate((gate) => gate.value),
-  identify,
-});
+const sale = await enableSale();
+const [sale2, beta] = await evaluate([enableSale, betaBanner]);
+const insights = await teamInsights({ evaluationContext: { teamId } });
 ```
 
-See [references/providers.md](references/providers.md) for all supported adapters.
+- Flags run only on the server: server components, route handlers, loaders, server functions, middleware and scripts. Pass values to the client as props or loader data.
+- Never import `flags` or `flags:<source>` in client code (`'use client'`, universal `+page.ts`, browser components).
+- In the Next.js proxy, wrap the call: `await runtime.onInvoke(request, () => betaBanner())`.
+- A key that is known only at runtime: ``evaluate({ key: `feature-${name}`, source: self })``. Define known flags with `bindFlag`, so they have types and appear in the manifest.
 
-### Key parameters
+## Overrides and `FLAGS_SECRET`
 
-| Parameter      | Type                               | Description                                          |
-| -------------- | ---------------------------------- | ---------------------------------------------------- |
-| `key`          | `string`                           | Unique flag identifier                               |
-| `decide`       | `function`                         | Resolves the flag value                              |
-| `defaultValue` | `any`                              | Fallback if `decide` returns undefined or throws     |
-| `description`  | `string`                           | Shown in Flags Explorer                              |
-| `origin`       | `string`                           | URL to manage the flag in provider dashboard         |
-| `options`      | `{ label?: string, value: any }[]` | Possible values, used for precompute + Flags Explorer|
-| `adapter`      | `Adapter`                          | Provider adapter implementing `decide` and `origin`  |
-| `identify`     | `function`                         | Returns evaluation context (entities) for `decide`   |
+Flags Explorer overrides a flag for one browser with the cookie `flag-overrides`. The SDK also reads the v4 cookie `vercel-flag-overrides`. It accepts only trusted tokens:
 
-## Dedupe
+- **Signed by Vercel**: on Vercel, and locally after `vercel link` and `vercel env pull`. No secret is needed. This also works when `FLAGS_SECRET` is set.
+- **Encrypted with `FLAGS_SECRET`**: the v4 format, for tests, CI, `vercel flags override`, and apps outside Vercel.
 
-Wrap shared functions (especially `identify`) in `dedupe` to run them once per request:
+`FLAGS_SECRET` is optional on Vercel. Set it when the app runs outside Vercel, when tests create tokens with `encryptOverrides`, or when you use `vercel flags override`. Without it, `FlagValues` encrypts the flag values with a public key of Vercel, and only Vercel can decrypt them; with it, `FlagValues` uses the v4 format with this secret. It is 32 random bytes as base64url. Standard base64 also works.
 
-```ts
-import { dedupe } from 'flags/next';
+Rules for secrets:
 
-const identify = dedupe(({ cookies }) => {
-  return { user: { id: cookies.get('uid')?.value } };
-});
-```
+- Preserve existing values. Do not rotate them as part of SDK setup.
+- A missing local value does not mean the remote value is missing. Check the target environment first, then run `vercel env pull` for Development. Activating Vercel Flags creates a `FLAGS_SECRET` for each environment.
+- Generate a secret only for an environment that has none. Use a distinct value per environment. Mark Preview and Production values as Sensitive.
+- Send generated values directly to storage, e.g. through stdin to `vercel env add`. Do not print secrets or tokens to the terminal, logs or chat, and do not put them into command arguments.
 
-Note: `dedupe` is not available in Pages Router.
+Hooks see overrides with the reason `OVERRIDE` (`OVERRIDE_REASON`). Testing with overrides (`encryptOverrides`, `signOverrides`): [references/testing.md](references/testing.md). Cookie rules and `overrides` options: [references/api.md](references/api.md#overrides).
 
-## Bulk evaluation
+## Precompute (Next.js)
 
-To evaluate **multiple** flags at once, call `evaluate()` (from `flags/next`) instead of awaiting flags one at a time or using `Promise.all()`. To evaluate a **single** flag, just call it: `await myFlag()`.
+Precompute keeps pages static while flags vary per visitor. The proxy calls `precompute(group, { request })`, rewrites to `/<code>/path`, and the page reads values with `getPrecomputed(flag, group, code)`. All from `@flags-sdk/next/precompute`. `withFlags` injects a secret per build, so `FLAGS_PRECOMPUTE_SECRET` is optional. Set it when codes must stay valid across deployments. Put the group array into a module without `'use flags'`. See [references/precompute.md](references/precompute.md).
 
-```ts
-import { evaluate } from 'flags/next';
-import { flagA, flagB } from '../flags';
+## Common pitfalls
 
-// avoid: each await blocks the next, so the flags resolve sequentially
-const a = await flagA();
-const b = await flagB();
-
-// avoid: parallel, but each flag is evaluated in isolation
-const [a, b] = await Promise.all([flagA(), flagB()]);
-
-// prefer: shares work across the batch
-const [a, b] = await evaluate([flagA, flagB]);
-```
-
-`evaluate()` is faster than both approaches. Awaiting flags one at a time makes total latency the sum of every flag's evaluation instead of the slowest single flag, while `Promise.all()` runs them in parallel but evaluates each in isolation. `evaluate()` pre-reads headers, cookies, and overrides once for the whole batch and lets adapters resolve a group in a single call, which reduces the number of parallel promises the runtime manages and leaves less room for the async work to be interrupted by other microtasks.
-
-It accepts either an **array** (positional results) or an **object** (keyed results):
-
-```ts
-const [a, b] = await evaluate([flagA, flagB]);
-const { a, b } = await evaluate({ a: flagA, b: flagB });
-```
-
-Outside App Router (Pages Router `getServerSideProps`/API routes, or routing middleware), pass the request as the second argument: `await evaluate([flagA, flagB], request)`.
-
-`evaluate()` always evaluates flags at request time. It is not for reading [precomputed](#precompute-pattern) (static) values — for those, use `getPrecomputed` (or call the flag with the code, `await myFlag(code, flagGroup)`).
-
-Adapters can opt into batching by implementing the optional `bulkDecide` hook. The Vercel adapter (`@flags-sdk/vercel`) implements it — roughly a 10x reduction in evaluation time when resolving hundreds of flags. See [references/providers.md — Custom Adapters](references/providers.md#custom-adapters) for implementing `bulkDecide`, and [references/api.md — `evaluate`](references/api.md#evaluate) for the full signature.
-
-## Flags Explorer setup
-
-### Next.js (App Router)
-
-```ts
-// app/.well-known/vercel/flags/route.ts
-import { createFlagsDiscoveryEndpoint } from 'flags/next';
-import { getProviderData } from '@flags-sdk/vercel';
-import * as flags from '../../../../flags'; // adjust if flags live under lib/ or src/
-
-export const GET = createFlagsDiscoveryEndpoint(async () => {
-  return getProviderData(flags);
-});
-```
-
-### With external provider data
-
-When using a third-party provider alongside Vercel Flags, combine their data with `mergeProviderData`. Each provider adapter exports its own `getProviderData` — see the provider-specific examples in [references/providers.md](references/providers.md).
-
-### SvelteKit
-
-```ts
-// src/hooks.server.ts
-import { createHandle } from 'flags/sveltekit';
-import * as flags from '$lib/flags';
-
-export const handle = createHandle({ flags });
-```
-
-## FLAGS_SECRET
-
-Optional on Vercel with `flags` 4.5.0 or later: Flags Explorer, overrides and precompute work without it when the project exposes the system environment variables. Still needed outside Vercel, for a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`), for precompute codes that must be valid in another deployment, and for `encryptOverrides` in tests. Vercel Flags activation creates a value per environment. Preserve existing values; do not rotate them during ordinary SDK setup. A missing local value does not mean the remote value is missing: check the target environment first, then follow [Pull environment variables](#pull-environment-variables) for Development.
-
-Only generate a secret for an environment where it is absent. Use 32 cryptographically random bytes, base64-encoded, with a distinct value per environment. Mark Preview and Production values Sensitive. Send generated values directly to storage, such as stdin for `vercel env add`; do not print them to terminal output, logs, or chat, or embed them in command arguments.
-
-## Precompute pattern
-
-Use precompute to keep pages static while using feature flags. Middleware evaluates flags and encodes results into the URL via rewrite. The page reads precomputed values instead of re-evaluating.
-
-High-level flow:
-1. Declare flags and group them in an array
-2. Call `precompute(flagGroup)` in middleware, get a `code` string
-3. Rewrite request to `/${code}/original-path`
-4. Page reads flag values from `code`: `await myFlag(code, flagGroup)`
-
-For full implementation details, see framework-specific references:
-- **Next.js**: See [references/nextjs.md](references/nextjs.md) — covers proxy middleware, precompute setup, ISR, generatePermutations, multiple groups
-- **SvelteKit**: See [references/sveltekit.md](references/sveltekit.md) — covers reroute hook, middleware, precompute setup, ISR, prerendering
-
-## Custom adapters
-
-Create an adapter factory that returns an object with `origin` and `decide`. For the full pattern (including default adapter and singleton client examples), see [references/providers.md](references/providers.md#custom-adapters).
-
-## Encryption functions
-
-For keeping flag data confidential in the browser (used by Flags Explorer):
-
-| Function                   | Purpose                             |
-| -------------------------- | ----------------------------------- |
-| `encryptFlagValues`        | Encrypt resolved flag values        |
-| `decryptFlagValues`        | Decrypt flag values                 |
-| `encryptFlagDefinitions`   | Encrypt flag definitions/metadata   |
-| `decryptFlagDefinitions`   | Decrypt flag definitions            |
-| `encryptOverrides`         | Encrypt toolbar overrides           |
-| `decryptOverrides`         | Decrypt toolbar overrides           |
-
-All use `FLAGS_SECRET` by default. Example:
-
-```tsx
-import { encryptFlagValues } from 'flags';
-import { FlagValues } from 'flags/react';
-
-async function ConfidentialFlags({ values }) {
-  const encrypted = await encryptFlagValues(values);
-  return <FlagValues values={encrypted} />;
-}
-```
-
-## React components
-
-```tsx
-import { FlagValues, FlagDefinitions } from 'flags/react';
-
-// Renders script tag with flag values for Flags Explorer
-<FlagValues values={{ myFlag: true }} />
-
-// Renders script tag with flag definitions for Flags Explorer
-<FlagDefinitions definitions={{ myFlag: { options: [...], description: '...' } }} />
-```
+- **`withFlags` is not the outer plugin.** It returns a phase function. `withVercelToolbar()(withFlags({}))` breaks. Use `withFlags(withVercelToolbar()({}))`. If another plugin must be outer, use `withFlags(config, { disableCodeGeneration: true })` and run `flags sync` before `next dev` and `next build`.
+- **Webpack in Next.js.** `withFlags` supports Turbopack only. A webpack build throws.
+- **No source on `bindFlag`.** There is no default source. `bindFlag` without `source` throws. `flags/config.ts` has no source option.
+- **Missing `type`.** A non-boolean flag without `type` is a type error, and a string value fails at runtime with `TYPE_MISMATCH`.
+- **Other exports in a `'use flags'` module.** Each export must be a flag. Export sources, helpers, types and precompute groups from other modules. An export that is not a flag makes the manifest fail.
+- **Side effects in a `'use flags'` module or `provider.ts`.** Tools import these modules to read the flags, e.g. when a build writes the manifest. Do not open connections at import. Some providers connect when you create them (LaunchDarkly, Split, CloudBees), and some throw without a key (the Flagsmith client): keep them in one module of their own, or create them lazily on `initialize()`. See [references/providers.md](references/providers.md#providers-that-connect-at-import).
+- **App code in `catalog.ts`.** The catalog runs in plain Node.js at build and dev time, not in the app. Do not import app code, path aliases (`@/...`) or framework modules. Use packages and relative imports of the files of the source. `context.ts` and `provider.ts` run in the app, so they may import app code, e.g. the session.
+- **A flag inside `'use cache'`.** It throws `FlagInCacheError`, also with a `defaultValue`. Evaluate the flag outside the cached function, and pass the value in as an argument.
+- **Expecting `request` everywhere.** At build time, in prerendered pages and in scripts, `request` is `undefined`. Always write `request?.cookies?.get(...)`. Next.js server components give no URL, so `request.url` is `undefined` there.
+- **Edge runtime.** Run flags in the Node.js runtime. The Edge runtime is not tested, and providers on native or Node-only SDKs (Statsig Server Core, `posthog-node`) do not run there.
+- **Restart after source changes.** Restart the dev server after you add or remove a source, or change `provider.ts` or `context.ts`.
+- **Generated types in CI.** `flags/generated.d.ts` must exist before `tsc`. Commit it, or run `flags sync && tsc --noEmit`.
+- **Registering the provider with OpenFeature too.** Do not call `OpenFeature.setProvider()` with an instance that a source uses. It would be initialized and closed twice.
+- **Reflag.** Its OpenFeature provider cannot be bundled. Stay on v4 for Reflag.
 
 ## References
 
-Detailed framework and provider guides are in separate files to keep context lean:
-
-- **[references/nextjs.md](references/nextjs.md)**: Next.js quickstart, toolbar, App Router, Pages Router, middleware/proxy, precompute, dedupe, dashboard pages, marketing pages, suspense fallbacks
-- **[references/sveltekit.md](references/sveltekit.md)**: SvelteKit quickstart, toolbar, hooks setup, precompute with reroute + middleware, dashboard pages, marketing pages
-- **[references/providers.md](references/providers.md)**: All provider adapters — Vercel, Global Config, Statsig, LaunchDarkly, PostHog, GrowthBook, Flagsmith, Reflag, Split, Optimizely, OpenFeature, and custom adapters
-- **[references/api.md](references/api.md)**: Full API reference for `flags`, `flags/react`, `flags/next`, and `flags/sveltekit`
+- [references/api.md](references/api.md): every export of `flags`, `flags/tooling`, `flags/manifest`, and of each framework package, with signatures.
+- [references/frameworks.md](references/frameworks.md): setup of Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, plain Node.js, and custom frameworks.
+- [references/code-generation.md](references/code-generation.md): the source folder, catalogs (static and streaming), what the generator writes, the CLI, default values.
+- [references/providers.md](references/providers.md): Vercel Flags in depth (SDK keys, other projects, Project Connections, targeting, attribute types), every OpenFeature provider, custom providers.
+- [references/precompute.md](references/precompute.md): precompute in Next.js.
+- [references/testing.md](references/testing.md): mocks, in-memory providers, simulated requests, end-to-end tests with overrides.
+- [references/upgrading-from-v4.md](references/upgrading-from-v4.md): the mapping from v4 to v5, step by step.
