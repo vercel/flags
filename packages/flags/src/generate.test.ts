@@ -407,6 +407,64 @@ describe('the default source self', () => {
     await expect(stat(path.join(directory, 'flags'))).rejects.toThrow();
   });
 
+  it('writes the types next to an existing folder flags, e.g. with config.ts', async () => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, 'src'));
+    await mkdir(path.join(directory, 'flags'));
+    await writeFile(
+      path.join(directory, 'flags/config.ts'),
+      'export const config = {};',
+    );
+
+    await generateFlags(directory);
+
+    expect(
+      await stat(path.join(directory, 'flags/generated.d.ts')),
+    ).toBeTruthy();
+    await expect(stat(path.join(directory, 'src/flags'))).rejects.toThrow();
+  });
+
+  it('removes the old types when the folder flags moves', async () => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, 'src'));
+    await generateFlags(directory);
+    expect(
+      await stat(path.join(directory, 'src/flags/generated.d.ts')),
+    ).toBeTruthy();
+
+    // The application adds flags/sources/self/context.ts in the root
+    const self = path.join(directory, 'flags/sources/self');
+    await mkdir(self, { recursive: true });
+    await writeFile(
+      path.join(self, 'context.ts'),
+      'export default () => ({});',
+    );
+    await generateFlags(directory);
+
+    expect(
+      await stat(path.join(directory, 'flags/generated.d.ts')),
+    ).toBeTruthy();
+    await expect(
+      stat(path.join(directory, 'src/flags/generated.d.ts')),
+    ).rejects.toThrow();
+  });
+
+  it('keeps a generated.d.ts which the SDK did not write', async () => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, 'src/flags'), { recursive: true });
+    await writeFile(
+      path.join(directory, 'src/flags/generated.d.ts'),
+      'declare const own: string;',
+    );
+    await mkdir(path.join(directory, 'flags'));
+
+    await generateFlags(directory);
+
+    expect(
+      await readFile(path.join(directory, 'src/flags/generated.d.ts'), 'utf8'),
+    ).toBe('declare const own: string;');
+  });
+
   it('takes each file which flags/sources/self has not from Vercel Flags', async () => {
     const directory = await vercelApp();
     const self = path.join(directory, 'flags/sources/self');
