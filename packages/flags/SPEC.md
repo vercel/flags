@@ -197,11 +197,11 @@ the test apps kept working.
 | M3 | A value which is not in `options` goes through. The OFREP default source throws (removed later in M9). | Done |
 | M4 | Next.js without code generation, with `@flags-sdk/next`. The manifest fields `sources`, `source` and `declarations`. Demo `examples/standard/next-manual`. (M4 also added a transitional Flags Discovery Endpoint of v4, `flags/discovery`. It was removed again: Flags Explorer uses the flags manifest.) | Done |
 | M5 | Code generation in `flags/tooling` and the commands `flags sync` and `flags watch`. `flags/sources/<source>/{catalog,provider,context}.ts` (see "Code generation"). | Done |
-| M6 | `withFlags({ codeGeneration })` with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground` on the SDK with real Vercel Flags. | Done |
+| M6 | `withFlags({ codeGeneration })` (now on by default, see M10) with the aliases `flags:<source>`. Demo `examples/standard/next-codegen`, and `apps/playground` on the SDK with real Vercel Flags. | Done |
 | M7 | Remove the deprecated names. Update the other framework packages and the docs. Remove `packages/flags-protocol`. | Done |
 | M8 | The request comes first: `getEvaluationContext(request, input)` and `decide(request, context)`. | Done |
 | M9 | Remove the default source: `defaultSource` of the configuration, `flags/default-provider`, the OFREP provider, `Register` and `ConfiguredSource`. Each flag of a provider names its source, by convention `flags/sources/self` (see "No default source"). | Done |
-| M10 | Code generation in each framework with a bundler: the option `codeGeneration` of `withFlags`, of the Vite plugins and of the Nuxt module (see "Code generation"). | Done |
+| M10 | Code generation in each framework with a bundler: the option `codeGeneration` of `withFlags`, of the Vite plugins and of the Nuxt module (see "Code generation"). It is now on by default, and the opt-out is `disableCodeGeneration`. The types come from `flags/generated.d.ts`, without a TypeScript setup. | Done |
 
 In M4, the flags manifest changed its fields: `connections` became
 `sources`, `source` of a definition became `source`, and `sources` of a
@@ -1090,7 +1090,7 @@ The tasks of a binding:
 | Convert the request                    | The binding gives `FlagsRequestInit`, e.g. a Web `Request`                                  | The application converts it, e.g. Node.js headers          |
 | Let signals of the framework through   | `setRethrow`                                                                                | Not necessary                                              |
 | `onInit` and `onShutdown`              | At startup, and when the process stops, if the framework has such hooks                     | At startup, and on `SIGTERM`                               |
-| Generate `flags:<source>`              | The plugin with `codeGeneration` (see "Code generation")                                    | `flags sync`, and an import of `./.flags/<source>.ts`      |
+| Generate `flags:<source>`              | The plugin, by default (see "Code generation")                                              | `flags sync`, and an import of `./.flags/<source>.ts`      |
 | Register `'use flags'` modules         | A compiler plugin calls `registerFlags` (see "Discovery")                                   | `registerFlags` by hand, if necessary                      |
 
 Rules for each binding:
@@ -1130,7 +1130,7 @@ export default withFlags({ /* the configuration of Next.js */ });
 
 | Path                    | Content                                                          | Used by                    |
 | ----------------------- | ---------------------------------------------------------------- | -------------------------- |
-| `@flags-sdk/next/plugin`     | `withFlags(nextConfig, { dir?, codeGeneration? })`, the build plugin | `next.config.ts`        |
+| `@flags-sdk/next/plugin`     | `withFlags(nextConfig, { dir?, disableCodeGeneration? })`, the build plugin | `next.config.ts`        |
 | `@flags-sdk/next/binding`            | `setupFramework`, the module of the binding                     | the alias, not the app     |
 | `@flags-sdk/next/precompute` | precompute, for the transition (milestone 11)                     | the proxy and pages        |
 
@@ -1151,8 +1151,8 @@ export default withFlags({ /* the configuration of Next.js */ });
   the build, `headers()` throws "Dynamic server usage" to tell Next.js that a
   page is dynamic. Without `setRethrow`, the SDK caught it, and the build
   failed.
-- Code generation: `withFlags({}, { codeGeneration: true })` returns a
-  function of the phase. It generates the modules one time for
+- Code generation: `withFlags({})` returns a function of the phase, by
+  default. `nextConfig` can also be a function of the phase. It generates the modules one time for
   `phase-production-build`, and watches the catalogs for
   `phase-development-server` (see "Code generation"). The workers of
   Next.js load the configuration again, but only one process generates.
@@ -1179,8 +1179,8 @@ tested by hand, with a change of `flags/config.ts` during the run.
   plugin deduplicates `@sveltejs/kit` (`resolve.dedupe`), so that the
   binding and the application use one copy, and `isRedirect()` recognizes
   the `redirect()` of the application.
-- Code generation: `flags({ codeGeneration: true })` (see "Code
-  generation").
+- Code generation: `flags()`, by default (see "Code generation"). The
+  folder is `src/flags`, since SvelteKit type-checks `src` only.
 
 **Nuxt (Nitro)** (done). Package: `@flags-sdk/nuxt`. Guide:
 `../framework-nuxt/README.md`.
@@ -1201,9 +1201,9 @@ tested by hand, with a change of `flags/config.ts` during the run.
   always bundles its plugins.
 - The plugin also calls `runtime.onInit` at the start, and
   `runtime.onShutdown` in the hook `close`.
-- Code generation: `modules: [['@flags-sdk/nuxt', { codeGeneration: true
-  }]]`. The module sets the aliases `flags:<source>` for Vite and for Nitro
-  (see "Code generation").
+- Code generation: `modules: ['@flags-sdk/nuxt']`, by default. The module
+  sets the aliases `flags:<source>` for Vite and for Nitro, and adds
+  `flags/generated.d.ts` to the types of Nuxt (see "Code generation").
 
 **Hono** (done). Package: `@flags-sdk/hono`. README: `../framework-hono/README.md`.
 
@@ -1239,7 +1239,7 @@ tested by hand, with a change of `flags/config.ts` during the run.
 - The manifest goes into `.output/server` (the build of Nitro). The SSR
   environment of Vite runs in a worker of Nitro and is not runnable, so the
   dev endpoint uses a runnable copy of it (`createRunnableDevEnvironment`).
-- Code generation: `flags({ codeGeneration: true })`, as for SvelteKit.
+- Code generation: `flags()`, by default, as for SvelteKit.
 
 **Astro**
 
@@ -1332,7 +1332,15 @@ import { 'summer-sale' as summerSale } from 'flags:self';
 
 By convention, the main source of an application is `flags/sources/self`,
 imported as `flags:self`. An application with more sources adds more
-directories, e.g. `flags/sources/shop` for `flags:shop`.
+directories, e.g. `flags/sources/shop` for `flags:shop`. The folder `flags`
+is in the directory of the application, or else in `src`, as for
+`flags/config.ts`. Without `flags/sources`, the generation writes nothing.
+
+`catalog.ts` and the files which it imports can use relative imports
+without an extension. Node.js loads them with its type stripping, and the
+SDK registers a resolve hook (`module.registerHooks`, Node.js 22.15 or
+newer) which tries `.ts`, `.tsx` and `/index.ts`. On older versions, the
+imports need the `.ts` extension.
 
 ### The files of a source
 
@@ -1372,7 +1380,18 @@ writes one, and writes a file only when its content changes, with a rename,
 so a watcher never sees half a file. It removes the module of a removed
 source. If a catalog fails, the last modules stay. It also writes
 `.flags/aliases.json` (`{ "flags:shop": "./.flags/shop.ts" }`) for the
-framework plugins, and `.flags/catalog.json`, a summary.
+framework plugins, `.flags/catalog.json`, a summary, and `.flags/.gitignore`
+(`*`), so that Git ignores the folder without a change to the `.gitignore`
+of the application.
+
+It also writes `flags/generated.d.ts`, next to `flags/sources`, with one
+ambient `declare module 'flags:<source>'` for each source. The default
+`include` of TypeScript (`**/*.ts`) finds it, so the application needs no
+`paths` and no `allowImportingTsExtensions`. Each source has a named
+interface, `<PascalCase>Source`, e.g. `SelfSource`, so the editor shows a
+short type: `Flag<SelfSource, "enableSale", undefined, boolean>`. The
+application can commit the file, so a type check works before the first
+build, or ignore it and run `flags sync` before `tsc`.
 
 The type of a flag is `boolean`, `string` or `number` if all its variants
 have that type, else `object`. A flag of the type `object` takes any JSON
@@ -1397,28 +1416,31 @@ catalog: OpenFeature providers do not give their project.
 
 ### In the frameworks
 
-Each framework with a bundler has the option `codeGeneration`. Its build
-plugin generates `.flags/<source>.ts` one time for a build, and watches the
+Each framework with a bundler generates the code by default, and has the
+option `disableCodeGeneration` to turn it off. Its build plugin generates `.flags/<source>.ts` one time for a build, and watches the
 catalogs in development. It adds the aliases `flags:<source>` to the
 bundler.
 
-| Framework | Setup |
-| --- | --- |
-| Next.js | `withFlags({}, { codeGeneration: true })` of `@flags-sdk/next/plugin` |
-| SvelteKit | `flags({ codeGeneration: true })` of `@flags-sdk/sveltekit/vite` |
-| TanStack Start | `flags({ codeGeneration: true })` of `@flags-sdk/tanstack-start/vite` |
-| Nuxt | `modules: [['@flags-sdk/nuxt', { codeGeneration: true }]]` |
-| Other Vite frameworks | `flags({ codeGeneration: true })` of `@flags-sdk/vite` |
+| Framework | Setup | Opt-out |
+| --- | --- | --- |
+| Next.js | `withFlags({})` of `@flags-sdk/next/plugin` | `withFlags({}, { disableCodeGeneration: true })` |
+| SvelteKit | `flags()` of `@flags-sdk/sveltekit/vite` | `flags({ disableCodeGeneration: true })` |
+| TanStack Start | `flags()` of `@flags-sdk/tanstack-start/vite` | `flags({ disableCodeGeneration: true })` |
+| Nuxt | `modules: ['@flags-sdk/nuxt']` | `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]` |
+| Other Vite frameworks | `flags()` of `@flags-sdk/vite` | `flags({ disableCodeGeneration: true })` |
 
-- Next.js: with `codeGeneration`, `withFlags` returns a function of the
-  phase. It generates for `next build`, and watches for `next dev`. Without
-  `codeGeneration`, `withFlags` still reads the aliases of
-  `.flags/aliases.json`, e.g. after `flags sync`.
+- Next.js: by default, `withFlags` returns a function of the phase. It
+  generates for `next build`, and watches for `next dev`. The configuration
+  can also be a function of the phase: `withFlags((phase) => ({ ... }))`.
+  With `disableCodeGeneration`, `withFlags` returns a configuration object
+  as it is, and still reads the aliases of `.flags/aliases.json`, e.g.
+  after `flags sync`.
 - Vite: the plugin generates in its `config` hook, before Vite resolves
   the imports. It watches for `vite dev`, and generates one time for
   `vite build`.
-- Nuxt: the module generates before the build, and also gives the aliases
-  to Nitro and to the `tsconfig.json` which Nuxt writes.
+- Nuxt: the module generates before the build, gives the aliases to Vite
+  and to Nitro, and adds `flags/generated.d.ts` to the types of Nuxt with
+  the hook `prepare:types`.
 - A process generates one time for each directory and mode, also when the
   framework loads the configuration more than once.
 
@@ -1427,9 +1449,10 @@ The application writes `defineSource` and `bindFlag` by hand, or runs
 `flags sync` (or `flags watch`) and imports the generated module, e.g.
 `./.flags/self.ts`.
 
-For TypeScript, the application adds `"paths": { "flags:*": ["./.flags/*"] }`
-to `tsconfig.json`. Because the module imports `.ts` files, it also needs
-`allowImportingTsExtensions`. Nuxt writes the paths itself.
+For TypeScript, the application needs no setup: `flags/generated.d.ts`
+declares the modules `flags:<source>`. An application without a bundler
+which imports `./.flags/self.ts` by its path needs
+`allowImportingTsExtensions`, because the module imports `.ts` files.
 
 ## Discovery
 

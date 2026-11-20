@@ -39,9 +39,17 @@ The Vite plugin. It points `flags/framework` to the SvelteKit binding,
 `/.well-known/flags/manifest.json` in development, and writes
 `flags-manifest.json` after a build.
 
-| Option           | Type      | Description                                                                                                                                                                                       |
-| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `codeGeneration` | `boolean` | Generates the modules of `flags:<source>` from `flags/sources/<source>/`, e.g. `.flags/self.ts` for `flags:self`: one time for a build, and after each change of a catalog in development. The plugin points `flags:<source>` to the modules. See [Code generation](/docs/flags/code-generation). |
+By default, the plugin also generates the modules of `flags:<source>` from
+`flags/sources/<source>/`, e.g. `.flags/self.ts` for `flags:self`, and their
+types in `flags/generated.d.ts`: one time for a build, and after each change
+of a catalog in development. It points `flags:<source>` to the modules.
+Without a folder `flags/sources`, it writes nothing. In SvelteKit, put the
+folder into `src/flags`, since SvelteKit type-checks `src` only. See
+[Code generation](/docs/flags/code-generation).
+
+| Option                  | Type      | Description                                                                        |
+| ----------------------- | --------- | ---------------------------------------------------------------------------------- |
+| `disableCodeGeneration` | `boolean` | Turns off the code generation of `flags:<source>`. The default is `false`.         |
 
 ```ts title="vite.config.ts"
 import { flags } from '@flags-sdk/sveltekit/vite';
@@ -49,19 +57,8 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [sveltekit(), flags({ codeGeneration: true })],
+  plugins: [sveltekit(), flags()],
 });
-```
-
-For the types of `flags:self`, add the alias to `svelte.config.js`, and
-`allowImportingTsExtensions: true` to `tsconfig.json`:
-
-```js title="svelte.config.js"
-export default {
-  kit: {
-    alias: { 'flags:self': '.flags/self.ts' },
-  },
-};
 ```
 
 ### `setupFramework` (from `@flags-sdk/sveltekit/binding`)
@@ -78,7 +75,7 @@ Nuxt 4 with Nitro 2. See [Nuxt](/docs/frameworks/nuxt).
 
 ```ts title="nuxt.config.ts"
 export default defineNuxtConfig({
-  modules: [['@flags-sdk/nuxt', { codeGeneration: true }]],
+  modules: ['@flags-sdk/nuxt'],
 });
 ```
 
@@ -92,13 +89,20 @@ the Nitro build. It:
   writes `flags-manifest.json` into the server output (`.output/server`);
 - adds a Nitro plugin that calls `runtime.onInit()` when the server starts
   and `runtime.onShutdown()` when it closes;
-- with `codeGeneration`, generates the modules of `flags:<source>` and adds
-  their aliases to the aliases of Nuxt, so the tsconfig of Nuxt has their
-  paths too.
+- by default, generates the modules of `flags:<source>` from
+  `flags/sources/<source>/` (one time for a build, and after each change of a
+  catalog for `nuxt dev`), adds their aliases to the Vite and Nitro builds,
+  and adds `flags/generated.d.ts` to the types of Nuxt.
 
-| Option           | Type      | Description                                                                                                                           |
-| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `codeGeneration` | `boolean` | Generates the modules of `flags:<source>` from `flags/sources/<source>/`: one time for a build, and after each change of a catalog for `nuxt dev`. |
+| Option                  | Type      | Description                                                                |
+| ----------------------- | --------- | -------------------------------------------------------------------------- |
+| `disableCodeGeneration` | `boolean` | Turns off the code generation of `flags:<source>`. The default is `false`. |
+
+```ts title="nuxt.config.ts"
+export default defineNuxtConfig({
+  modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]],
+});
+```
 
 The type of the options is `FlagsNuxtOptions`. The config key is `flags`.
 
@@ -124,11 +128,9 @@ TanStack Start 1 with Vite 6 or newer, for React and Solid. See
 function flags(options?: FlagsTanStackStartOptions): Plugin;
 ```
 
-The Vite plugin, with the same behavior and the same `codeGeneration`
+The Vite plugin, with the same behavior and the same `disableCodeGeneration`
 option as for SvelteKit. It resolves the server and router modules of
-TanStack Start for React or Solid, whichever the project has. For the types
-of `flags:<source>`, add `"paths": { "flags:*": ["./.flags/*"] }` and
-`allowImportingTsExtensions: true` to `tsconfig.json`.
+TanStack Start for React or Solid, whichever the project has.
 
 ```ts title="vite.config.ts"
 import { flags } from '@flags-sdk/tanstack-start/vite';
@@ -138,7 +140,7 @@ import { nitro } from 'nitro/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [nitro(), tanstackStart(), viteReact(), flags({ codeGeneration: true })],
+  plugins: [nitro(), tanstackStart(), viteReact(), flags()],
 });
 ```
 
@@ -167,7 +169,7 @@ function flags(options?: FlagsVitePluginOptions): Plugin;
 | `bundle`          | `readonly string[]`                        | More packages to bundle into the server code, e.g. the package of the binding. `flags` is always bundled when there is a binding.                              |
 | `dedupe`          | `readonly string[]`                        | Packages that the binding imports and that must be the copy of the project, e.g. `@sveltejs/kit` (`resolve.dedupe`).                                           |
 | `projectModules`  | `Readonly<Record<string, readonly string[]>>` | Modules that the binding imports, resolved to the first candidate the project has.                                                                          |
-| `codeGeneration`  | `boolean`                                  | Generates the modules of `flags:<source>` from the catalogs of `flags/sources/<source>/`, one time for a build and after each change for the dev server, and points the aliases `flags:<source>` to them. Also for other Vite setups. |
+| `disableCodeGeneration` | `boolean`                            | Turns off the code generation. By default, the plugin generates the modules of `flags:<source>` and `flags/generated.d.ts` from the catalogs of `flags/sources/<source>/`, one time for a build and after each change for the dev server, and points the aliases `flags:<source>` to them. Also for other Vite setups. |
 | `manifest`        | `boolean`                                  | Whether a build writes `flags-manifest.json`. The default is `true`.                                                                                           |
 | `root`            | `string`                                   | The directory of the project. The default is the root of Vite.                                                                                                 |
 
@@ -195,7 +197,7 @@ function startCodeGeneration(dir: string, watch: boolean): CodeGeneration;
 function resolveAliases(dir: string, aliases: FlagsAliases): Record<string, string>;
 ```
 
-The code generation behind the `codeGeneration` option, for plugins of other
+The code generation of the plugin, for plugins of other
 bundlers, e.g. the Nuxt module. `startCodeGeneration` generates the modules
 one time (`watch: false`), or again after each change of a catalog
 (`watch: true`). Its `CodeGeneration` has `ready`, a promise of the aliases

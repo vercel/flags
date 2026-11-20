@@ -5,7 +5,8 @@
 > [the SPEC](../packages/flags/SPEC.md)). "Connection" is now "source"
 > (`defineSource`), flags of a source use `bindFlag`, inline flags use
 > `defineFlag` with `decide`, and code generation is in `flags/tooling` and
-> `withFlags({ codeGeneration })`. "Current implementation" and "Code reading
+> in the framework plugins (on by default, `disableCodeGeneration` turns it
+> off). "Current implementation" and "Code reading
 > order" below describe the state before the join.
 
 Flags connects server applications, frameworks, and flag providers through shared

@@ -7,8 +7,8 @@ description: Use Vercel Flags with the Flags SDK through VercelProvider, the Ope
 
 The Flags SDK uses Vercel Flags through `VercelProvider`, the OpenFeature server provider of `@vercel/flags-core`. There is no separate adapter: `VercelProvider` is a regular OpenFeature provider, so everything on this page works the same way as with any other [provider](/docs/providers).
 
-<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie, and `catalog.ts` with a default export `CatalogLoader` which lists my flags. Enable code generation for my framework, add `.flags` to `.gitignore`, add the `flags:*` path to `tsconfig.json`, import the flags from `flags:self`, and run the type check when finished.">
-  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie, and `catalog.ts` with a default export `CatalogLoader` which lists my flags. Enable code generation for my framework, add `.flags` to `.gitignore`, add the `flags:*` path to `tsconfig.json`, import the flags from `flags:self`, and run the type check when finished.
+<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie, and `catalog.ts` with a default export `CatalogLoader` which lists my flags. Add the plugin of my framework, which generates the code by default, import the flags from `flags:self`, and run the type check when finished.">
+  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie, and `catalog.ts` with a default export `CatalogLoader` which lists my flags. Add the plugin of my framework, which generates the code by default, import the flags from `flags:self`, and run the type check when finished.
 </CopyPrompt>
 
 <LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags" target="_blank">
@@ -89,17 +89,17 @@ const loadCatalog: CatalogLoader = () => ({
 export default loadCatalog;
 ```
 
-### 5. Enable code generation
+### 5. Add the plugin
 
-Enable code generation in the plugin of your framework, e.g. for Next.js:
+Add the plugin of your framework, e.g. for Next.js. Code generation is on by default:
 
 ```ts title="next.config.ts"
 import { withFlags } from '@flags-sdk/next/plugin';
 
-export default withFlags({}, { codeGeneration: true });
+export default withFlags({});
 ```
 
-The plugin writes `.flags/self.ts`. See [Code generation](/docs/flags/code-generation) for SvelteKit, Nuxt and TanStack Start, the `tsconfig.json` paths and the `.gitignore` entry.
+The plugin writes `.flags/self.ts`, and `flags/generated.d.ts` for the types. See [Code generation](/docs/flags/code-generation) for SvelteKit, Nuxt and TanStack Start.
 
 ### 6. Evaluate the flag
 
@@ -236,7 +236,7 @@ A static catalog is enough for a start, but you then add each new flag twice: in
 ```ts title="flags/sources/self/catalog.ts"
 import type { DatafileInput } from '@vercel/flags-core';
 import type { Catalog, CatalogLoadOptions } from 'flags';
-import { streamDatafiles } from './stream.ts';
+import { streamDatafiles } from './stream';
 
 function catalogFromDatafile(datafile: DatafileInput): Catalog {
   if (!datafile.projectId || !datafile.environment || !datafile.definitions) {

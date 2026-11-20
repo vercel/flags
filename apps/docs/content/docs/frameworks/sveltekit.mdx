@@ -25,24 +25,24 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // codeGeneration writes .flags/self.ts from flags/sources/self,
+  // Writes .flags/self.ts from src/flags/sources/self,
   // and points flags:self to it
-  plugins: [sveltekit(), flags({ codeGeneration: true })],
+  plugins: [sveltekit(), flags()],
 });
 ```
 
 ### 3. Create the source `self`
 
-By convention, the main source of an application is `self`: the folder `flags/sources/self` in the root of your project, with three files.
+By convention, the main source of an application is `self`: the folder `src/flags/sources/self`, with three files. Put the folder into `src`, since SvelteKit type-checks `src` only.
 
-```ts title="flags/sources/self/provider.ts"
+```ts title="src/flags/sources/self/provider.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
 // Any OpenFeature server provider works
 export default new VercelProvider();
 ```
 
-```ts title="flags/sources/self/context.ts"
+```ts title="src/flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
 
 // The evaluation context of all flags of this source, once per request
@@ -53,7 +53,7 @@ export default function getEvaluationContext(
 }
 ```
 
-```ts title="flags/sources/self/catalog.ts"
+```ts title="src/flags/sources/self/catalog.ts"
 import type { CatalogLoader } from 'flags';
 
 // The flags of the source, for the code generation
@@ -72,39 +72,7 @@ export default loadCatalog;
 
 `VercelProvider` uses the OIDC token of your project: run `vercel link` and `vercel env pull` once. To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk` instead (see the [SvelteKit example](https://github.com/vercel/flags/tree/main/examples/standard/sveltekit-codegen)).
 
-### 4. Configure TypeScript and Git
-
-The plugin resolves `flags:self` for Vite. For the types, add the alias to `svelte.config.js`, and allow the `.ts` imports of the generated module in `tsconfig.json`:
-
-```js title="svelte.config.js"
-import adapter from '@sveltejs/adapter-node';
-
-/** @type {import('@sveltejs/kit').Config} */
-export default {
-  kit: {
-    adapter: adapter(),
-    // The types of the generated module of flags:self
-    alias: { 'flags:self': '.flags/self.ts' },
-  },
-};
-```
-
-```json title="tsconfig.json"
-{
-  "extends": "./.svelte-kit/tsconfig.json",
-  "compilerOptions": {
-    "strict": true,
-    "allowImportingTsExtensions": true
-  },
-  "include": ["src", "flags", ".flags"]
-}
-```
-
-```text title=".gitignore"
-.flags
-```
-
-### 5. Use the flag in a `load` function
+### 4. Use the flag in a `load` function
 
 Flags run only on the server, so evaluate them in `+page.server.ts` and return the values:
 
@@ -124,7 +92,7 @@ export async function load() {
 <h1>{data.sale ? 'Summer sale!' : 'Welcome'}</h1>
 ```
 
-A new flag in the catalog becomes a new export of `flags:self`. With a second source, e.g. `flags/sources/marketing`, add `'flags:marketing'` to `kit.alias` too. See [Code generation](/docs/flags/code-generation).
+The plugin writes `.flags/self.ts`, and the types in `src/flags/generated.d.ts`. You do not configure TypeScript or Git. A new flag in the catalog becomes a new export of `flags:self`. A second source, e.g. `src/flags/sources/marketing`, becomes `flags:marketing`. See [Code generation](/docs/flags/code-generation).
 
 ## Inline flags
 
@@ -160,7 +128,7 @@ Set the cookie `beta=1` to see the beta banner.
 
 ## Without code generation
 
-You can also write the source and its flags by hand. Leave out `codeGeneration`, and use `defineSource` and `bindFlag`:
+You can also write the source and its flags by hand. Use `defineSource` and `bindFlag`. Without a folder `flags/sources`, the code generation writes nothing. To turn it off, use `flags({ disableCodeGeneration: true })`.
 
 ```ts title="src/lib/flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -218,9 +186,9 @@ Each flag is evaluated one time for each request. A layout and a page that both 
 
 You do not need a configuration file. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
 
-Add `flags/config.ts`, next to `flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, or the options of overrides. The Vite plugin loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
+Add `src/flags/config.ts`, next to `src/flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, or the options of overrides. The Vite plugin loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
 
-```ts title="flags/config.ts"
+```ts title="src/flags/config.ts"
 import { defineConfig } from 'flags';
 
 export const config = defineConfig({
@@ -240,7 +208,7 @@ See [Configuration](/docs/flags/configuration) for all options.
 
 `redirect()` and `error()` of SvelteKit reach SvelteKit unchanged, also when you throw them from `getEvaluationContext`. For example, the context of a source can redirect blocked users:
 
-```ts title="flags/sources/self/context.ts"
+```ts title="src/flags/sources/self/context.ts"
 import { redirect } from '@sveltejs/kit';
 import type { FlagsRequest } from 'flags';
 
@@ -284,4 +252,4 @@ To show the values of a request in Flags Explorer, write the flag values element
 
 ## How it works
 
-`flags()` points the alias `flags/framework` to `@flags-sdk/sveltekit/binding`, `flags/config` to your `flags/config.ts`, and, with `codeGeneration`, each `flags:<source>` to its module in `.flags`. It bundles `flags` and `@flags-sdk/sveltekit` into the server code (`ssr.noExternal`), because an alias only reaches the SDK when the bundler processes it. The binding gets the request with `getRequestEvent()` and recognizes signals with `isRedirect()` and `isHttpError()`. The plugin deduplicates `@sveltejs/kit`, so that the binding and your code use one copy. The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).
+`flags()` points the alias `flags/framework` to `@flags-sdk/sveltekit/binding`, `flags/config` to your `flags/config.ts`, and, by default, each `flags:<source>` to its module in `.flags`. It bundles `flags` and `@flags-sdk/sveltekit` into the server code (`ssr.noExternal`), because an alias only reaches the SDK when the bundler processes it. The binding gets the request with `getRequestEvent()` and recognizes signals with `isRedirect()` and `isHttpError()`. The plugin deduplicates `@sveltejs/kit`, so that the binding and your code use one copy. The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).

@@ -87,10 +87,12 @@ flags, the evaluation context, overrides, hooks and tracking.
 
 ## Code generation
 
+The module generates the code by default:
+
 ```ts
 // nuxt.config.ts
 export default defineNuxtConfig({
-  modules: [['@flags-sdk/nuxt', { codeGeneration: true }]],
+  modules: ['@flags-sdk/nuxt'],
 });
 ```
 
@@ -105,8 +107,12 @@ export default defineNuxtConfig({
   import { 'summer-sale' as summerSale } from 'flags:self';
   ```
 
-- Nuxt writes the aliases into its `tsconfig.json`, so the types work
-  without `paths`. Add `.flags` to `.gitignore`.
+- The types are in `flags/generated.d.ts`. The module adds the file to the
+  types of Nuxt (hook `prepare:types`), so the types work without `paths`.
+  `.flags` has its own `.gitignore`.
+- Without `flags/sources`, the module writes nothing. To turn the
+  generation off, use
+  `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
 - Without code generation, write `defineSource` and `bindFlag` by hand.
   Each flag names its source. There is no default source.
 

@@ -130,8 +130,10 @@ and loads `flags/config.ts`, without the initialization of providers.
 Code generation is optional. Each source is a directory
 `flags/sources/<source>` with `catalog.ts`, `provider.ts` and `context.ts`.
 By convention, the main source of an application is `flags/sources/self`.
-The build plugin generates `.flags/<source>.ts` with the functions of
-`flags/tooling`, and sets the alias `flags:<source>` to each module:
+The folder `flags` is in the root of the application or in `src`. The build
+plugin generates `.flags/<source>.ts`, and the types in
+`flags/generated.d.ts`, with the functions of `flags/tooling`, and sets the
+alias `flags:<source>` to each module:
 
 - for a build, `generateFlags(dir)` one time, before the bundler resolves
   the imports;
@@ -139,8 +141,10 @@ The build plugin generates `.flags/<source>.ts` with the functions of
   after each change of a catalog.
 
 Both return the aliases, e.g. `{ "flags:self": "./.flags/self.ts" }`. The
-plugins of this repository have the option `codeGeneration`, e.g.
-`flags({ codeGeneration: true })`. A framework without a bundler has no
+plugins of this repository generate the code by default, and have the
+option `disableCodeGeneration` to turn it off, e.g.
+`flags({ disableCodeGeneration: true })`. Without `flags/sources`, they
+write nothing. A framework without a bundler has no
 plugin: the application runs `flags sync` and imports `./.flags/self.ts`.
 
 ## `flags/tooling`

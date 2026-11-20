@@ -14,7 +14,8 @@ uses the plugin of its framework package, not this one.
 - **The manifest of the flags:** at `/.well-known/flags/manifest.json` in
   development, and as `flags-manifest.json` in the server output.
 - **Code generation** of `flags:<source>` from the catalogs of
-  `flags/sources/<source>`, with the option `codeGeneration`.
+  `flags/sources/<source>`, by default, with the types in
+  `flags/generated.d.ts`. The option `disableCodeGeneration` turns it off.
 - **A Rollup plugin too**, e.g. for the server build of Nitro.
 
 ## Installation
@@ -43,7 +44,7 @@ export function myFrameworkFlags() {
 | `bundle`          | More packages to bundle into the server code, e.g. the package of the binding   |
 | `dedupe`          | Packages which the binding imports, which must be the copy of the project       |
 | `projectModules`  | Modules which the binding imports, by the first package which the project has   |
-| `codeGeneration`  | Generates `.flags/<source>.ts` from `flags/sources/<source>`: one time for a build, and again after each change of a catalog for the dev server. Adds the aliases `flags:<source>` |
+| `disableCodeGeneration` | Turns off the code generation. By default, the plugin generates `.flags/<source>.ts` and `flags/generated.d.ts` from `flags/sources/<source>`: one time for a build, and again after each change of a catalog for the dev server. It adds the aliases `flags:<source>` |
 | `manifest`        | Whether a build writes `flags-manifest.json`. The default is `true`             |
 | `root`            | The directory of the project. The default is the root of Vite                   |
 

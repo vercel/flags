@@ -271,10 +271,11 @@ By convention, the main source is `flags/sources/self`. The SDK generates
 import { 'summer-sale' as summerSale } from 'flags:self';
 ```
 
-The framework packages with a bundler generate the modules for you, with
-the option `codeGeneration`, e.g.
-`withFlags({}, { codeGeneration: true })` for Next.js. They generate one
-time for a build, and watch the catalogs in development. Without a
+The framework packages with a bundler generate the modules for you, by
+default, e.g. `withFlags({})` for Next.js. They generate one time for a
+build, and watch the catalogs in development. They also write the types in
+`flags/generated.d.ts`, so you do not configure TypeScript. To turn it off,
+use `disableCodeGeneration: true`. Without a
 bundler, e.g. with Hono or Express, run `flags sync` (or `flags watch`),
 and import `./.flags/self.ts`.
 

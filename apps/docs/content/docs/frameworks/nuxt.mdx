@@ -21,12 +21,12 @@ npm install flags @flags-sdk/nuxt @vercel/flags-core
 
 ```ts title="nuxt.config.ts"
 export default defineNuxtConfig({
-  // codeGeneration writes .flags/self.ts from flags/sources/self
-  modules: [['@flags-sdk/nuxt', { codeGeneration: true }]],
+  // Writes .flags/self.ts from flags/sources/self
+  modules: ['@flags-sdk/nuxt'],
 });
 ```
 
-The module also enables the async context of Nitro, which the SDK needs to find the current request. It adds `flags:<source>` to the aliases of Nuxt, so the generated `tsconfig.json` of Nuxt has the paths, and the types work without more configuration.
+The module also enables the async context of Nitro, which the SDK needs to find the current request. It writes the types of `flags:<source>` into `flags/generated.d.ts`, and adds the file to the types of Nuxt, so the types work without more configuration.
 
 ### 3. Create the source `self`
 
@@ -68,12 +68,6 @@ export default loadCatalog;
 ```
 
 `VercelProvider` uses the OIDC token of your project: run `vercel link` and `vercel env pull` once. To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk` instead.
-
-Add the generated folder to `.gitignore`:
-
-```text title=".gitignore"
-.flags
-```
 
 ### 4. Use the flag in a server route
 
@@ -136,7 +130,7 @@ Set the cookie `beta=1` to see the beta banner.
 
 ## Without code generation
 
-You can also write the source and its flags by hand. Leave out `codeGeneration` (`modules: ['@flags-sdk/nuxt']`), and use `defineSource` and `bindFlag`:
+You can also write the source and its flags by hand. Use `defineSource` and `bindFlag`. Without a folder `flags/sources`, the code generation writes nothing. To turn it off, use `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
 
 ```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -225,9 +219,9 @@ To show the values of a request in Flags Explorer, write the flag values element
 
 ## How it works
 
-- The module sets `nitro.alias` for `flags/framework` (to `@flags-sdk/nuxt/binding`), `flags/config` and, with `codeGeneration`, each `flags:<source>`, and adds `flags` and `@flags-sdk/nuxt` to `nitro.externals.inline`, so that Nitro bundles the SDK and the aliases reach it.
+- The module sets `nitro.alias` for `flags/framework` (to `@flags-sdk/nuxt/binding`), `flags/config` and, by default, each `flags:<source>`, and adds `flags` and `@flags-sdk/nuxt` to `nitro.externals.inline`, so that Nitro bundles the SDK and the aliases reach it.
 - In development, Nitro loads `flags` from `node_modules`, so a Nitro plugin of the module also registers the binding with `registerFramework` of `flags/tooling`.
 - The binding gets the request with `useEvent()` and recognizes errors of `createError()` with `isError()`.
-- The module uses the hooks `vite:extendConfig` and `nitro:config`, so it does not depend on `@nuxt/kit`.
+- The module uses the hooks `vite:extendConfig`, `nitro:config` and `prepare:types` (for `flags/generated.d.ts`), so it does not depend on `@nuxt/kit`.
 
 The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).

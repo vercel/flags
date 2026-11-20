@@ -15,7 +15,7 @@ npx flags sync
 | [`flags watch`](#flags-watch) | Generates them again after each change of a catalog, and can start your development server. |
 | [`flags manifest`](#flags-manifest) | Writes the [flags manifest](/docs/tooling/flags-manifest) of an application without a framework plugin. |
 
-With a framework plugin, the code generation runs for you during the build and in development: `withFlags({}, { codeGeneration: true })` for Next.js, `flags({ codeGeneration: true })` of `@flags-sdk/sveltekit/vite` or `@flags-sdk/tanstack-start/vite`, and `['@flags-sdk/nuxt', { codeGeneration: true }]` for Nuxt. You need `flags sync` and `flags watch` for frameworks without a bundler, e.g. Hono, Express or plain Node.js, and for CI steps which run before the build, e.g. the type check.
+With a framework plugin, the code generation runs for you by default, during the build and in development: `withFlags` for Next.js, `flags()` of `@flags-sdk/sveltekit/vite` or `@flags-sdk/tanstack-start/vite`, and the module `@flags-sdk/nuxt` for Nuxt. You need `flags sync` and `flags watch` for frameworks without a bundler, e.g. Hono, Express or plain Node.js, and for CI steps which run before the build, e.g. the type check.
 
 ## `flags sync`
 
@@ -23,7 +23,7 @@ With a framework plugin, the code generation runs for you during the build and i
 flags sync [dir] [--production]
 ```
 
-Runs the catalog of each source in `flags/sources/<source>` one time, and writes `.flags/<source>.ts`, e.g. `.flags/self.ts` for the main source `flags/sources/self`. See [Code generation](/docs/flags/code-generation).
+Runs the catalog of each source in `flags/sources/<source>` one time, and writes `.flags/<source>.ts`, e.g. `.flags/self.ts` for the main source `flags/sources/self`. It also writes the types of `flags:<source>` into `flags/generated.d.ts`. The folder `flags` is in `dir` or in its `src` folder. See [Code generation](/docs/flags/code-generation).
 
 - `dir` is the directory of your application. The default is the current directory.
 - It writes a file only when its content changes, and removes the module of a removed source.

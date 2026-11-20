@@ -114,10 +114,13 @@ flags/
       catalog.ts
       provider.ts
       context.ts
-.flags/             # Generated, add it to .gitignore
+  generated.d.ts    # Generated: the types of flags:self and flags:marketing
+.flags/             # Generated, Git ignores it
   self.ts           # The module of flags:self
   marketing.ts      # The module of flags:marketing
 ```
+
+The folder `flags` is in the root of your application, or in `src` (`src/flags/sources/<source>`). The SDK looks in the same places as for `flags/config.ts`. In SvelteKit, use `src/flags`, since SvelteKit type-checks `src` only.
 
 | File | Default export | Runs |
 | --- | --- | --- |
@@ -242,7 +245,7 @@ export default async function* loadCatalog({
 The [playground app](https://github.com/vercel/flags/tree/main/apps/playground) of the repository has a streaming catalog of Vercel Flags, which subscribes to the changes of a project.
 
 <Callout type="info">
-  Node.js loads `catalog.ts` with its built-in type stripping, without a bundler. Use a Node.js version that strips types by default (22.18 or newer), use only erasable TypeScript syntax (no `enum`), and import other files of the source with their `.ts` extension, e.g. `import { selfFlags } from './definitions.ts'`.
+  Node.js loads `catalog.ts` with its built-in type stripping, without a bundler. Use a Node.js version that strips types by default (22.18 or newer), use only erasable TypeScript syntax (no `enum`), and use relative imports for the other files of the source, e.g. `import { selfFlags } from './definitions'`. You do not need the `.ts` extension: the SDK finds the `.ts`, `.tsx` or `/index.ts` file of an import.
 </Callout>
 
 ## What the generator writes
@@ -257,6 +260,8 @@ For each source, `.flags/<source>.ts` contains:
   - `description`, also as JSDoc, so your editor shows it;
   - `defaultValue`, if the catalog has one for the flag.
 
+The generator also writes `flags/generated.d.ts`, next to `flags/sources`. It declares the module `flags:<source>` of each source, with the type of each flag. TypeScript includes the file with its default `include` (`**/*.ts`), so you do not configure TypeScript. Each source has a named type, e.g. `SelfSource`, so your editor shows a short type for a flag, e.g. `Flag<SelfSource, "enableSale", undefined, boolean>`.
+
 The generator writes a file only when its content changes, never writes half a file, and removes the module of a removed source. If a catalog fails, the last generated modules stay.
 
 <Callout type="warning">
@@ -267,16 +272,16 @@ The generator writes a file only when its content changes, never writes half a f
 
 ### 1. Add the folder of the source
 
-Create `flags/sources/self` in the root of your project, next to `package.json`, with `provider.ts`, `context.ts` and `catalog.ts`, as above.
+Create `flags/sources/self` in the root of your project, next to `package.json`, with `provider.ts`, `context.ts` and `catalog.ts`, as above. In SvelteKit, create `src/flags/sources/self`.
 
-### 2. Turn on code generation
+### 2. Add the plugin
 
-Turn on `codeGeneration` in the plugin of your framework:
+Add the plugin of your framework. Code generation is on by default:
 
 ```ts tab="Next.js" title="next.config.ts"
 import { withFlags } from '@flags-sdk/next/plugin';
 
-export default withFlags({}, { codeGeneration: true });
+export default withFlags({});
 ```
 
 ```ts tab="SvelteKit" title="vite.config.ts"
@@ -285,13 +290,13 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [sveltekit(), flags({ codeGeneration: true })],
+  plugins: [sveltekit(), flags()],
 });
 ```
 
 ```ts tab="Nuxt" title="nuxt.config.ts"
 export default defineNuxtConfig({
-  modules: [['@flags-sdk/nuxt', { codeGeneration: true }]],
+  modules: ['@flags-sdk/nuxt'],
 });
 ```
 
@@ -303,16 +308,11 @@ import { nitro } from 'nitro/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [
-    nitro(),
-    tanstackStart(),
-    viteReact(),
-    flags({ codeGeneration: true }),
-  ],
+  plugins: [nitro(), tanstackStart(), viteReact(), flags()],
 });
 ```
 
-The plugin writes `.flags/<source>.ts` for each folder of `flags/sources`, and points each `flags:<source>` import to its module:
+The plugin writes `.flags/<source>.ts` for each folder of `flags/sources`, and `flags/generated.d.ts` for the types. It points each `flags:<source>` import to its module:
 
 - The dev server (`next dev`, `vite dev`, `nuxt dev`) generates the modules before it resolves the imports, and keeps the catalogs open: a change of a catalog rewrites the module.
 - A build generates the modules once, then closes the catalogs.
@@ -320,67 +320,23 @@ The plugin writes `.flags/<source>.ts` for each folder of `flags/sources`, and p
 
 Restart the dev server after you change a file of a source, or add or remove a source.
 
-### 3. Configure TypeScript
+Without a folder `flags/sources`, the plugin writes nothing. To turn off code generation, e.g. if you write your sources by hand, use `disableCodeGeneration: true`, e.g. `withFlags({}, { disableCodeGeneration: true })`, `flags({ disableCodeGeneration: true })` or `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
 
-The generated modules import `provider.ts` and `context.ts` with their `.ts` extension. Point `flags:*` to the generated modules for the types, and allow these imports:
+### 3. Commit or ignore the types
 
-```json tab="Next.js" title="tsconfig.json"
+The folder `.flags` has its own `.gitignore`, so Git ignores the generated modules. You do not change your `.gitignore`.
+
+The plugin writes `flags/generated.d.ts` again for each dev server, each build and each `flags sync`. You can commit it, so that a type check works before the first build. Or you can ignore it, and run `flags sync` before the type check in CI:
+
+```json title="package.json"
 {
-  "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "paths": {
-      "flags:*": ["./.flags/*"]
-    }
-  },
-  "include": ["**/*.ts", "**/*.tsx", ".flags/**/*.ts"]
-}
-```
-
-```js tab="SvelteKit" title="svelte.config.js"
-import adapter from '@sveltejs/adapter-node';
-
-/** @type {import('@sveltejs/kit').Config} */
-export default {
-  kit: {
-    adapter: adapter(),
-    // The types of flags:self
-    alias: { 'flags:self': '.flags/self.ts' },
-  },
-};
-```
-
-```jsonc tab="Nuxt" title="tsconfig.json"
-{
-  // The module adds flags:<source> to the aliases of Nuxt,
-  // so the generated tsconfig of Nuxt has the paths
-  "extends": "./.nuxt/tsconfig.json"
-}
-```
-
-```json tab="TanStack Start" title="tsconfig.json"
-{
-  "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "paths": {
-      "flags:*": ["./.flags/*"]
-    }
+  "scripts": {
+    "type-check": "flags sync && tsc --noEmit"
   }
 }
 ```
 
-In SvelteKit, also set `"allowImportingTsExtensions": true` in the `compilerOptions` of `tsconfig.json`, and add `".flags"` to its `include` (see the [SvelteKit example](https://github.com/vercel/flags/tree/main/examples/standard/sveltekit-codegen)). `allowImportingTsExtensions` needs `noEmit` (or `emitDeclarationOnly`), which most framework setups use already.
-
-### 4. Ignore the generated folder
-
-```text title=".gitignore"
-.flags
-```
-
-The modules are generated again for each build, from the current catalog.
-
-### 5. Import the flags
+### 4. Import the flags
 
 ```ts
 import { enableSale } from 'flags:self';
@@ -420,7 +376,7 @@ A typical `package.json`:
 }
 ```
 
-With another Vite setup, the plugin `flags` of `@flags-sdk/vite` has the same `codeGeneration` option, and resolves `flags:<source>` for you. See [Framework packages](/docs/api-reference/framework-packages).
+With another Vite setup, the plugin `flags` of `@flags-sdk/vite` generates the code in the same way, and resolves `flags:<source>` for you. See [Framework packages](/docs/api-reference/framework-packages).
 
 See [CLI](/docs/tooling/cli) for all options of the commands.
 

@@ -98,15 +98,12 @@ and tracking.
 
 ## Code generation
 
+The plugin generates the code by default:
+
 ```ts
 // vite.config.ts
 export default defineConfig({
-  plugins: [
-    nitro(),
-    tanstackStart(),
-    viteReact(),
-    flags({ codeGeneration: true }),
-  ],
+  plugins: [nitro(), tanstackStart(), viteReact(), flags()],
 });
 ```
 
@@ -121,9 +118,10 @@ export default defineConfig({
   import { 'summer-sale' as summerSale } from 'flags:self';
   ```
 
-- For the types, add `"paths": { "flags:*": ["./.flags/*"] }` and
-  `"allowImportingTsExtensions": true` to `tsconfig.json`. Add `.flags` to
-  `.gitignore`.
+- The types are in `flags/generated.d.ts`, so `tsconfig.json` needs no
+  change. `.flags` has its own `.gitignore`.
+- Without `flags/sources`, the plugin writes nothing. To turn the generation
+  off, use `flags({ disableCodeGeneration: true })`.
 - Without code generation, write `defineSource` and `bindFlag` by hand.
   Each flag names its source. There is no default source.
 

@@ -59,6 +59,12 @@ your aliases and rules of Turbopack. If `flags/config.ts` is not in the
 directory of the application or in its `src`, give the directory:
 `withFlags({}, { dir: '/path/to/the/app' })`.
 
+The configuration can also be a function of the phase. Pass the function to
+`withFlags`: `export default withFlags((phase) => ({ ... }))`. Do not call
+`withFlags` inside your own function of the phase: by default, `withFlags`
+returns a function of the phase itself. The type of the function is
+`NextConfigFunction<T>`, an export of `@flags-sdk/next/plugin`.
+
 ### 2️⃣ Give the flags a source
 
 Each flag of a provider names its source:
@@ -276,7 +282,7 @@ export default async function Page({
 
 ## Code generation
 
-With `codeGeneration`, `withFlags` writes the modules of `flags:<source>`
+By default, `withFlags` writes the modules of `flags:<source>`
 from the catalogs of `flags/sources/<source>` (see the SPEC of `flags`,
 "Code generation"). By convention, the main source of the application is
 `flags/sources/self` (`catalog.ts`, `provider.ts` and `context.ts`):
@@ -285,7 +291,7 @@ from the catalogs of `flags/sources/<source>` (see the SPEC of `flags`,
 // next.config.ts
 import { withFlags } from '@flags-sdk/next/plugin';
 
-export default withFlags({}, { codeGeneration: true });
+export default withFlags({});
 ```
 
 ```ts
@@ -293,18 +299,22 @@ export default withFlags({}, { codeGeneration: true });
 import { checkout, 'summer-sale' as summerSale } from 'flags:self';
 ```
 
-- `withFlags` then returns a function of the phase. `next build` generates
+- `withFlags` returns a function of the phase. `next build` generates
   `.flags/<source>.ts` one time and closes the catalogs. `next dev` generates and watches the
   catalogs. `next start` does no catalog work.
 - Next.js loads the configuration more than once, also in its workers. One
   process owns the generation, and the others see its PID in the
   environment.
-- `withFlags` points the aliases of `.flags/aliases.json` to the modules,
-  also without `codeGeneration`, e.g. after `flags sync` or with
-  `flags watch -- next dev`.
-- Add `"paths": { "flags:*": ["./.flags/*"] }` and
-  `"allowImportingTsExtensions": true` to `tsconfig.json`, and `.flags` to
-  `.gitignore`.
+- The folder `flags` is in the directory of the application or in its
+  `src`. Without `flags/sources`, `withFlags` writes nothing.
+- For the types, `withFlags` writes `flags/generated.d.ts`. TypeScript
+  finds it with its default `include`, so `tsconfig.json` needs no change.
+  Commit the file, or ignore it and run `flags sync` before `tsc`.
+- `.flags` has its own `.gitignore`, so `.gitignore` needs no change.
+- `withFlags({}, { disableCodeGeneration: true })` turns the generation off,
+  and returns the configuration object as it is. `withFlags` still points
+  the aliases of `.flags/aliases.json` to the modules, e.g. after
+  `flags sync` or with `flags watch -- next dev`.
 
 ## Discovery
 

@@ -31,9 +31,9 @@ export default defineConfig({
     nitro(),
     tanstackStart(),
     viteReact(),
-    // codeGeneration writes .flags/self.ts from flags/sources/self,
+    // Writes .flags/self.ts from flags/sources/self,
     // and points flags:self to it
-    flags({ codeGeneration: true }),
+    flags(),
   ],
 });
 ```
@@ -81,27 +81,7 @@ export default loadCatalog;
 
 `VercelProvider` uses the OIDC token of your project: run `vercel link` and `vercel env pull` once. To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk` instead.
 
-### 4. Configure TypeScript and Git
-
-The plugin resolves `flags:self` for Vite. For the types, point `flags:*` to the generated modules, and allow the `.ts` imports that they contain:
-
-```json title="tsconfig.json"
-{
-  "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "paths": {
-      "flags:*": ["./.flags/*"]
-    }
-  }
-}
-```
-
-```text title=".gitignore"
-.flags
-```
-
-### 5. Use the flag in a loader
+### 4. Use the flag in a loader
 
 Flags run only on the server. Route loaders run on the server and in the browser, so the loader calls a server function:
 
@@ -123,7 +103,7 @@ function Home() {
 }
 ```
 
-A new flag in the catalog becomes a new export of `flags:self`. See [Code generation](/docs/flags/code-generation).
+The plugin writes `.flags/self.ts`, and the types in `flags/generated.d.ts`. You do not configure TypeScript or Git. A new flag in the catalog becomes a new export of `flags:self`. See [Code generation](/docs/flags/code-generation).
 
 ## Inline flags
 
@@ -176,7 +156,7 @@ Set the cookie `beta=1` to see the beta banner.
 
 ## Without code generation
 
-You can also write the source and its flags by hand. Leave out `codeGeneration`, and use `defineSource` and `bindFlag`:
+You can also write the source and its flags by hand. Use `defineSource` and `bindFlag`. Without a folder `flags/sources`, the code generation writes nothing. To turn it off, use `flags({ disableCodeGeneration: true })`.
 
 ```ts title="src/flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';

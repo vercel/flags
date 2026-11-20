@@ -33,15 +33,25 @@ and `@flags-sdk/next/manifest-loader` are used by `withFlags` internally.
 Adds the Flags SDK to the configuration of Next.js.
 
 ```ts
+type NextConfigFunction<T> = (
+  phase: string,
+  context?: unknown,
+) => T | Promise<T>;
+
 function withFlags<T extends object>(
-  config?: T,
-  options?: FlagsPluginOptions & { codeGeneration?: false },
-): T;
+  config?: T | NextConfigFunction<T>,
+  options?: FlagsPluginOptions & { disableCodeGeneration?: false },
+): NextConfigFunction<T>;
 
 function withFlags<T extends object>(
   config: T,
-  options: FlagsPluginOptions & { codeGeneration: true },
-): (phase: string) => Promise<T>;
+  options: FlagsPluginOptions & { disableCodeGeneration: true },
+): T;
+
+function withFlags<T extends object>(
+  config: NextConfigFunction<T>,
+  options: FlagsPluginOptions & { disableCodeGeneration: true },
+): NextConfigFunction<T>;
 ```
 
 It keeps your configuration, including your Turbopack aliases and rules, and
@@ -63,10 +73,16 @@ adds:
 
 It supports only Turbopack. A build with webpack throws.
 
-| Option           | Type      | Description                                                                                                                                                                                            |
-| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `dir`            | `string`  | The directory of the application, where the plugin looks for `flags/config.ts` and `flags/sources`. The default is the current directory.                                                              |
-| `codeGeneration` | `boolean` | Generates the modules of `flags:<source>` from the catalogs of `flags/sources/<source>`: once for `next build`, and again after each change of a catalog for `next dev`. `next start` does no catalog work. `withFlags` then returns a function of the phase. |
+| Option                  | Type      | Description                                                                                                                                                                              |
+| ----------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir`                   | `string`  | The directory of the application, where the plugin looks for `flags/config.ts` and `flags/sources` (also in `src`). The default is the current directory.                                 |
+| `disableCodeGeneration` | `boolean` | Turns off the code generation of `flags:<source>`. For a configuration object, `withFlags` then returns the object, not a function of the phase. The default is `false`.                 |
+
+By default, `withFlags` generates the modules of `flags:<source>` from the
+catalogs of `flags/sources/<source>`: once for `next build`, and again after
+each change of a catalog for `next dev`. `next start` does no catalog work.
+`withFlags` then returns a function of the phase. Without a folder
+`flags/sources`, it writes nothing.
 
 ```ts title="next.config.ts"
 import { withFlags } from '@flags-sdk/next/plugin';
@@ -76,19 +92,35 @@ export default withFlags({
 });
 ```
 
+With `flags/sources/self/`, this writes `.flags/self.ts`, and your code
+imports `import { enableSale } from 'flags:self'`. For the types, it writes
+`flags/generated.d.ts`. You do not change `tsconfig.json` or `.gitignore`.
+
+The configuration can also be a function of the phase. Pass the function to
+`withFlags`. Do not call `withFlags` inside the function: `withFlags` returns
+a function of the phase itself, so Next.js would get a function as the
+configuration.
+
+```ts title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
+
+export default withFlags((phase) => ({
+  reactStrictMode: phase === PHASE_DEVELOPMENT_SERVER,
+}));
+```
+
+`@flags-sdk/next/plugin` exports the type `NextConfigFunction<T>`.
+
+To turn off the code generation, e.g. if you write your sources by hand:
+
 ```ts title="next.config.ts"
 import { withFlags } from '@flags-sdk/next/plugin';
 
-export default withFlags({}, { codeGeneration: true });
+export default withFlags({}, { disableCodeGeneration: true });
 ```
 
-With `flags/sources/self/`, this writes `.flags/self.ts`, and your code
-imports `import { enableSale } from 'flags:self'`. For the types, add
-`"paths": { "flags:*": ["./.flags/*"] }` and
-`"allowImportingTsExtensions": true` to `tsconfig.json`, and `.flags` to
-`.gitignore`.
-
-Without `codeGeneration`, `withFlags` still reads `.flags/aliases.json`, e.g.
+With `disableCodeGeneration`, `withFlags` still reads `.flags/aliases.json`, e.g.
 after `flags sync`, or with `flags watch -- next dev`. See
 [Code generation](/docs/flags/code-generation).
 

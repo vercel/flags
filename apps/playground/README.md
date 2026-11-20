@@ -29,9 +29,9 @@ pnpm dev
 ```
 
 Skip `vercel link` if this app is already linked to the intended project.
-Open <http://localhost:3000>. `next.config.ts` has
-`withFlags({}, { codeGeneration: true })` of `@flags-sdk/next/plugin`:
-`next dev` generates `.flags/` before Next.js resolves the flag imports, and
+Open <http://localhost:3000>. `next.config.ts` has `withFlags({})` of
+`@flags-sdk/next/plugin`, which generates the code by default: `next dev`
+generates `.flags/` and `flags/generated.d.ts` before Next.js resolves the flag imports, and
 keeps the catalog subscription open. New keys, variants and descriptions
 update `.flags/` automatically. `next build` generates one time, and
 `next start` does no catalog work.
@@ -50,7 +50,7 @@ Each source is a directory with three files (see [flags/README.md](flags/README.
 flags/sources/site/
   catalog.ts   # Default export: a catalog loader. Runs in Node.js at generation.
   provider.ts  # Default export: the OpenFeature provider.
-  context.ts   # Default export: getEvaluationContext(input, request).
+  context.ts   # Default export: getEvaluationContext(request, input).
 ```
 
 ```ts
@@ -58,7 +58,6 @@ flags/sources/site/
 import type { FlagsRequest } from 'flags';
 
 export default function getEvaluationContext(
-  _input: unknown,
   request: FlagsRequest | undefined,
 ) {
   const id = request?.cookies?.get('demo-visitor')?.value ?? 'visitor-1';
@@ -78,14 +77,16 @@ import { 'test-string' as offer } from 'flags:site';
 
 `pnpm flags:sync` generates one time without Next.js, and `pnpm flags:watch`
 watches the catalogs. Restart `pnpm dev` after a change of a source file, or
-after you add or remove a source. `.flags/` is ignored by Git.
+after you add or remove a source. `.flags/` has its own `.gitignore`.
+The app also ignores `flags/generated.d.ts`, so `pnpm type-check` runs
+`flags sync` first.
 
 ## Check
 
 From `apps/playground`:
 
 ```sh
-pnpm type-check   # after pnpm flags:sync
+pnpm type-check   # runs flags sync, then tsc
 pnpm test
 pnpm build
 ```

@@ -95,16 +95,19 @@ hooks and tracking.
 
 ## Code generation
 
+The plugin generates the code by default:
+
 ```ts
 // vite.config.ts
 export default defineConfig({
-  plugins: [sveltekit(), flags({ codeGeneration: true })],
+  plugins: [sveltekit(), flags()],
 });
 ```
 
-- Each source is a directory `flags/sources/<source>` with `catalog.ts`,
+- Each source is a directory `src/flags/sources/<source>` with `catalog.ts`,
   `provider.ts` and `context.ts`. By convention, the main source of the
-  application is `flags/sources/self`.
+  application is `src/flags/sources/self`. Use `src/flags`, since SvelteKit
+  type-checks `src` only.
 - The plugin generates `.flags/<source>.ts` one time for `vite build`, and
   watches the catalogs in `vite dev`. It adds the aliases
   `flags:<source>`:
@@ -113,10 +116,10 @@ export default defineConfig({
   import { 'summer-sale' as summerSale } from 'flags:self';
   ```
 
-- For the types, add the alias to `svelte.config.js`
-  (`kit: { alias: { 'flags:self': '.flags/self.ts' } }`), and
-  `"allowImportingTsExtensions": true` to `tsconfig.json`. Add `.flags` to
-  `.gitignore`.
+- The types are in `src/flags/generated.d.ts`, so `svelte.config.js` and
+  `tsconfig.json` need no change. `.flags` has its own `.gitignore`.
+- Without `flags/sources`, the plugin writes nothing. To turn the generation
+  off, use `flags({ disableCodeGeneration: true })`.
 - Without code generation, write `defineSource` and `bindFlag` by hand.
   Each flag names its source. There is no default source.
 

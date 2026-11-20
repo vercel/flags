@@ -20,10 +20,10 @@ A framework package is a thin layer between the SDK and the framework. It does t
 
 | Framework | Package | Setup | Sources |
 | --- | --- | --- | --- |
-| [Next.js](/docs/frameworks/next) | `@flags-sdk/next` | `withFlags({}, { codeGeneration: true })` in `next.config.ts` | `flags/sources/self`, `flags:self` |
-| [SvelteKit](/docs/frameworks/sveltekit) | `@flags-sdk/sveltekit` | `flags({ codeGeneration: true })` in `vite.config.ts` | `flags/sources/self`, `flags:self` |
-| [Nuxt](/docs/frameworks/nuxt) | `@flags-sdk/nuxt` | `modules: [['@flags-sdk/nuxt', { codeGeneration: true }]]` in `nuxt.config.ts` | `flags/sources/self`, `flags:self` |
-| [TanStack Start](/docs/frameworks/tanstack-start) | `@flags-sdk/tanstack-start` | `flags({ codeGeneration: true })` in `vite.config.ts` | `flags/sources/self`, `flags:self` |
+| [Next.js](/docs/frameworks/next) | `@flags-sdk/next` | `withFlags({})` in `next.config.ts` | `flags/sources/self`, `flags:self` |
+| [SvelteKit](/docs/frameworks/sveltekit) | `@flags-sdk/sveltekit` | `flags()` in `vite.config.ts` | `src/flags/sources/self`, `flags:self` |
+| [Nuxt](/docs/frameworks/nuxt) | `@flags-sdk/nuxt` | `modules: ['@flags-sdk/nuxt']` in `nuxt.config.ts` | `flags/sources/self`, `flags:self` |
+| [TanStack Start](/docs/frameworks/tanstack-start) | `@flags-sdk/tanstack-start` | `flags()` in `vite.config.ts` | `flags/sources/self`, `flags:self` |
 | [Hono](/docs/frameworks/hono) | `@flags-sdk/hono` | `app.use(flags())` | by hand, `defineSource` |
 | [Express](/docs/frameworks/express) | `@flags-sdk/express` | `app.use(flags())` | by hand, `defineSource` |
 | [No framework](/docs/frameworks/node) | none | `runtime.onInvoke(request, next)` for each request | by hand, `defineSource` |
@@ -34,7 +34,7 @@ Your framework is not in the list? You can [write a binding for it](/docs/framew
 
 ### With a bundler: the file system API
 
-In Next.js, SvelteKit, Nuxt and TanStack Start, the main source of your application is the folder `flags/sources/self`. The three files are the same in each of these frameworks:
+In Next.js, SvelteKit, Nuxt and TanStack Start, the main source of your application is the folder `flags/sources/self`. In SvelteKit, it is `src/flags/sources/self`, since SvelteKit type-checks `src` only. The three files are the same in each of these frameworks:
 
 ```ts title="flags/sources/self/provider.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -71,7 +71,7 @@ const loadCatalog: CatalogLoader = () => ({
 export default loadCatalog;
 ```
 
-The plugin of your framework generates `.flags/self.ts`, and your code imports the flags:
+The plugin of your framework generates `.flags/self.ts` and the types in `flags/generated.d.ts`, and your code imports the flags:
 
 ```ts
 import { enableSale } from 'flags:self';

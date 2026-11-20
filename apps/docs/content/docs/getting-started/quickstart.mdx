@@ -19,8 +19,8 @@ Pick your framework in the tabs. The setup is the same in each framework.
   [Express](/docs/frameworks/express) or [no framework](/docs/frameworks/node).
 </Callout>
 
-<CopyPrompt text="Add the Flags SDK (the `flags` package, version 5) to my application with its file system API. Detect the framework (Next.js, SvelteKit, Nuxt or TanStack Start), install `flags` and the matching framework package, enable `codeGeneration` in its plugin, and create the source `self` in `flags/sources/self` with `catalog.ts`, `provider.ts` and `context.ts`. Use one flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow https://flags-sdk.dev/docs/getting-started/quickstart, then run the type check and the build.">
-  Add the Flags SDK (the `flags` package, version 5) to my application with its file system API. Detect the framework, install `flags` and the matching framework package, enable `codeGeneration` in its plugin, and create the source `self` in `flags/sources/self`. Use one flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow this quickstart, then run the type check and the build.
+<CopyPrompt text="Add the Flags SDK (the `flags` package, version 5) to my application with its file system API. Detect the framework (Next.js, SvelteKit, Nuxt or TanStack Start), install `flags` and the matching framework package, add its plugin, and create the source `self` in `flags/sources/self` with `catalog.ts`, `provider.ts` and `context.ts`. Use one flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow https://flags-sdk.dev/docs/getting-started/quickstart, then run the type check and the build.">
+  Add the Flags SDK (the `flags` package, version 5) to my application with its file system API. Detect the framework, install `flags` and the matching framework package, add its plugin, and create the source `self` in `flags/sources/self`. Use one flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow this quickstart, then run the type check and the build.
 </CopyPrompt>
 
 ### 1. Install the packages
@@ -45,17 +45,14 @@ npm install flags @flags-sdk/tanstack-start @vercel/flags-core @openfeature/serv
 
 ### 2. Add the plugin
 
-The framework package connects the SDK to the request. With `codeGeneration`, it also turns the folders in `flags/sources` into the imports `flags:<source>`.
+The framework package connects the SDK to the request. By default, it also turns the folders in `flags/sources` into the imports `flags:<source>`.
 
 ```ts tab="Next.js" title="next.config.ts"
 import { withFlags } from '@flags-sdk/next/plugin';
 
-export default withFlags(
-  {
-    // Your Next.js configuration, as usual
-  },
-  { codeGeneration: true },
-);
+export default withFlags({
+  // Your Next.js configuration, as usual
+});
 ```
 
 ```ts tab="SvelteKit" title="vite.config.ts"
@@ -64,13 +61,13 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [sveltekit(), flags({ codeGeneration: true })],
+  plugins: [sveltekit(), flags()],
 });
 ```
 
 ```ts tab="Nuxt" title="nuxt.config.ts"
 export default defineNuxtConfig({
-  modules: [['@flags-sdk/nuxt', { codeGeneration: true }]],
+  modules: ['@flags-sdk/nuxt'],
 });
 ```
 
@@ -82,12 +79,7 @@ import { nitro } from 'nitro/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [
-    nitro(),
-    tanstackStart(),
-    viteReact(),
-    flags({ codeGeneration: true }),
-  ],
+  plugins: [nitro(), tanstackStart(), viteReact(), flags()],
 });
 ```
 
@@ -103,6 +95,11 @@ flags/
       context.ts    who the user is, for each request
       catalog.ts    which flags exist, for code generation
 ```
+
+<Callout>
+  In SvelteKit, put the folder into `src/flags`, since SvelteKit type-checks
+  `src` only. The paths are then `src/flags/sources/self/...`.
+</Callout>
 
 The provider evaluates the flags. It is any OpenFeature server provider:
 
@@ -147,46 +144,7 @@ export default loadCatalog;
   link` and `vercel env pull` once. See [Vercel Flags](/docs/providers/vercel).
 </Callout>
 
-### 4. Set up TypeScript
-
-The plugin writes the generated modules into `.flags`. Add the folder to `.gitignore`, and tell TypeScript where `flags:self` is:
-
-```txt title=".gitignore"
-.flags
-```
-
-```json tab="Next.js" title="tsconfig.json"
-{
-  "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "paths": { "flags:*": ["./.flags/*"] }
-  }
-}
-```
-
-```js tab="SvelteKit" title="svelte.config.js"
-export default {
-  kit: {
-    // Also set "allowImportingTsExtensions": true in tsconfig.json
-    alias: { 'flags:self': '.flags/self.ts' },
-  },
-};
-```
-
-```txt tab="Nuxt" title="Nothing to do"
-The module adds flags:self to the aliases of Nuxt, so its tsconfig has it.
-```
-
-```json tab="TanStack Start" title="tsconfig.json"
-{
-  "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "paths": { "flags:*": ["./.flags/*"] }
-  }
-}
-```
-
-### 5. Use the flag
+### 4. Use the flag
 
 Import the flag, and call it on the server. It returns a promise of its value.
 
@@ -234,9 +192,9 @@ function Home() {
 }
 ```
 
-Start your development server. The plugin generates `.flags/self.ts` before the first request, and again when the catalog changes.
+Start your development server. The plugin generates `.flags/self.ts` and `flags/generated.d.ts` before the first request, and again when the catalog changes. You do not need to set up TypeScript.
 
-### 6. Optional: decide a flag in code
+### 5. Optional: decide a flag in code
 
 Not every flag needs a provider. An [inline flag](/docs/flags/inline-flags) decides its value in your code, and gets the same overrides, caching and types. Put inline flags into a module that starts with `'use flags'`:
 
@@ -255,7 +213,7 @@ The `'use flags'` directive lets [Flags Explorer](/docs/tooling/flags-explorer) 
 
 ## What happened behind the scenes
 
-`.flags/self.ts` is plain code: one source, and one flag for each key of the catalog. You can write the same code by hand, e.g. in a framework without a bundler:
+`.flags/self.ts` is plain code: one source, and one flag for each key of the catalog. The plugin also writes `flags/generated.d.ts`, next to `flags/sources`. It declares the types of `flags:self`, so TypeScript finds them without more setup. You can write the same code by hand, e.g. in a framework without a bundler:
 
 ```ts title=".flags/self.ts (simplified)"
 'use flags';
