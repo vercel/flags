@@ -1,3 +1,4 @@
+import { getPrecomputed } from '@flags-sdk/next/precompute';
 import { AddToCart } from '@/app/[code]/add-to-cart';
 import { SummerSale } from '@/app/summer-sale';
 import { ImageGallery } from '@/components/image-gallery';
@@ -7,16 +8,18 @@ import { ProductDetails } from '@/components/product-detail-page/product-details
 import { ProductHeader } from '@/components/product-detail-page/product-header';
 import { SizePicker } from '@/components/product-detail-page/size-picker';
 import { ProductDetailPageProvider } from '@/components/utils/product-detail-page-context';
-import { productFlags, showSummerBannerFlag } from '@/flags';
+import { showSummerBannerFlag } from '@/flags';
+import { productFlags } from '@/product-flags';
 
 export default async function Page(props: {
   params: Promise<{ code: string }>;
 }) {
   const params = await props.params;
 
-  const showSummerBanner = await showSummerBannerFlag(
-    params.code,
+  const showSummerBanner = await getPrecomputed(
+    showSummerBannerFlag,
     productFlags,
+    params.code,
   );
 
   return (

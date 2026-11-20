@@ -4,7 +4,7 @@ A minimal Next.js App Router example with two server-evaluated flags, adapted fr
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fvercel&env=FLAGS_SECRET&envDescription=This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fvercel%23setup&project-name=flags-sdk-vercel&repository-name=flags-sdk-vercel)
 
-The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
+The Deploy button copies only this folder and uses the standard Next.js build command. See [Run inside the Flags SDK repository](#run-inside-the-flags-sdk-repository) for the workspace dependencies.
 
 ## Setup
 
@@ -31,13 +31,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 Run `vercel env pull .env.local` again if your local OIDC token expires. For deployments outside Vercel, you can optionally set `FLAGS` to a Vercel Flags SDK key.
 
-The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Change their values in the Vercel Dashboard and refresh the page. If flags cannot be evaluated, the welcome message falls back to `Welcome to the Vercel example` and the banner stays hidden.
+`flags.ts` defines a source with `VercelProvider`, the OpenFeature provider of `@vercel/flags-core/openfeature`, and binds both flags to it with `bindFlag`. The home page uses `evaluate()` from `flags` to evaluate both flags. Change their values in the Vercel Dashboard and refresh the page. If flags cannot be evaluated, the welcome message falls back to `Welcome to the Vercel example` and the banner stays hidden.
 
 See the [Vercel Flags quickstart](https://vercel.com/docs/flags/vercel-flags/quickstart) for provider setup.
 
 ## Flags Explorer
 
-The example exposes both flag definitions at `/.well-known/vercel/flags`, protected by `FLAGS_SECRET`, and reports their evaluated values to the toolbar.
+`flags.ts` starts with `'use flags'`, so `withFlags` in `next.config.ts` registers its flags. The route `app/.well-known/flags/manifest.json` returns their definitions in development, and the production build writes them to `.next/flags-manifest.json`. The source names its project (`system: 'vercel-flags'`), so Flags Explorer links each flag to the Vercel dashboard. `FlagValues` from `@flags-sdk/next/flag-values` reports the evaluated values to the toolbar.
 
 The Vercel Toolbar is included during local development. Sign in and open Flags Explorer to override `welcome_message` or `show_banner` for your session without changing their configured values. The local `FLAGS_SECRET` must match the linked project's Development value. Vercel injects the toolbar on preview deployments when enabled in project settings.
 
@@ -61,7 +61,7 @@ pnpm install
 pnpm exec turbo run dev --filter=flags-sdk-vercel
 ```
 
-The root `pnpm-workspace.yaml` overrides this example's `flags` and `@flags-sdk/vercel` dependencies to `workspace:*`. Explicit task dependencies in the root `turbo.json` ensure Turbo builds the local SDK and adapter before starting Next.js, since Turbo does not infer workspace links from pnpm overrides.
+The `package.json` of this example uses the workspace packages of the Flags SDK v5 (`flags`, `@flags-sdk/next`, `@vercel/flags-core`) through `workspace:*`. Turbo builds them before it starts Next.js.
 
 The root `pnpm build` builds only `packages/*`. Use `pnpm build:all` to build the entire workspace, including all examples and apps, after configuring their environments. To build only this example and its dependencies:
 
@@ -78,4 +78,4 @@ To deploy the workspace version on Vercel:
 4. Set **Build Command** to `cd ../../.. && pnpm exec turbo run build --filter=flags-sdk-vercel`.
 5. Add the environment variables from Setup.
 
-When cloned independently, the root overrides are absent and the regular versions in `package.json` resolve from npm. No workspace files, shared TypeScript configuration, or build scripts are needed for the standalone app.
+When you copy this folder out of the repository, replace the `workspace:*` versions in `package.json` with the published versions of these packages.

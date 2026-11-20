@@ -1,6 +1,6 @@
-import { precompute } from 'flags/next';
+import { precompute } from '@flags-sdk/next/precompute';
 import { type NextRequest, NextResponse } from 'next/server';
-import { productFlags } from '@/flags';
+import { productFlags } from '@/product-flags';
 import { getCartId } from './lib/get-cart-id';
 import { getStableId } from './lib/get-stable-id';
 
@@ -11,7 +11,13 @@ export const config = {
 export async function proxy(request: NextRequest) {
   const stableId = await getStableId();
   const cartId = await getCartId();
-  const code = await precompute(productFlags);
+
+  // On the first request the stable id is not in the cookie yet, so it goes
+  // to the flags through the evaluation context
+  const code = await precompute(productFlags, {
+    request,
+    evaluationContext: { stableId: stableId.value },
+  });
 
   // rewrites the request to the variant for this flag combination
   const nextUrl = new URL(

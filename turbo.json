@@ -63,60 +63,46 @@
       "dependsOn": ["^build"]
     },
     "flags-sdk-launchdarkly#dev": {
-      "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"],
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"],
       "env": [
         "FLAGS_SECRET",
-        "EXPERIMENTATION_CONFIG",
+        "LAUNCHDARKLY_SDK_KEY",
         "LAUNCHDARKLY_PROJECT_SLUG",
-        "LAUNCHDARKLY_CLIENT_SIDE_ID",
-        "LAUNCHDARKLY_API_KEY",
         "LAUNCHDARKLY_ENVIRONMENT"
       ],
       "cache": false
     },
     "flags-sdk-launchdarkly#build": {
-      "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"],
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"],
       "env": [
         "FLAGS_SECRET",
-        "EXPERIMENTATION_CONFIG",
+        "LAUNCHDARKLY_SDK_KEY",
         "LAUNCHDARKLY_PROJECT_SLUG",
-        "LAUNCHDARKLY_CLIENT_SIDE_ID",
-        "LAUNCHDARKLY_API_KEY",
         "LAUNCHDARKLY_ENVIRONMENT"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-launchdarkly#type-check": {
-      "dependsOn": ["flags#build", "@flags-sdk/launchdarkly#build"]
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"]
     },
     "biome:check": {},
     "flags-sdk-flagsmith#build": {
-      "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
-      "env": [
-        "FLAGS_SECRET",
-        "FLAGSMITH_ENVIRONMENT_KEY",
-        "FLAGSMITH_ENVIRONMENT_ID",
-        "FLAGSMITH_PROJECT_ID"
-      ],
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"],
+      "env": ["FLAGS_SECRET", "FLAGSMITH_ENVIRONMENT_KEY"],
       "outputs": [".next/**", "!.next/cache/**"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"]
     },
     "flags-sdk-flagsmith#dev": {
-      "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"],
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"],
       "cache": false,
-      "env": [
-        "FLAGS_SECRET",
-        "FLAGSMITH_ENVIRONMENT_KEY",
-        "FLAGSMITH_ENVIRONMENT_ID",
-        "FLAGSMITH_PROJECT_ID"
-      ]
+      "env": ["FLAGS_SECRET", "FLAGSMITH_ENVIRONMENT_KEY"]
     },
     "flags-sdk-flagsmith#type-check": {
-      "dependsOn": ["flags#build", "@flags-sdk/flagsmith#build"]
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"]
     },
     "flags-sdk-statsig#dev": {
-      "dependsOn": ["flags#build", "@flags-sdk/statsig#build"],
+      "dependsOn": [],
       "env": [
         "STATSIG_SERVER_API_KEY",
         "FLAGS_SECRET",
@@ -126,7 +112,7 @@
       "cache": false
     },
     "flags-sdk-statsig#build": {
-      "dependsOn": ["flags#build", "@flags-sdk/statsig#build"],
+      "dependsOn": [],
       "env": [
         "STATSIG_SERVER_API_KEY",
         "FLAGS_SECRET",
@@ -137,40 +123,52 @@
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-statsig#type-check": {
-      "dependsOn": ["flags#build", "@flags-sdk/statsig#build"]
+      "dependsOn": []
     },
     "flags-sdk-vercel#dev": {
-      "dependsOn": ["flags#build", "@flags-sdk/vercel#build"],
+      "dependsOn": [
+        "flags#build",
+        "@flags-sdk/next#build",
+        "@vercel/flags-core#build"
+      ],
       "env": ["FLAGS", "FLAGS_SECRET"],
       "cache": false,
       "passThroughEnv": ["VERCEL_OIDC_TOKEN"]
     },
     "flags-sdk-vercel#build": {
-      "dependsOn": ["flags#build", "@flags-sdk/vercel#build"],
+      "dependsOn": [
+        "flags#build",
+        "@flags-sdk/next#build",
+        "@vercel/flags-core#build"
+      ],
       "env": ["FLAGS", "FLAGS_SECRET"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"],
       "passThroughEnv": ["VERCEL_OIDC_TOKEN"]
     },
     "flags-sdk-vercel#type-check": {
-      "dependsOn": ["flags#build", "@flags-sdk/vercel#build"]
+      "dependsOn": [
+        "flags#build",
+        "@flags-sdk/next#build",
+        "@vercel/flags-core#build"
+      ]
     },
     "flags-sdk-reflag#dev": {
-      "dependsOn": ["flags#build", "@flags-sdk/reflag#build"],
+      "dependsOn": [],
       "env": ["FLAGS_SECRET", "REFLAG_SECRET_KEY"],
       "cache": false
     },
     "flags-sdk-reflag#build": {
-      "dependsOn": ["flags#build", "@flags-sdk/reflag#build"],
+      "dependsOn": [],
       "env": ["FLAGS_SECRET", "REFLAG_SECRET_KEY"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-reflag#type-check": {
-      "dependsOn": ["flags#build", "@flags-sdk/reflag#build"]
+      "dependsOn": []
     },
     "flags-sdk-posthog#dev": {
-      "dependsOn": ["flags#build", "@flags-sdk/posthog#build"],
+      "dependsOn": [],
       "env": [
         "FLAGS_SECRET",
         "POSTHOG_PROJECT_API_KEY",
@@ -183,7 +181,7 @@
       "cache": false
     },
     "flags-sdk-posthog#build": {
-      "dependsOn": ["flags#build", "@flags-sdk/posthog#build"],
+      "dependsOn": [],
       "env": [
         "FLAGS_SECRET",
         "POSTHOG_PROJECT_API_KEY",
@@ -197,59 +195,35 @@
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-posthog#type-check": {
-      "dependsOn": ["flags#build", "@flags-sdk/posthog#build"]
+      "dependsOn": []
     },
     "flags-sdk-openfeature#dev": {
-      "dependsOn": ["flags#build", "@flags-sdk/openfeature#build"],
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"],
       "env": ["FLAGS_SECRET"],
       "cache": false
     },
     "flags-sdk-openfeature#build": {
-      "dependsOn": ["flags#build", "@flags-sdk/openfeature#build"],
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"],
       "env": ["FLAGS_SECRET"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-openfeature#type-check": {
-      "dependsOn": ["flags#build", "@flags-sdk/openfeature#build"]
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"]
     },
     "flags-sdk-growthbook#dev": {
-      "dependsOn": ["flags#build", "@flags-sdk/growthbook#build"],
-      "env": [
-        "FLAGS_SECRET",
-        "GROWTHBOOK_CLIENT_KEY",
-        "GROWTHBOOK_API_KEY",
-        "GROWTHBOOK_API_HOST",
-        "GROWTHBOOK_APP_API_HOST",
-        "GROWTHBOOK_APP_ORIGIN",
-        "EXPERIMENTATION_CONFIG",
-        "GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING",
-        "GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY",
-        "GROWTHBOOK_EDGE_CONNECTION_STRING",
-        "GROWTHBOOK_EDGE_CONFIG_ITEM_KEY"
-      ],
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"],
+      "env": ["FLAGS_SECRET", "GROWTHBOOK_CLIENT_KEY", "GROWTHBOOK_API_HOST"],
       "cache": false
     },
     "flags-sdk-growthbook#build": {
-      "dependsOn": ["flags#build", "@flags-sdk/growthbook#build"],
-      "env": [
-        "FLAGS_SECRET",
-        "GROWTHBOOK_CLIENT_KEY",
-        "GROWTHBOOK_API_KEY",
-        "GROWTHBOOK_API_HOST",
-        "GROWTHBOOK_APP_API_HOST",
-        "GROWTHBOOK_APP_ORIGIN",
-        "EXPERIMENTATION_CONFIG",
-        "GROWTHBOOK_GLOBAL_CONFIG_CONNECTION_STRING",
-        "GROWTHBOOK_GLOBAL_CONFIG_ITEM_KEY",
-        "GROWTHBOOK_EDGE_CONNECTION_STRING",
-        "GROWTHBOOK_EDGE_CONFIG_ITEM_KEY"
-      ],
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"],
+      "env": ["FLAGS_SECRET", "GROWTHBOOK_CLIENT_KEY", "GROWTHBOOK_API_HOST"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "flags-sdk-growthbook#type-check": {
-      "dependsOn": ["flags#build", "@flags-sdk/growthbook#build"]
+      "dependsOn": ["flags#build", "@flags-sdk/next#build"]
     }
   }
 }

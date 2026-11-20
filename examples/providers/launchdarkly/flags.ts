@@ -1,19 +1,17 @@
-import { type LDContext, ldAdapter } from '@flags-sdk/launchdarkly';
-import { flag } from 'flags/next';
+'use flags';
 
-// A shared demo context keeps this example focused on flag evaluation.
-const identify = (): LDContext => ({ kind: 'user', key: 'demo-user' });
+import { bindFlag } from 'flags';
+import { launchdarkly } from './flags/launchdarkly';
 
-export const welcomeMessage = flag<string, LDContext>({
+export const welcomeMessage = bindFlag({
   key: 'welcome_message',
+  source: launchdarkly,
+  type: 'string',
   defaultValue: 'Welcome to the LaunchDarkly example',
-  identify,
-  adapter: ldAdapter.variation(),
 });
 
-export const showBanner = flag<boolean, LDContext>({
+export const showBanner = bindFlag({
   key: 'show_banner',
+  source: launchdarkly,
   defaultValue: false,
-  identify,
-  adapter: ldAdapter.variation(),
 });

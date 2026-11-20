@@ -9,12 +9,15 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@flags-sdk/launchdarkly": "^1.1.1",
-    "flags": "^4.4.0",
+    "@flags-sdk/next": "workspace:*",
+    "@launchdarkly/node-server-sdk": "9.16.6",
+    "@launchdarkly/openfeature-node-server": "2.1.9",
+    "@openfeature/server-sdk": "1.23.0",
+    "@vercel/toolbar": "0.2.7",
+    "flags": "workspace:*",
     "next": "16.4.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "@vercel/toolbar": "0.2.7"
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@types/node": "22.14.0",

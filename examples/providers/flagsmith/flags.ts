@@ -1,19 +1,17 @@
-import { createFlagsmithAdapter } from '@flags-sdk/flagsmith';
-import { flag } from 'flags/next';
+'use flags';
 
-const adapter = createFlagsmithAdapter({
-  environmentKey: process.env.FLAGSMITH_ENVIRONMENT_KEY ?? '',
-  enableLocalEvaluation: true,
-});
+import { bindFlag } from 'flags';
+import { flagsmith } from './flags/flagsmith';
 
-export const welcomeMessage = flag({
+export const welcomeMessage = bindFlag({
   key: 'welcome_message',
+  source: flagsmith,
+  type: 'string',
   defaultValue: 'Welcome to the Flagsmith example',
-  adapter: adapter.getValue({ coerce: 'string' }),
 });
 
-export const showBanner = flag({
+export const showBanner = bindFlag({
   key: 'show_banner',
+  source: flagsmith,
   defaultValue: false,
-  adapter: adapter.getValue({ coerce: 'boolean' }),
 });

@@ -1,5 +1,5 @@
-import { evaluate } from 'flags/next';
-import { FlagValues } from 'flags/react';
+import { FlagValues } from '@flags-sdk/next/flag-values';
+import { evaluate } from 'flags';
 import { showBanner, welcomeMessage } from '../flags';
 
 export default async function Home() {
@@ -7,9 +7,7 @@ export default async function Home() {
 
   return (
     <main>
-      <FlagValues
-        values={{ [welcomeMessage.key]: message, [showBanner.key]: banner }}
-      />
+      <FlagValues flags={[welcomeMessage, showBanner]} />
       <p>Flags SDK + Vercel</p>
       <h1>{message}</h1>
       {banner && <aside>The feature flag enabled this banner.</aside>}
@@ -17,7 +15,9 @@ export default async function Home() {
         Change <code>welcome_message</code> or <code>show_banner</code> in
         Vercel, then refresh this page.
       </p>
-      <a href="https://flags-sdk.dev/providers/vercel">Adapter documentation</a>
+      <a href="https://flags-sdk.dev/providers/vercel">
+        Provider documentation
+      </a>
     </main>
   );
 }

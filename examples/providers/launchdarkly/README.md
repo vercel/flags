@@ -2,15 +2,15 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly&env=LAUNCHDARKLY_API_KEY%2CLAUNCHDARKLY_ENVIRONMENT%2CFLAGS_SECRET&envDescription=Provide+LaunchDarkly+credentials+for+flag+metadata.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+See+setup+instructions.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly%23setup&project-name=flags-sdk-launchdarkly&repository-name=flags-sdk-launchdarkly&products=%5B%7B%22integrationSlug%22%3A%22launchdarkly%22%2C%22productSlug%22%3A%22launchdarkly%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly&env=LAUNCHDARKLY_PROJECT_SLUG%2CLAUNCHDARKLY_ENVIRONMENT%2CFLAGS_SECRET&envDescription=Provide+the+LaunchDarkly+project+and+environment+keys+for+the+links+of+Flags+Explorer.+The+LaunchDarkly+integration+provides+the+SDK+key.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+See+setup+instructions.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Flaunchdarkly%23setup&project-name=flags-sdk-launchdarkly&repository-name=flags-sdk-launchdarkly&products=%5B%7B%22integrationSlug%22%3A%22launchdarkly%22%2C%22productSlug%22%3A%22launchdarkly%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
 
-The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
+The Deploy button copies only this folder and uses the standard Next.js build command. See [Run inside the Flags SDK repository](#run-inside-the-flags-sdk-repository) for the workspace dependencies.
 
 ## Setup
 
-Install the [LaunchDarkly integration](https://vercel.com/marketplace/launchdarkly) and enable **Global Config Syncing**. The integration provides the `EXPERIMENTATION_CONFIG` connection string used by the adapter.
+Install the [LaunchDarkly integration](https://vercel.com/marketplace/launchdarkly). The integration provides the `LAUNCHDARKLY_SDK_KEY` server-side SDK key, which the provider uses.
 
-Create these flags in your LaunchDarkly environment, enable **SDKs using Client-side ID**, and turn both flags on:
+Create these flags in your LaunchDarkly environment and turn both flags on:
 
 | Flag key | Type | Default rule value |
 | --- | --- | --- |
@@ -19,9 +19,9 @@ Create these flags in your LaunchDarkly environment, enable **SDKs using Client-
 
 Copy `.env.example` to `.env.local` and set:
 
-- `EXPERIMENTATION_CONFIG`: the Global Config connection string from the integration.
-- `LAUNCHDARKLY_PROJECT_SLUG`: your LaunchDarkly project key.
-- `LAUNCHDARKLY_CLIENT_SIDE_ID`: the client-side ID for your LaunchDarkly environment.
+- `LAUNCHDARKLY_SDK_KEY`: the server-side SDK key of your LaunchDarkly environment.
+- `LAUNCHDARKLY_PROJECT_SLUG`: your LaunchDarkly project key, for the links of Flags Explorer to LaunchDarkly.
+- `LAUNCHDARKLY_ENVIRONMENT`: your environment key (for example, `test`), for the same links.
 - `FLAGS_SECRET`: generate a random secret with the command below.
 
 ```sh
@@ -30,13 +30,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 For a linked Vercel project, `vercel env pull` can populate `.env.local`.
 
-The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Change their values in LaunchDarkly and refresh the page once Global Config has synced. Every visitor uses the same `demo-user` context; replace `identify` in `flags.ts` to add user targeting.
+`flags/launchdarkly.ts` defines a source with `LaunchDarklyProvider`, the OpenFeature provider of `@launchdarkly/openfeature-node-server`, and `flags.ts` binds both flags to it with `bindFlag`. The source creates the provider on the first evaluation, because `new LaunchDarklyProvider()` opens a stream connection to LaunchDarkly at once, and the build imports `flags.ts` to write the flags manifest.
+
+The home page uses `evaluate()` from `flags` to evaluate both flags. Change their values in LaunchDarkly and refresh the page. Every visitor uses the same `demo-user` context of kind `user`; change `getEvaluationContext` in `flags/launchdarkly.ts` to add user targeting. It runs once per request for all flags of the source. The provider reads `kind` as the LaunchDarkly context kind and `targetingKey` as its key.
 
 ## Flags Explorer
 
-The discovery endpoint at `/.well-known/vercel/flags` loads flag metadata from LaunchDarkly using `getProviderData` from `@flags-sdk/launchdarkly`, protected by `FLAGS_SECRET`. The page reports evaluated values to the toolbar.
-
-Set `LAUNCHDARKLY_API_KEY` to a LaunchDarkly REST API access token with read access to flags, and `LAUNCHDARKLY_ENVIRONMENT` to your environment key (for example, `test`). These are separate from the client-side ID and Global Config connection string. Discovery uses `LAUNCHDARKLY_PROJECT_SLUG` to load flags from the project and the environment key for dashboard links.
+`flags.ts` starts with `'use flags'`, so `withFlags` in `next.config.ts` registers its flags. The route `app/.well-known/flags/manifest.json` returns their definitions in development, and the production build writes them to `.next/flags-manifest.json`. With `LAUNCHDARKLY_PROJECT_SLUG` and `LAUNCHDARKLY_ENVIRONMENT`, the source names its LaunchDarkly project, so Flags Explorer links each flag to its targeting page in LaunchDarkly. `FlagValues` from `@flags-sdk/next/flag-values` reports the evaluated values to the toolbar.
 
 The Vercel Toolbar is included during local development. Link this folder with `vercel link` and add the same `FLAGS_SECRET` to the linked project's Development environment as a regular environment variable (Config). Alternatively, pull an existing value with `vercel env pull .env.local`. Restart the dev server after linking.
 
@@ -62,7 +62,7 @@ pnpm install
 pnpm exec turbo run dev --filter=flags-sdk-launchdarkly
 ```
 
-The root `pnpm-workspace.yaml` overrides this example's `flags` and `@flags-sdk/launchdarkly` dependencies to `workspace:*`. Explicit task dependencies in the root `turbo.json` ensure Turbo builds the local SDK and adapter before starting Next.js, since Turbo does not infer workspace links from pnpm overrides.
+The `package.json` of this example uses the workspace packages of the Flags SDK v5 (`flags`, `@flags-sdk/next`) through `workspace:*`. Turbo builds them before it starts Next.js.
 
 The root `pnpm build` builds only `packages/*`. Use `pnpm build:all` to build the entire workspace, including all examples and apps, after configuring their environments. To build only this example and its dependencies:
 
@@ -79,4 +79,4 @@ To deploy the workspace version on Vercel:
 4. Set **Build Command** to `cd ../../.. && pnpm exec turbo run build --filter=flags-sdk-launchdarkly`.
 5. Add the environment variables from Setup.
 
-When cloned independently, the root overrides are absent and the regular versions in `package.json` resolve from npm. No workspace files, shared TypeScript configuration, or build scripts are needed for the standalone app.
+When you copy this folder out of the repository, replace the `workspace:*` versions in `package.json` with the published versions of these packages.

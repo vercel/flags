@@ -2,9 +2,9 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith&env=FLAGSMITH_ENVIRONMENT_KEY%2CFLAGSMITH_ENVIRONMENT_ID%2CFLAGSMITH_PROJECT_ID%2CFLAGS_SECRET&envDescription=Provide+Flagsmith+credentials+for+flag+metadata.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+See+setup+instructions.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith%23setup&project-name=flags-sdk-flagsmith&repository-name=flags-sdk-flagsmith)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith&env=FLAGSMITH_ENVIRONMENT_KEY%2CFLAGS_SECRET&envDescription=FLAGSMITH_ENVIRONMENT_KEY+is+the+server-side+SDK+key+of+your+Flagsmith+environment.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+See+setup+instructions.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fflagsmith%23setup&project-name=flags-sdk-flagsmith&repository-name=flags-sdk-flagsmith)
 
-The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
+The Deploy button copies only this folder and uses the standard Next.js build command. See [Run inside the Flags SDK repository](#run-inside-the-flags-sdk-repository) for the workspace dependencies.
 
 ## Setup
 
@@ -21,19 +21,19 @@ Copy `.env.example` to `.env.local` and set `FLAGSMITH_ENVIRONMENT_KEY` to the e
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-The home page uses the Flags SDK’s `evaluate()` API. The string and boolean flags form separate batches because they use different coercion modes. Change their values in Flagsmith and refresh the page. This example opts into local evaluation, sharing an environment document across evaluations and refreshing it every 60 seconds. Disabled or unavailable flags use the defaults in `flags.ts`. This example uses environment-level flags without user targeting.
+`flags/flagsmith.ts` defines a source with `FlagsmithOpenFeatureProvider`, the OpenFeature provider of `@openfeature/flagsmith-provider`, and a `Flagsmith` client of `flagsmith-nodejs`. `flags.ts` binds both flags to it with `bindFlag`. The source creates the client and the provider on the first evaluation, because `new Flagsmith()` throws without an environment key and, with local evaluation, starts to poll Flagsmith at once, and the build imports `flags.ts` to write the flags manifest.
+
+The home page uses `evaluate()` from `flags` to evaluate both flags. Change their values in Flagsmith and refresh the page. The provider reads the value of `show_banner` as a boolean (`useBooleanConfigValue: true`), so `true` and `false` work as values. Disabled or unavailable flags use the defaults in `flags.ts`. This example uses environment-level flags without user targeting: the source has no `getEvaluationContext`, so the provider gets an empty evaluation context. To target identities, add `getEvaluationContext` to the source in `flags/flagsmith.ts` and return a `targetingKey` (the identifier of the identity) and `traits`. It runs once per request for all flags of the source.
 
 ## Local evaluation on a long-running server
 
-`enableLocalEvaluation: true` is already set in the `createFlagsmithAdapter` configuration in `flags.ts`. This uses the server-side key already configured for the example and downloads an environment document, then polls every 60 seconds. Allow up to 60 seconds for dashboard changes to appear. Call `await adapter.close()` when shutting down your server.
+`enableLocalEvaluation: true` is already set for the `Flagsmith` client in `flags/flagsmith.ts`. This uses the server-side key already configured for the example and downloads an environment document, then polls every 60 seconds. Allow up to 60 seconds for dashboard changes to appear. When the Flags SDK closes the provider, it also closes the client, which stops the polling.
 
-For serverless deployments, set `enableLocalEvaluation: false` (or remove the option) to use the adapter’s default remote evaluation and avoid environment-document initialization on each cold start. See the [adapter documentation](https://flags-sdk.dev/providers/flagsmith) for local evaluation's identity-trait caveat.
+For serverless deployments, set `enableLocalEvaluation: false` (or remove the option) to use remote evaluation and avoid environment-document initialization on each cold start. See the [Flagsmith documentation](https://docs.flagsmith.com/clients/server-side) for local evaluation and its limits for identity traits.
 
 ## Flags Explorer
 
-The discovery endpoint at `/.well-known/vercel/flags` loads metadata from Flagsmith using `getProviderData` from `@flags-sdk/flagsmith`, protected by `FLAGS_SECRET`. The page reports evaluated values to the toolbar.
-
-Set `FLAGSMITH_ENVIRONMENT_ID` to the environment's **client-side environment key**, and `FLAGSMITH_PROJECT_ID` to the project ID from the dashboard URL. Discovery uses this key to fetch metadata and construct dashboard links. Keep the `ser.` server-side key in `FLAGSMITH_ENVIRONMENT_KEY` for local evaluation; do not use it as the metadata environment ID.
+`flags.ts` starts with `'use flags'`, so `withFlags` in `next.config.ts` registers its flags. The route `app/.well-known/flags/manifest.json` returns their definitions in development, and the production build writes them to `.next/flags-manifest.json`. Flags Explorer shows the flags of the code; flags which exist only in Flagsmith and links to the Flagsmith dashboard are not part of the manifest. `FlagValues` from `@flags-sdk/next/flag-values` reports the evaluated values to the toolbar.
 
 The Vercel Toolbar is included during local development. Link this folder with `vercel link` and add the same `FLAGS_SECRET` to the linked project's Development environment as a regular environment variable (Config). Alternatively, pull an existing value with `vercel env pull .env.local`. Restart the dev server after linking.
 
@@ -59,7 +59,7 @@ pnpm install
 pnpm exec turbo run dev --filter=flags-sdk-flagsmith
 ```
 
-The root `pnpm-workspace.yaml` overrides this example's `flags` and `@flags-sdk/flagsmith` dependencies to `workspace:*`. All flags in this example use the local SDK and adapter, with local evaluation explicitly enabled. Turbo builds the workspace dependencies before starting Next.js.
+The `package.json` of this example uses the workspace packages of the Flags SDK v5 (`flags`, `@flags-sdk/next`) through `workspace:*`. Turbo builds them before it starts Next.js.
 
 For a production build:
 
@@ -76,6 +76,4 @@ To deploy the workspace version on Vercel:
 4. Set **Build Command** to `cd ../../.. && pnpm exec turbo run build --filter=flags-sdk-flagsmith`.
 5. Add the environment variables from Setup.
 
-When cloned independently, the root overrides are absent and the regular versions in `package.json` resolve from npm. No workspace files, shared TypeScript configuration, or build scripts are needed for the standalone app.
-
-This example requires `@flags-sdk/flagsmith` 2.0.0 or later.
+When you copy this folder out of the repository, replace the `workspace:*` versions in `package.json` with the published versions of these packages.

@@ -1,12 +1,13 @@
+import { getPrecomputed } from '@flags-sdk/next/precompute';
 import { Main } from '@/components/main';
 import { OrderSummarySection } from '@/components/shopping-cart/order-summary-section';
 import { ShoppingCart } from '@/components/shopping-cart/shopping-cart';
 import {
   proceedToCheckoutColorFlag,
-  productFlags,
   showFreeDeliveryBannerFlag,
   showSummerBannerFlag,
 } from '@/flags';
+import { productFlags } from '@/product-flags';
 import { ProceedToCheckout } from './proceed-to-checkout';
 
 export default async function CartPage({
@@ -15,15 +16,16 @@ export default async function CartPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const showSummerBanner = await showSummerBannerFlag(code, productFlags);
-  const freeDeliveryBanner = await showFreeDeliveryBannerFlag(
-    code,
-    productFlags,
-  );
-  const proceedToCheckoutColor = await proceedToCheckoutColorFlag(
-    code,
-    productFlags,
-  );
+  const [showSummerBanner, freeDeliveryBanner, proceedToCheckoutColor] =
+    await getPrecomputed(
+      [
+        showSummerBannerFlag,
+        showFreeDeliveryBannerFlag,
+        proceedToCheckoutColorFlag,
+      ],
+      productFlags,
+      code,
+    );
 
   return (
     <Main>

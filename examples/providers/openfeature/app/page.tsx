@@ -1,5 +1,5 @@
-import { evaluate } from 'flags/next';
-import { FlagValues } from 'flags/react';
+import { FlagValues } from '@flags-sdk/next/flag-values';
+import { evaluate } from 'flags';
 import { showBanner, welcomeMessage } from '../flags';
 
 export default async function Home() {
@@ -7,9 +7,7 @@ export default async function Home() {
 
   return (
     <main>
-      <FlagValues
-        values={{ [welcomeMessage.key]: message, [showBanner.key]: banner }}
-      />
+      <FlagValues flags={[welcomeMessage, showBanner]} />
       <p>Flags SDK + OpenFeature</p>
       <h1>{message}</h1>
       {banner && <aside>The feature flag enabled this banner.</aside>}
@@ -18,7 +16,7 @@ export default async function Home() {
         <code>flags.ts</code>, then refresh this page.
       </p>
       <a href="https://flags-sdk.dev/providers/openfeature">
-        Adapter documentation
+        Provider documentation
       </a>
     </main>
   );

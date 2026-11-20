@@ -4,7 +4,7 @@ A minimal Next.js App Router example with two server-evaluated flags, adapted fr
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fopenfeature&env=FLAGS_SECRET&envDescription=This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fopenfeature%23setup&project-name=flags-sdk-openfeature&repository-name=flags-sdk-openfeature)
 
-The Deploy button copies only this folder and installs published packages using the standard Next.js build command.
+The Deploy button copies only this folder and uses the standard Next.js build command. See [Run inside the Flags SDK repository](#run-inside-the-flags-sdk-repository) for the workspace dependencies.
 
 ## Setup
 
@@ -14,13 +14,13 @@ Copy `.env.example` to `.env.local` and set `FLAGS_SECRET` to a random secret:
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-The home page uses `evaluate()` to evaluate `welcome_message` and `show_banner`. Change the greeting or switch the banner's `defaultVariant` from `on` to `off` in `flags.ts`, then refresh the page. Every visitor uses the same `demo-user` targeting key; replace `identify` to add user targeting.
+`flags.ts` passes the OpenFeature provider directly to `defineSource`, and binds `welcome_message` and `show_banner` to that source with `bindFlag`. The home page uses `evaluate()` from `flags` to evaluate both flags. Change the greeting or switch the banner's `defaultVariant` from `on` to `off` in `flags.ts`, then refresh the page. Every visitor uses the same `demo-user` targeting key; change `getEvaluationContext` of the source to add user targeting. It runs once per request for all flags of the source.
 
-The in-memory provider is for demonstration. Replace it with your OpenFeature provider in `flags.ts` for production. The adapter waits for provider initialization before evaluating flags.
+The in-memory provider is for demonstration. Replace it with your OpenFeature server provider in `flags.ts` for production. The SDK initializes the provider before the first evaluation, so do not call `OpenFeature.setProviderAndWait()`. See [OpenFeature providers](https://flags-sdk.dev/providers/openfeature).
 
 ## Flags Explorer
 
-This example has no upstream provider service. Its discovery endpoint at `/.well-known/vercel/flags` uses `getProviderData` from `flags/next` to expose the definitions declared in `flags.ts`, protected by `FLAGS_SECRET`. The page reports the evaluated values to the toolbar.
+This example has no upstream provider service. `flags.ts` starts with `'use flags'`, so `withFlags` in `next.config.ts` registers the flags declared in it. The route `app/.well-known/flags/manifest.json` returns their definitions in development, and the production build writes them to `.next/flags-manifest.json`. `FlagValues` from `@flags-sdk/next/flag-values` reports the evaluated values to the toolbar.
 
 The Vercel Toolbar is included during local development. Link this folder with `vercel link` and add the same `FLAGS_SECRET` to the linked project's Development environment. Use a regular environment variable (Config), rather than a Secret. Alternatively, pull an existing value with `vercel env pull .env.local`.
 
@@ -46,11 +46,11 @@ pnpm install
 pnpm exec turbo run dev --filter=flags-sdk-openfeature
 ```
 
-The root `pnpm-workspace.yaml` overrides `flags` and `@flags-sdk/openfeature` with local workspace packages. Explicit dependencies in the root `turbo.json` build them before starting the example. To build only this example and its dependencies:
+The `package.json` of this example uses the workspace packages of the Flags SDK v5 (`flags`, `@flags-sdk/next`) through `workspace:*`. Turbo builds them before it starts Next.js. To build only this example and its dependencies:
 
 ```sh
 pnpm exec turbo run build --filter=flags-sdk-openfeature
 pnpm --filter flags-sdk-openfeature start
 ```
 
-When cloned independently, the root overrides are absent and the versions in `package.json` resolve from npm. No shared workspace configuration is required.
+When you copy this folder out of the repository, replace the `workspace:*` versions in `package.json` with the published versions of these packages.
