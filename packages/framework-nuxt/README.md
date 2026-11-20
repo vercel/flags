@@ -3,7 +3,7 @@
 The Nuxt package of the [Flags SDK](../flags). It connects the SDK to the
 server of Nuxt (Nitro): the current request, `flags/config.ts`, the errors
 of Nitro, the lifecycle of the server, discovery for Flags Explorer, and
-the default provider of the platform.
+code generation.
 
 ```ts
 // nuxt.config.ts
@@ -19,8 +19,9 @@ export default defineNuxtConfig({ modules: ['@flags-sdk/nuxt'] });
 - **Errors pass through.** `createError()` reaches Nitro unchanged, also
   from `getEvaluationContext`.
 - **The lifecycle.** The providers start with the server and close with it.
-- **Discovery** in `nuxt dev` and in the build, and the **default provider**
-  of Vercel for builds on Vercel.
+- **Discovery** in `nuxt dev` and in the build.
+- **Code generation.** Import the flags of a source from `flags:<source>`,
+  e.g. `flags:self`.
 
 ## Installation
 
@@ -47,8 +48,8 @@ That is the only required step.
 You do not need a configuration file: each flag names its source, and
 overrides work with `FLAGS_SECRET`, or on Vercel, without one. Add
 `flags/config.ts` (or `src/flags/config.ts`), next to `flags/sources`, for
-settings of all flags: OpenFeature `hooks`, the options of `overrides`, or
-a `defaultSource` for flags without a source. The module loads it automatically.
+settings of all flags: OpenFeature `hooks`, and the options of `overrides`.
+It has no source. The module loads it automatically.
 
 ```ts
 // flags/config.ts
@@ -58,9 +59,6 @@ export const config = defineConfig({
   hooks: [myLoggingHook],
 });
 ```
-
-In a build on Vercel, flags without a source use the fast provider of
-`@vercel/flags-core`, if the project has it.
 
 ## Usage
 
@@ -87,15 +85,30 @@ flags, the evaluation context, overrides, hooks and tracking.
   `no-store`.
 - `nuxt build` writes `flags-manifest.json` into `.output/server`.
 
-## Deployment
+## Code generation
 
-- On Vercel, a build sets `VERCEL`. If the project has `@vercel/flags-core`,
-  the module replaces `flags/default-provider` with
-  `@vercel/flags-core/default-provider` in Nitro. Development uses
-  `flags/config.ts`.
-- A `defaultSource` in `flags/config.ts` always wins.
-- An other platform, or a test, gives the module of its provider:
-  `modules: [['@flags-sdk/nuxt', { defaultProvider: './provider.ts' }]]`.
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: [['@flags-sdk/nuxt', { codeGeneration: true }]],
+});
+```
+
+- Each source is a directory `flags/sources/<source>` with `catalog.ts`,
+  `provider.ts` and `context.ts`. By convention, the main source of the
+  application is `flags/sources/self`.
+- The module generates `.flags/<source>.ts` one time for `nuxt build`, and
+  watches the catalogs in `nuxt dev`. It adds the aliases `flags:<source>`
+  for Vite and for Nitro:
+
+  ```ts
+  import { 'summer-sale' as summerSale } from 'flags:self';
+  ```
+
+- Nuxt writes the aliases into its `tsconfig.json`, so the types work
+  without `paths`. Add `.flags` to `.gitignore`.
+- Without code generation, write `defineSource` and `bindFlag` by hand.
+  Each flag names its source. There is no default source.
 
 ## How it works
 

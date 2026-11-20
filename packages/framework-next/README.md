@@ -70,26 +70,27 @@ Each flag of a provider names its source:
 import { bindFlag, defineSource } from 'flags';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-const vercel = defineSource({
+// The main source of the application
+const self = defineSource({
   provider: new VercelProvider(),
   project: { system: 'vercel-flags' },
-  getEvaluationContext: (_input, request) => ({
+  getEvaluationContext: (request) => ({
     user: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
 });
 
-export const summerSale = bindFlag({ key: 'summer-sale', source: vercel });
+export const summerSale = bindFlag({ key: 'summer-sale', source: self });
 ```
 
-Code generation can write the sources and flags for you (see "Code
-generation").
+There is no default source. Code generation can write the sources and
+flags for you (see "Code generation").
 
 ### 3️⃣ Optional: `flags/config.ts`
 
 You do not need a configuration file. Add `flags/config.ts` (or
 `src/flags/config.ts`), next to `flags/sources`, for settings of all flags:
-OpenFeature `hooks`, the options of `overrides`, or a `defaultSource` for
-flags without a source. `withFlags` loads it automatically. The file must
+OpenFeature `hooks`, and the options of `overrides`. It has no source.
+`withFlags` loads it automatically. The file must
 export `config`. In development, a change applies without a restart.
 
 ```ts
@@ -277,7 +278,8 @@ export default async function Page({
 
 With `codeGeneration`, `withFlags` writes the modules of `flags:<source>`
 from the catalogs of `flags/sources/<source>` (see the SPEC of `flags`,
-"Code generation"):
+"Code generation"). By convention, the main source of the application is
+`flags/sources/self` (`catalog.ts`, `provider.ts` and `context.ts`):
 
 ```ts
 // next.config.ts
@@ -288,11 +290,11 @@ export default withFlags({}, { codeGeneration: true });
 
 ```ts
 // app/page.tsx
-import { checkout, 'summer-sale' as summerSale } from 'flags:shop';
+import { checkout, 'summer-sale' as summerSale } from 'flags:self';
 ```
 
 - `withFlags` then returns a function of the phase. `next build` generates
-  one time and closes the catalogs. `next dev` generates and watches the
+  `.flags/<source>.ts` one time and closes the catalogs. `next dev` generates and watches the
   catalogs. `next start` does no catalog work.
 - Next.js loads the configuration more than once, also in its workers. One
   process owns the generation, and the others see its PID in the
@@ -320,21 +322,6 @@ export { GET } from '@flags-sdk/next/manifest';
   production, the route returns 404.
 - `next build` writes `flags-manifest.json` into `distDir`. The deployment
   adapter of the platform puts it into the build output.
-
-## Deployment
-
-On Vercel, the deployment adapter of Next.js points the module
-`flags/default-provider` to the fast provider of Vercel Flags
-(`@vercel/flags-core/default-provider`). Thus, flags without a source
-evaluate without a request for each flag, also without `flags/config.ts`.
-
-- The adapter does this only for builds. Development uses the
-  default source of `flags/config.ts`.
-- A `defaultSource` in `flags/config.ts` always wins over the provider of
-  the platform.
-- Without the deployment adapter, e.g. on a different host, flags without a
-  source use the built-in default source, which throws for now. Set a
-  `defaultSource` in `flags/config.ts`.
 
 ## How it works
 
@@ -394,25 +381,15 @@ the configuration, the providers and their clients.
   the route with its own error.
 - **No `'use client'`.** The SDK uses `node:async_hooks`, and it is only for
   the server.
-- **The registration of the type must be in the TypeScript program.** If
-  `tsconfig.json` does not include `flags/config.ts`, flags without a
-  source lose the types of the configured source. The type check
-  does not fail, but it is less strict.
 - **The export must be `config`.** A default export of `flags/config.ts` is
   not read.
-- **A conditional configuration loses its types.** E.g.
-  `export const config = condition ? configA : configB` is a union, so the
-  registered type falls back to the open context.
 - **In production, a change of `flags/config.ts` needs a new build**, as
   with each other source file. Only development loads it again without a
   restart.
-- **The adapter of the platform runs only for builds.** In development, the
-  flags use `flags/config.ts`, not the fast provider of the platform. Install `@vercel/flags-core` and set it in `flags/config.ts` for
-  fast evaluations during development.
 - **Without `defaultValue`, each issue throws a `FlagEvaluationError`**: a
   provider that throws, an `errorCode`, the reason `ERROR`, a value of the
-  wrong type, and a provider which asks for the default of the code. With `defaultValue`, the flag returns it and logs
-  one line instead.
+  wrong type. With `defaultValue`, the flag returns it and logs one line
+  instead.
 - **One case can not be detected**: a provider that returns its default value
   without any sign of an issue, e.g. a disabled flag of
   `TypedInMemoryProvider`. OpenFeature requires a default, so the SDK passes
@@ -451,21 +428,15 @@ the configuration, the providers and their clients.
   (`compiler.runAfterProductionCompile`), it calls the compiled route of the
   manifest in a child process, and writes `flags-manifest.json`.
 - A deployment adapter can read `flags-manifest.json` in `onBuildComplete`.
-  See `tests/standard/next/adapter.mjs`.
-- A deployment adapter sets the alias of `flags/default-provider` in
-  `modifyConfig`, during `phase-production-build`. The adapter API is stable
-  since Next.js 16.2, and the platform enables its adapter with
-  `NEXT_ADAPTER_PATH`. See `tests/standard/next/adapter.mjs`.
-- `tests/standard/next` runs 16 end-to-end tests with HTTP requests, without
-  a browser:
+  The adapter API is stable since Next.js 16.2, and the platform enables
+  its adapter with `NEXT_ADAPTER_PATH`.
+- `tests/standard/next` runs end-to-end tests with HTTP requests, without
+  a browser, on a build of Turbopack:
 
   ```sh
   cd tests/standard/next
   pnpm test:e2e
   ```
-
-  It builds two variants: Turbopack (`.next`), and Turbopack with the test
-  adapter of the platform (`.next-platform`).
 
 See also [For framework authors](../flags/FRAMEWORK-AUTHORS.md).
 

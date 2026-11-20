@@ -43,7 +43,7 @@ An implementation conforms to one or more of these classes:
 | --- | --- | --- |
 | Framework binding | a framework, or its package `@flags-sdk/<framework>` | 3, 4, 5, 6 |
 | Build plugin | a framework with a bundler | 4, 7 |
-| Deployment platform | e.g. Vercel | 4.3, 8, 11.3 |
+| Deployment platform | e.g. Vercel | 8, 11.3 |
 | Flag management system | e.g. LaunchDarkly | 9 |
 | Tool | e.g. Flags Explorer | 7.3, 9.2, 10, 11 |
 
@@ -88,14 +88,13 @@ time for each request and input.
 
 ## 4. The replaceable modules
 
-The runtime imports three modules through the name of its own package. A
-build plugin or a platform replaces them.
+The runtime imports two modules through the name of its own package. A
+build plugin replaces them.
 
 | Module | Default | Replaced by |
 | --- | --- | --- |
 | `flags/framework` | no binding | the framework binding (section 5) |
 | `flags/config` | no configuration | `flags/config.ts` of the application (section 6) |
-| `flags/default-provider` | the OFREP provider of Vercel Flags | the provider of a platform (section 8) |
 
 ### 4.1 Replacement
 
@@ -115,17 +114,6 @@ build plugin or a platform replaces them.
   version in one process, through `globalThis` under
   `Symbol.for('flags.v5.state')`.
 - A copy without a binding MUST NOT hide the binding of an other copy.
-
-### 4.3 `flags/default-provider`
-
-The module MUST export:
-
-```ts
-export function createDefaultProvider(): Provider; // an OpenFeature provider
-```
-
-- The runtime calls it at most one time for each process.
-- The provider MUST NOT be registered with the OpenFeature API.
 
 ## 5. The framework binding
 
@@ -199,6 +187,8 @@ evaluation belongs to the request.
 
 ## 6. `flags/config.ts`
 
+- The file is OPTIONAL. It has the settings for all flags: `hooks` and
+  `overrides`. It has no source.
 - The file MUST be named `flags/config.ts`, `flags/config.mts`,
   `flags/config.js` or `flags/config.mjs`, in the directory of the
   application or in its `src` directory.
@@ -280,10 +270,8 @@ The manifest MUST conform to the JSON Schema
 
 ## 8. Deployment platforms
 
-- A platform MAY replace `flags/default-provider` with its own provider,
-  for its builds. It MUST NOT replace it for development.
-- A `defaultSource` of `flags/config.ts` MUST win over the provider of
-  the platform. The runtime does this.
+- This version of the standard has no default provider. Each flag of a
+  provider names its source, and the configuration has no source.
 - A platform SHOULD put `flags-manifest.json` of the build into its build
   output, so that tools can read it.
 - A platform which signs override tokens MUST follow section 10.

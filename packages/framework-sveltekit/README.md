@@ -2,7 +2,7 @@
 
 The SvelteKit package of the [Flags SDK](../flags). It connects the SDK to
 SvelteKit: the current request, `flags/config.ts`, the signals of SvelteKit,
-discovery for Flags Explorer, and the default provider of the platform.
+discovery for Flags Explorer, and code generation.
 
 ```ts
 // vite.config.ts
@@ -16,8 +16,8 @@ export default defineConfig({ plugins: [sveltekit(), flags()] });
   `load`, actions, `+server.ts` and hooks.
 - **Signals pass through.** `redirect()` and `error()` reach SvelteKit
   unchanged, also from `getEvaluationContext`.
-- **Fast on Vercel.** A build on Vercel uses the fast provider of Vercel
-  Flags.
+- **Code generation.** Import the flags of a source from `flags:<source>`,
+  e.g. `flags:self`.
 - **Discovery.** A manifest of your flags for Flags Explorer, in `vite dev`
   and in the build.
 
@@ -52,8 +52,8 @@ That is the only required step.
 You do not need a configuration file: each flag names its source, and
 overrides work with `FLAGS_SECRET`, or on Vercel, without one. Add
 `flags/config.ts` (or `src/flags/config.ts`), next to `flags/sources`, for
-settings of all flags: OpenFeature `hooks`, the options of `overrides`, or
-a `defaultSource` for flags without a source. The Vite plugin loads it automatically.
+settings of all flags: OpenFeature `hooks`, and the options of `overrides`.
+It has no source. The Vite plugin loads it automatically.
 
 ```ts
 // flags/config.ts
@@ -63,9 +63,6 @@ export const config = defineConfig({
   hooks: [myLoggingHook],
 });
 ```
-
-In a build on Vercel, flags without a source use the fast provider of
-`@vercel/flags-core`, if the project has it.
 
 ## Usage
 
@@ -96,18 +93,32 @@ hooks and tracking.
   (`.svelte-kit/output/server`). `adapter-node` copies it into
   `build/server`.
 
-## Deployment
+## Code generation
 
-- On Vercel, a build sets `VERCEL`. If the project has `@vercel/flags-core`,
-  the plugin replaces `flags/default-provider` with
-  `@vercel/flags-core/default-provider`. Flags without a source then
-  use the fast provider of Vercel Flags. Development uses `flags/config.ts`.
-- A `defaultSource` in `flags/config.ts` always wins.
-- An other platform, or a test, gives the module of its provider:
-  `flags({ defaultProvider: './src/provider.ts' })`. The module exports
-  `createDefaultProvider()`.
-- The adapter of SvelteKit runs after the build of Vite, so it is too late
-  for an alias. Thus, the plugin sets it.
+```ts
+// vite.config.ts
+export default defineConfig({
+  plugins: [sveltekit(), flags({ codeGeneration: true })],
+});
+```
+
+- Each source is a directory `flags/sources/<source>` with `catalog.ts`,
+  `provider.ts` and `context.ts`. By convention, the main source of the
+  application is `flags/sources/self`.
+- The plugin generates `.flags/<source>.ts` one time for `vite build`, and
+  watches the catalogs in `vite dev`. It adds the aliases
+  `flags:<source>`:
+
+  ```ts
+  import { 'summer-sale' as summerSale } from 'flags:self';
+  ```
+
+- For the types, add the alias to `svelte.config.js`
+  (`kit: { alias: { 'flags:self': '.flags/self.ts' } }`), and
+  `"allowImportingTsExtensions": true` to `tsconfig.json`. Add `.flags` to
+  `.gitignore`.
+- Without code generation, write `defineSource` and `bindFlag` by hand.
+  Each flag names its source. There is no default source.
 
 ## How it works
 

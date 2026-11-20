@@ -13,7 +13,8 @@ uses the plugin of its framework package, not this one.
 - **`'use flags'` modules** register their flags.
 - **The manifest of the flags:** at `/.well-known/flags/manifest.json` in
   development, and as `flags-manifest.json` in the server output.
-- **The default provider of the platform**, e.g. on Vercel.
+- **Code generation** of `flags:<source>` from the catalogs of
+  `flags/sources/<source>`, with the option `codeGeneration`.
 - **A Rollup plugin too**, e.g. for the server build of Nitro.
 
 ## Installation
@@ -42,7 +43,7 @@ export function myFrameworkFlags() {
 | `bundle`          | More packages to bundle into the server code, e.g. the package of the binding   |
 | `dedupe`          | Packages which the binding imports, which must be the copy of the project       |
 | `projectModules`  | Modules which the binding imports, by the first package which the project has   |
-| `defaultProvider` | The module of the default provider, or `false`. On Vercel, the default is `@vercel/flags-core/default-provider` |
+| `codeGeneration`  | Generates `.flags/<source>.ts` from `flags/sources/<source>`: one time for a build, and again after each change of a catalog for the dev server. Adds the aliases `flags:<source>` |
 | `manifest`        | Whether a build writes `flags-manifest.json`. The default is `true`             |
 | `root`            | The directory of the project. The default is the root of Vite                   |
 

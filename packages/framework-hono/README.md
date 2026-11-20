@@ -49,9 +49,9 @@ app.get('/', async (c) => {
 You do not need a configuration file: each flag names its source, and
 overrides work with `FLAGS_SECRET`, or on Vercel, without one. Add
 `flags/config.ts` (or `src/flags/config.ts`), next to `flags/sources`, for
-settings of all flags: OpenFeature `hooks`, the options of `overrides`, or
-a `defaultSource` for flags without a source. Without a bundler, nothing loads it: pass it
-to the middleware, `app.use(flags({ config }))`.
+settings of all flags: OpenFeature `hooks`, and the options of `overrides`.
+It has no source. Without a bundler, nothing loads it: pass it to the
+middleware, `app.use(flags({ config }))`.
 
 ```ts
 // flags/config.ts
@@ -62,6 +62,22 @@ export const config = defineConfig({
 });
 ```
 
+## Sources and code generation
+
+There is no bundler, so there is no plugin for code generation. Each flag
+names its source. Use one of two ways:
+
+- Write `defineSource` and `bindFlag` by hand.
+- Put each source into `flags/sources/<source>` (`catalog.ts`,
+  `provider.ts` and `context.ts`). By convention, the main source of the
+  application is `flags/sources/self`. Run `flags sync` (one time) or
+  `flags watch` (after each change of a catalog), and import the generated
+  module:
+
+  ```ts
+  import { 'summer-sale' as summerSale } from './.flags/self.ts';
+  ```
+
 ## Discovery
 
 ```sh
@@ -70,7 +86,7 @@ flags manifest [dir] [--out <file>]
 
 - It imports the modules which start with `'use flags'` in `dir` with
   Node.js, and writes `flags-manifest.json`. It loads `flags/config.ts` if
-  it finds one, for the default source.
+  it finds one.
 - Run it on the source if Node.js can run it (TypeScript with type
   stripping, Node.js 22.18 or newer), or on the output of `tsc`, which
   keeps the directive. A bundled output loses the directive.
