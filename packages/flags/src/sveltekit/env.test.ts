@@ -7,6 +7,7 @@ import {
 } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetFlagOverridesKeys } from '../lib/flag-overrides-platform';
+import { VERCEL_FLAGS_DISCOVERY_ISSUER } from '../lib/flags-discovery-platform';
 import { createHandle, decryptOverrides, encryptFlagValues, flag } from '.';
 
 vi.hoisted(() => {
@@ -105,5 +106,37 @@ describe('SvelteKit with variables which are only in $env', () => {
     await expect(decryptOverrides(token)).resolves.toEqual({
       'summer-sale': false,
     });
+  });
+
+  it('serves the flags discovery endpoint for a token which Vercel signs after vercel env pull', async () => {
+    // Without a handle which loaded `$env` before
+    vi.resetModules();
+    const { createFlagsDiscoveryEndpoint } = await import('.');
+    const { privateKey, publicKey } = await generateKeyPair('ES256');
+    const jwk = { ...(await exportJWK(publicKey)), kid: 'k', alg: 'ES256' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ keys: [jwk] })),
+    );
+    const token = await new SignJWT({
+      ver: 1,
+      pur: 'flags-discovery',
+      scope: { projectIds: ['prj_env'], environments: ['development'] },
+    })
+      .setProtectedHeader({ alg: 'ES256', kid: 'k' })
+      .setIssuer(VERCEL_FLAGS_DISCOVERY_ISSUER)
+      .setAudience('vercel:flags-discovery')
+      .setIssuedAt()
+      .setExpirationTime('1m')
+      .sign(privateKey);
+
+    const endpoint = createFlagsDiscoveryEndpoint(() => ({ definitions: {} }));
+    const response = await endpoint({
+      request: new Request('https://shop.example/.well-known/vercel/flags', {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    } as never);
+
+    expect(response.status).toBe(200);
   });
 });
