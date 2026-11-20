@@ -5,7 +5,7 @@ const deployUrl = `https://vercel.com/new/clone?${new URLSearchParams({
   'repository-url': exampleUrl,
   env: 'FLAGS_SECRET',
   envDescription:
-    'This example uses the automatically generated FLAGS_SECRET for Flags Explorer.',
+    'The Statsig integration provides STATSIG_SERVER_API_KEY. This example uses the automatically generated FLAGS_SECRET for Flags Explorer. See setup instructions.',
   envLink: `${exampleUrl}#setup`,
   'project-name': 'flags-sdk-statsig',
   'repository-name': 'flags-sdk-statsig',

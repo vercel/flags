@@ -2,9 +2,9 @@
 
 A minimal Next.js App Router example with two server-evaluated flags.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fstatsig&env=FLAGS_SECRET&envDescription=This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fstatsig%23setup&project-name=flags-sdk-statsig&repository-name=flags-sdk-statsig&products=%5B%7B%22integrationSlug%22%3A%22statsig%22%2C%22productSlug%22%3A%22statsig%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fstatsig&env=FLAGS_SECRET&envDescription=The+Statsig+integration+provides+STATSIG_SERVER_API_KEY.+This+example+uses+the+automatically+generated+FLAGS_SECRET+for+Flags+Explorer.+See+setup+instructions.&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fproviders%2Fstatsig%23setup&project-name=flags-sdk-statsig&repository-name=flags-sdk-statsig&products=%5B%7B%22integrationSlug%22%3A%22statsig%22%2C%22productSlug%22%3A%22statsig%22%2C%22type%22%3A%22integration%22%2C%22protocol%22%3A%22experimentation%22%7D%5D)
 
-The Deploy button copies only this folder. It installs published SDK packages and uses the standard Next.js build command.
+The Deploy button copies only this folder and uses the standard Next.js build command. See [Run inside the Flags SDK repository](#run-inside-the-flags-sdk-repository) for the workspace dependencies.
 
 ## Setup
 
@@ -12,17 +12,15 @@ Install the [Statsig integration](https://vercel.com/marketplace/statsig), or us
 
 Create these two entities in your Statsig project:
 
-| Name | Type | Configuration |
-| --- | --- | --- |
-| `welcome_message_text` | Dynamic Config | Set the default value to `{ "text": "Welcome to the Statsig example" }`. |
-| `show_banner` | Feature Gate | Add a rule that passes for everyone (100%). |
+| Name | Type | Configuration | Flag key |
+| --- | --- | --- | --- |
+| `welcome_message_text` | Dynamic Config | Set the default value to `{ "text": "Welcome to the Statsig example" }`. | `config:welcome_message_text.text` |
+| `show_banner` | Feature Gate | Add a rule that passes for everyone (100%). | `show_banner` |
 
 Copy `.env.example` to `.env.local` and set:
 
-- `STATSIG_SERVER_API_KEY`: a server secret key from your Statsig project's API Keys settings.
+- `STATSIG_SERVER_API_KEY`: a server secret key from the API Keys settings of your Statsig project.
 - `FLAGS_SECRET`: generate a random secret with the command below.
-
-Optionally, enable **Global Config Syncing** in the Vercel integration and set both `EXPERIMENTATION_CONFIG` and `EXPERIMENTATION_CONFIG_ITEM_KEY` to use the synced configuration.
 
 ```sh
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
@@ -30,13 +28,23 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 For a linked Vercel project, `vercel env pull` can populate `.env.local`.
 
-The home page uses the Flags SDK's `evaluate()` API to evaluate both flags. Change the dynamic config or feature gate in Statsig and refresh the page after the SDK (or optional Global Config integration) has synced. Every visitor uses the same `demo-user` context; replace `identify` in `flags.ts` to add user targeting.
+`flags.ts` defines a source with `StatsigProvider`, the OpenFeature provider of `@flags-sdk/statsig/openfeature`, and binds both flags to it with `bindFlag`. The provider uses the Statsig Server Core SDK (`@statsig/statsig-node-core`). Creating the provider does not open a connection, so the build can import `flags.ts` without the key. The provider fetches the rules before the first evaluation, and syncs them in the background.
+
+The flag key selects the Statsig entity. A plain key, such as `show_banner`, is a feature gate. The prefixes `config:`, `experiment:` and `layer:` select a dynamic config, an experiment or a layer. The suffix `.text` reads the `text` parameter of the dynamic config.
+
+The home page uses `evaluate()` from `flags` to evaluate both flags. Change the dynamic config or the feature gate in Statsig and refresh the page after the SDK has synced. Every visitor uses the same `demo-user` context; change `getEvaluationContext` in `flags.ts` to add user targeting. It runs once per request for all flags of the source. The provider gives `targetingKey` to Statsig as the `userID`.
+
+The Statsig Server Core SDK loads a native module. Next.js keeps `@statsig/statsig-node-core` external on the server by default, so `next.config.ts` needs no `serverExternalPackages` entry.
+
+The v4 version of this example could read the Statsig rules from Global Config (`EXPERIMENTATION_CONFIG`). This version does not use Global Config: the provider fetches the rules from Statsig.
 
 ## Flags Explorer
 
-The example exposes its flag definitions at `/.well-known/vercel/flags`, protected by `FLAGS_SECRET`. The Vercel Toolbar is included during local development; link the project with `vercel link` from this folder and sign in to the toolbar to use Flags Explorer. Vercel injects the toolbar on preview deployments when enabled in project settings.
+`flags.ts` starts with `'use flags'`, so `withFlags` in `next.config.ts` registers its flags. The route `app/.well-known/flags/manifest.json` returns their definitions in development, and the production build writes them to `.next/flags-manifest.json`. `FlagValues` from `@flags-sdk/next/flag-values` reports the evaluated values to the toolbar.
 
-Open Flags Explorer in the toolbar to override `welcome_message_text` or `show_banner` for your session without changing the values in Statsig. Use the same `FLAGS_SECRET` in your local environment and the linked Vercel project.
+The Vercel Toolbar is included during local development. Link this folder with `vercel link` and add the same `FLAGS_SECRET` to the linked project's Development environment as a regular environment variable (Config). Alternatively, pull an existing value with `vercel env pull .env.local`. Restart the dev server after linking.
+
+Sign in to the toolbar and open Flags Explorer to override the greeting or banner for your session without changing the values in Statsig. Vercel injects the toolbar on preview deployments when enabled in project settings; configure the credentials and a matching `FLAGS_SECRET` for that environment.
 
 ## Run as a standalone project
 
@@ -58,7 +66,7 @@ pnpm install
 pnpm exec turbo run dev --filter=flags-sdk-statsig
 ```
 
-The root `pnpm-workspace.yaml` overrides this example's `flags` and `@flags-sdk/statsig` dependencies to `workspace:*`. Explicit task dependencies in the root `turbo.json` ensure Turbo builds the local SDK and adapter before starting Next.js, since Turbo does not infer workspace links from pnpm overrides.
+The `package.json` of this example uses the workspace packages of the Flags SDK v5 (`flags`, `@flags-sdk/next`, `@flags-sdk/statsig`) through `workspace:*`. Turbo builds them before it starts Next.js.
 
 The root `pnpm build` builds only `packages/*`. Use `pnpm build:all` to build the entire workspace, including all examples and apps, after configuring their environments. To build only this example and its dependencies:
 
@@ -75,4 +83,4 @@ To deploy the workspace version on Vercel:
 4. Set **Build Command** to `cd ../../.. && pnpm exec turbo run build --filter=flags-sdk-statsig`.
 5. Add the environment variables from Setup.
 
-When cloned independently, the root overrides are absent and the regular versions in `package.json` resolve from npm. No workspace files, shared TypeScript configuration, or build scripts are needed for the standalone app.
+When you copy this folder out of the repository, replace the `workspace:*` versions in `package.json` with the published versions of these packages.

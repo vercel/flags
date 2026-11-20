@@ -23,6 +23,63 @@ export const marketingGate = flag<boolean>({
 });
 ```
 
+## OpenFeature provider
+
+`@flags-sdk/posthog/openfeature` exports `PostHogProvider`, an OpenFeature server provider for PostHog. It works with the Flags SDK v5 and with any other OpenFeature server SDK. It does not import `flags`.
+
+```bash
+pnpm i @flags-sdk/posthog @openfeature/server-sdk posthog-node
+```
+
+The application creates the PostHog client of `posthog-node` (5 or 6) and gives it to the provider. The provider does not open a connection itself.
+
+```ts
+import { PostHogProvider } from "@flags-sdk/posthog/openfeature";
+import { bindFlag, defineSource } from "flags";
+import { PostHog } from "posthog-node";
+
+const posthog = defineSource({
+  provider: new PostHogProvider(
+    new PostHog(process.env.POSTHOG_PROJECT_API_KEY!, {
+      host: process.env.POSTHOG_HOST,
+      // Optional: local evaluation with a feature flags secret key
+      secretKey: process.env.POSTHOG_SECRET_KEY,
+    }),
+  ),
+  getEvaluationContext: () => ({ targetingKey: "user-123" }),
+});
+
+export const showBanner = bindFlag({
+  key: "show_banner",
+  source: posthog,
+  defaultValue: false,
+});
+```
+
+Flag types:
+
+| Type | Value |
+| --- | --- |
+| `boolean` | Whether the flag is enabled for the user. |
+| `string` | The variant key of a multivariate flag. An enabled boolean flag gives the error `TYPE_MISMATCH`. |
+| `number` | The JSON payload of the flag. It must be a number, else the error is `TYPE_MISMATCH`. |
+| `object` | The JSON payload of the flag, any JSON value. |
+
+If the flag is off, or has no payload, the flag uses its default value. If PostHog returns no result for the flag (for example, the flag does not exist), the error is `FLAG_NOT_FOUND`. The `variant` of the resolution is the variant key, if the flag has one.
+
+Evaluation context:
+
+- `targetingKey` is the distinct ID. It is required: without it, the error is `TARGETING_KEY_MISSING`. The provider also accepts `distinctId`, the entity of the v4 adapter.
+- `groups` (group type to group key), `personProperties` and `groupProperties` go to PostHog with the same names.
+- Other top-level attributes with a string, number or boolean value are person properties. Values in `personProperties` win.
+
+Options, the second argument of `new PostHogProvider(client, options)`:
+
+- `onlyEvaluateLocally`, `sendFeatureFlagEvents`, `disableGeoip`: the evaluation options of `posthog-node`, for each evaluation.
+- `shutdownOnClose`: call `client.shutdown()` when OpenFeature closes the provider. Defaults to `false`, because the application owns the client.
+
+`track(eventName, context, details)` of OpenFeature calls `client.capture()` with the distinct ID, the groups and the details as the properties.
+
 ## Environment variables
 
 Always required, read by `postHogAdapter`:
