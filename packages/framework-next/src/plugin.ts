@@ -288,7 +288,7 @@ function addFlags<T extends object>(config: T, dir: string): T {
     turbopackAliases['@flags-sdk/next/verify-code'] =
       '@flags-sdk/next/verify-code-cached';
   }
-  // flags/hooks.ts, flags/overrides.ts and flags/config.json, for the
+  // flags/hooks.ts and flags/config.json, for the
   // binding. Turbopack resolves a relative path from the directory of the
   // project.
   for (const [module, file] of Object.entries(configModules)) {

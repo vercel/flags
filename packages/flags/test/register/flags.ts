@@ -1,4 +1,5 @@
-import { defineSource, evaluate, runtime } from 'flags';
+import { defineSource, evaluate } from 'flags';
+import { runtime } from 'flags/runtime';
 import hooks from './flags/hooks';
 
 runtime.configure({ hooks });

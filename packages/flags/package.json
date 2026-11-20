@@ -42,13 +42,17 @@
       "import": "./dist/hooks-module.js",
       "require": "./dist/hooks-module.cjs"
     },
-    "./overrides": {
-      "import": "./dist/overrides-module.js",
-      "require": "./dist/overrides-module.cjs"
-    },
     "./settings": {
       "import": "./dist/settings-module.js",
       "require": "./dist/settings-module.cjs"
+    },
+    "./runtime": {
+      "import": "./dist/runtime-module.js",
+      "require": "./dist/runtime-module.cjs"
+    },
+    "./explorer": {
+      "import": "./dist/explorer.js",
+      "require": "./dist/explorer.cjs"
     },
     "./manifest": {
       "import": "./dist/manifest.js",
@@ -73,13 +77,13 @@
         "dist/hooks-module.d.ts",
         "dist/hooks-module.d.cts"
       ],
-      "overrides": [
-        "dist/overrides-module.d.ts",
-        "dist/overrides-module.d.cts"
-      ],
       "settings": [
         "dist/settings-module.d.ts",
         "dist/settings-module.d.cts"
+      ],
+      "runtime": [
+        "dist/runtime-module.d.ts",
+        "dist/runtime-module.d.cts"
       ],
       "*": [
         "dist/*.d.ts",

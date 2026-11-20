@@ -23,7 +23,8 @@
  * ```
  */
 import { readFile } from 'node:fs/promises';
-import { defineSource, encryptOverrides, evaluate } from 'flags';
+import { defineSource, evaluate } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 import { validateFlagsManifest } from 'flags/manifest';
 
 interface ConformanceState {

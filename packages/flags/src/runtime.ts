@@ -445,8 +445,8 @@ class RuntimeImpl {
    *
    * In production, the runtime calls it one time. In development, the
    * runtime calls it before each evaluation, and configures again when it
-   * returns a different object, so that a change of `flags/hooks.ts`,
-   * `flags/overrides.ts` or `flags/config.json` applies without a restart.
+   * returns a different object, so that a change of `flags/hooks.ts` or
+   * `flags/config.json` applies without a restart.
    */
   setLoadConfig(loadConfig: LoadConfig | undefined): void {
     this.#configLoader = loadConfig;
@@ -455,8 +455,7 @@ class RuntimeImpl {
 
   /**
    * Configures the SDK. A framework binding calls it with the files of the
-   * folder `flags`: `hooks.ts`, `overrides.ts` and `config.json` (see
-   * `Config`). Without a framework, call it at startup.
+   * folder `flags`: `hooks.ts` and `config.json` (see `Config`). Without a framework, call it at startup.
    *
    * A new call replaces the configuration, e.g. after a reload in
    * development. Validates the configuration at once, and throws before it
@@ -480,10 +479,16 @@ class RuntimeImpl {
         'flags: The hooks of the configuration must be an array.',
       );
     }
-    if (config.settings !== undefined) {
-      parseSettings(config.settings);
+    if (Object.hasOwn(config, 'overrides')) {
+      throw new Error(
+        'flags: The overrides are a setting of flags/config.json. Use runtime.configure({ settings: { overrides } }).',
+      );
     }
-    const readOverrides = createOverridesReader(config.overrides);
+    const settings =
+      config.settings === undefined
+        ? undefined
+        : parseSettings(config.settings);
+    const readOverrides = createOverridesReader(settings?.overrides);
 
     this.#config = config;
     this.#readOverrides = readOverrides;

@@ -12,7 +12,8 @@
  * Express has Node.js requests, so the middleware converts the headers and
  * the URL.
  */
-import { type Config, type FlagsRequestInit, runtime } from 'flags';
+import type { FlagsRequestInit } from 'flags';
+import { type Config, runtime } from 'flags/runtime';
 
 export interface FlagsMiddlewareOptions {
   /**

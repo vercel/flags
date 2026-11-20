@@ -10,7 +10,7 @@
  * @internal
  */
 
-import { encryptFlagValues, type FlagValuesType } from 'flags';
+import { encryptFlagValues, type FlagValuesType } from 'flags/explorer';
 import * as nextCache from 'next/cache';
 import type {
   EncryptValuesOptions,

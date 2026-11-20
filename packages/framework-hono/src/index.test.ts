@@ -1,4 +1,4 @@
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { afterEach, describe, expect, it, vi } from 'vitest';

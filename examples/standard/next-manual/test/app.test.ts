@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { type ChildProcess, spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { after, before, test } from 'node:test';
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 
 // Runs the build of `pnpm build` with `next start`, and requests it
 

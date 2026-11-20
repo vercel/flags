@@ -8,7 +8,8 @@
  * module.
  */
 import { isHttpError, isRedirect } from '@sveltejs/kit';
-import type { FlagsRequestInit, SetupFramework } from 'flags';
+import type { FlagsRequestInit } from 'flags';
+import type { SetupFramework } from 'flags/runtime';
 import { getRequestEvent } from '$app/server';
 
 /**
@@ -23,11 +24,7 @@ export const setupFramework: SetupFramework = (runtime) => {
     // of the plugin apply
     const { configFromModules } = await import('flags/config');
     return configFromModules(
-      await Promise.all([
-        import('flags/hooks'),
-        import('flags/overrides'),
-        import('flags/settings'),
-      ]),
+      await Promise.all([import('flags/hooks'), import('flags/settings')]),
     );
   });
 };

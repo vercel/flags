@@ -10,9 +10,6 @@ const codeExtensions = ['ts', 'mts', 'js', 'mjs'];
  */
 const configModules = {
   'flags/hooks': codeExtensions.map((extension) => `hooks.${extension}`),
-  'flags/overrides': codeExtensions.map(
-    (extension) => `overrides.${extension}`,
-  ),
   'flags/settings': ['config.json'],
 } as const;
 
@@ -31,8 +28,8 @@ function flagsFolders(dir: string): string[] {
 }
 
 /**
- * Finds the files of the configuration: `flags/hooks.ts`,
- * `flags/overrides.ts` and `flags/config.json`, in the directory of the
+ * Finds the files of the configuration: `flags/hooks.ts` and
+ * `flags/config.json`, in the directory of the
  * application or in its `src` directory. Returns the path of each file which
  * exists, by the module which the framework plugin replaces with it.
  */

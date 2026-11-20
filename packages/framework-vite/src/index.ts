@@ -18,8 +18,8 @@
 import { createHash } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { runtime } from 'flags';
 import { createManifest } from 'flags/manifest';
+import { runtime } from 'flags/runtime';
 import {
   addSelfRegistration,
   findConfigModules,
@@ -200,7 +200,7 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       return {
         resolve: {
           alias: [
-            // flags/hooks.ts, flags/overrides.ts and flags/config.json
+            // flags/hooks.ts and flags/config.json
             ...Object.entries(configModules).map(([module, file]) => ({
               find: new RegExp(`^${module}$`),
               replacement: file,
@@ -308,7 +308,7 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
             load.refresh?.();
             if (options.binding) {
               // The SDK in the server code has the framework binding, so the
-              // runtime can load flags/config.ts
+              // runtime can load flags/hooks.ts and flags/config.json
               await load.import('flags');
               await runtime.prepare();
             }

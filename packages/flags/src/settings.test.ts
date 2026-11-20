@@ -31,12 +31,57 @@ describe('parseSettings', () => {
 
   it('rejects an unknown setting, a wrong type and a non-object', () => {
     expect(() => parseSettings({ selfsource: true })).toThrow(
-      'flags: flags/config.json has the unknown setting "selfsource". The settings are: selfSource.',
+      'flags: flags/config.json has the unknown setting "selfsource". The settings are: selfSource, overrides.',
     );
     expect(() => parseSettings({ selfSource: 'no' })).toThrow(
       'selfSource in flags/config.json must be true or false',
     );
     expect(() => parseSettings([])).toThrow('must contain a JSON object');
+  });
+
+  it('accepts the overrides', () => {
+    const overrides = {
+      secret: false,
+      vercel: {
+        issuer: 'https://issuer.example',
+        project: { projectId: 'prj_1', environment: 'preview' },
+        maxLifetimeSeconds: 60,
+      },
+    } as const;
+    expect(parseSettings({ overrides })).toEqual({ overrides });
+    expect(parseSettings({ overrides: { vercel: false } })).toEqual({
+      overrides: { vercel: false },
+    });
+  });
+
+  it('rejects overrides of the wrong shape', () => {
+    expect(() => parseSettings({ overrides: { secret: 'abc' } })).toThrow(
+      'flags: overrides.secret in flags/config.json can only be false. Set the secret with the environment variable FLAGS_SECRET.',
+    );
+    expect(() => parseSettings({ overrides: { secret: true } })).toThrow(
+      'overrides.secret in flags/config.json can only be false.',
+    );
+    expect(() => parseSettings({ overrides: { vercl: true } })).toThrow(
+      'overrides in flags/config.json has the unknown setting "vercl". The settings are: secret, vercel.',
+    );
+    expect(() => parseSettings({ overrides: { vercel: 'yes' } })).toThrow(
+      'overrides.vercel in flags/config.json must be true, false or an object.',
+    );
+    expect(() =>
+      parseSettings({ overrides: { vercel: { fetch: true } } }),
+    ).toThrow(
+      'overrides.vercel in flags/config.json has the unknown setting "fetch"',
+    );
+    expect(() =>
+      parseSettings({ overrides: { vercel: { maxLifetimeSeconds: '60' } } }),
+    ).toThrow(
+      'overrides.vercel.maxLifetimeSeconds in flags/config.json must be of the type number.',
+    );
+    expect(() =>
+      parseSettings({ overrides: { vercel: { project: { id: 'prj_1' } } } }),
+    ).toThrow(
+      'overrides.vercel.project in flags/config.json can only have the strings projectId, environment, teamId.',
+    );
   });
 
   it('is also checked by runtime.configure', () => {
@@ -47,17 +92,15 @@ describe('parseSettings', () => {
 });
 
 describe('the files of the configuration', () => {
-  it('finds hooks.ts, overrides.ts and config.json in flags or src/flags', async () => {
+  it('finds hooks.ts and config.json in flags or src/flags', async () => {
     const directory = await app();
     await mkdir(path.join(directory, 'flags'));
     await mkdir(path.join(directory, 'src/flags'), { recursive: true });
     await writeFile(path.join(directory, 'flags/hooks.ts'), '');
-    await writeFile(path.join(directory, 'src/flags/overrides.mts'), '');
     await writeFile(path.join(directory, 'src/flags/config.json'), '{}');
 
     expect(findConfigModules(directory)).toEqual({
       'flags/hooks': path.join(directory, 'flags/hooks.ts'),
-      'flags/overrides': path.join(directory, 'src/flags/overrides.mts'),
       'flags/settings': path.join(directory, 'src/flags/config.json'),
     });
   });
@@ -88,10 +131,10 @@ describe('configFromModules', () => {
   const settings = { default: { selfSource: false } };
 
   it('returns the same object while the modules do not change', () => {
-    const first = configFromModules([hooks, {}, settings]);
+    const first = configFromModules([hooks, settings]);
 
-    expect(configFromModules([hooks, {}, settings])).toBe(first);
+    expect(configFromModules([hooks, settings])).toBe(first);
     expect(first).toEqual({ hooks: [], settings: { selfSource: false } });
-    expect(configFromModules([{ default: [] }, {}, settings])).not.toBe(first);
+    expect(configFromModules([{ default: [] }, settings])).not.toBe(first);
   });
 });

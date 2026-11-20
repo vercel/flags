@@ -12,6 +12,79 @@
       "type": "boolean",
       "default": true,
       "description": "The default source self. An application which depends on @vercel/flags-core has the source self with the flags of its Vercel project, also without flags/sources/self/, and the code generation loads these flags from Vercel Flags. false turns it off."
+    },
+    "overrides": {
+      "type": "object",
+      "description": "Which override tokens the SDK accepts, e.g. from Flags Explorer. By default, the SDK accepts tokens of the shared secret FLAGS_SECRET, and on Vercel or with a linked project the tokens which Vercel signs.",
+      "properties": {
+        "secret": {
+          "const": false,
+          "description": "false: accept no tokens of the shared secret. The secret itself comes only from the environment variable FLAGS_SECRET."
+        },
+        "vercel": {
+          "description": "Tokens which Vercel signs. true, false, or options which also accept the tokens outside of Vercel.",
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issuer": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "The trusted issuer of the tokens. Must use HTTPS. The default is the issuer of the Vercel Toolbar."
+                },
+                "jwksUrl": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "Where the public keys of the issuer are. Must use HTTPS. The default is <issuer>/jwks.json."
+                },
+                "project": {
+                  "type": "object",
+                  "description": "The Vercel project. The default comes from the environment: VERCEL_PROJECT_ID and VERCEL_TARGET_ENV on Vercel, the OIDC token or .vercel/project.json locally.",
+                  "properties": {
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "teamId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "maxLifetimeSeconds": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "default": 604800,
+                  "description": "The maximum lifetime of a token in seconds. The default is 7 days."
+                },
+                "cacheMaxAgeMs": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "default": 300000,
+                  "description": "How long the public keys stay valid in the cache."
+                },
+                "cooldownMs": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "default": 30000,
+                  "description": "The minimum time between two loads for a key which is not known."
+                },
+                "allowInsecureLocalhost": {
+                  "type": "boolean",
+                  "description": "Allows http://localhost for the issuer and the keys. Only for a local test issuer."
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

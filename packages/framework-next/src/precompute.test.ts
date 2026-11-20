@@ -1,9 +1,7 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import {
-  defineSource,
-  encryptOverrides,
-  runtime as publicRuntime,
-} from 'flags';
+import { defineSource } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
+import { runtime as publicRuntime } from 'flags/runtime';
 import {
   afterEach,
   beforeEach,

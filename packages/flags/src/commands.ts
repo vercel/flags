@@ -221,12 +221,8 @@ async function importConfig(root: string): Promise<Config> {
       : ((await import(pathToFileURL(file).href)) as { default?: unknown })
           .default;
   const hooks = (await load(files['flags/hooks'])) as Config['hooks'];
-  const overrides = (await load(files['flags/overrides'])) as
-    | Config['overrides']
-    | undefined;
   return {
     ...(hooks ? { hooks } : {}),
-    ...(overrides ? { overrides } : {}),
     settings: readSettings(root),
   };
 }

@@ -138,7 +138,7 @@ export default async function flagsNuxtModule(
       alias: withAliases(config.resolve?.alias, aliases),
     };
   });
-  // flags/hooks.ts, flags/overrides.ts and flags/config.json, for the binding
+  // flags/hooks.ts and flags/config.json, for the binding
   const configModules = findConfigModules(root);
   nuxt.hook('nitro:config', (config) => {
     // useEvent() of the binding needs the async context of Nitro

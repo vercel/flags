@@ -1,5 +1,6 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { decryptFlagValues, defineSource } from 'flags';
+import { defineSource } from 'flags';
+import { decryptFlagValues } from 'flags/explorer';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

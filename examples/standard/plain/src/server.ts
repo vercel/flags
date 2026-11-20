@@ -1,5 +1,6 @@
 import { createServer as createHttpServer, type Server } from 'node:http';
-import { evaluate, runtime } from 'flags';
+import { evaluate } from 'flags';
+import { runtime } from 'flags/runtime';
 import { bannerText, betaBanner, summerSale, teamInsights } from './flags.ts';
 
 /**

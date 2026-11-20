@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { decryptFlagValues, encryptOverrides } from 'flags';
+import { decryptFlagValues, encryptOverrides } from 'flags/explorer';
 import { FLAGS_SECRET } from '../playwright.config';
 
 // The app: withFlags loads flags/hooks.ts, and the flags use the source

@@ -11,26 +11,27 @@ import { pathToFileURL } from 'node:url';
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { decryptOverrides, encryptOverrides } from './explorer';
 import { generateFlags } from './generate';
 import {
-  type Config,
-  decryptOverrides,
   defineFlag,
   defineSource,
-  encryptOverrides,
   evaluate,
   FlagEvaluationError,
   type Hook,
   OVERRIDE_REASON,
   type Provider,
-  registerFlags,
-  registerSources,
-  runtime,
   track,
 } from './index';
 import { createManifest, resolveFlagLinks } from './manifest';
 // Only to sign tokens like the Vercel Toolbar: the issuer which the SDK trusts
 import { VERCEL_TOOLBAR_ISSUER } from './overrides/vercel';
+import {
+  type Config,
+  registerFlags,
+  registerSources,
+  runtime,
+} from './runtime-module';
 
 // A provider with some flags. In an application, this is the OpenFeature
 // provider of a platform, e.g. LaunchDarkly.
@@ -523,7 +524,9 @@ describe('8. One runtime for each process', () => {
     // Next.js can bundle instrumentation.ts and the pages separately, so
     // each bundle can have its own copy of the package
     vi.resetModules();
-    const instrumentation: typeof import('./index') = await import('./index');
+    const instrumentation: typeof import('./runtime-module') = await import(
+      './runtime-module'
+    );
 
     // instrumentation.ts, register(): one time for each process
     const headers = new Headers({ cookie: 'user=alice' });
@@ -539,7 +542,6 @@ describe('8. One runtime for each process', () => {
     });
     const newCheckout = source.bindFlag('new-checkout');
 
-    expect(instrumentation.defineFlag).not.toBe(defineFlag);
     expect(instrumentation.runtime).toBe(runtime);
     expect(await newCheckout()).toBe(true);
   });
@@ -579,12 +581,15 @@ describe('9. Overrides', () => {
   });
 
   it('accepts longer lifetimes of signed cookies when configured', () => {
-    // flags/overrides.ts. The default is 7 days.
+    // flags/config.json: { "overrides": { "vercel": { ... } } }. The
+    // default is 7 days.
     const config: Config = {
-      overrides: {
-        vercel: {
-          project: { projectId: 'prj_shop', environment: 'preview' },
-          maxLifetimeSeconds: 30 * 24 * 60 * 60,
+      settings: {
+        overrides: {
+          vercel: {
+            project: { projectId: 'prj_shop', environment: 'preview' },
+            maxLifetimeSeconds: 30 * 24 * 60 * 60,
+          },
         },
       },
     };

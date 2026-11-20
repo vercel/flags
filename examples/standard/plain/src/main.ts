@@ -1,4 +1,4 @@
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { createServer } from './server.ts';
 
 const server = await createServer();

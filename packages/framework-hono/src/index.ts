@@ -12,7 +12,7 @@
  * Hono often runs without a bundler, so the configuration is an option, not
  * an alias.
  */
-import { type Config, runtime } from 'flags';
+import { type Config, runtime } from 'flags/runtime';
 import type { MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 

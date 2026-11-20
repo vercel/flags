@@ -23,15 +23,21 @@ export default defineConfig({
         ),
       },
       {
-        find: 'flags/overrides',
-        replacement: fileURLToPath(
-          new URL('./src/overrides-module.ts', import.meta.url),
-        ),
-      },
-      {
         find: 'flags/settings',
         replacement: fileURLToPath(
           new URL('./src/settings-module.ts', import.meta.url),
+        ),
+      },
+      {
+        find: 'flags/runtime',
+        replacement: fileURLToPath(
+          new URL('./src/runtime-module.ts', import.meta.url),
+        ),
+      },
+      {
+        find: 'flags/explorer',
+        replacement: fileURLToPath(
+          new URL('./src/explorer.ts', import.meta.url),
         ),
       },
       // Generated modules of flags:<source> import the SDK by its name

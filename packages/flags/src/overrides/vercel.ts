@@ -63,11 +63,6 @@ export interface VercelOverridesOptions {
    * test issuer.
    */
   readonly allowInsecureLocalhost?: boolean;
-  /**
-   * The `fetch` function which loads the public keys. The default is the
-   * global `fetch`.
-   */
-  readonly fetch?: typeof fetch;
 }
 
 /**
@@ -435,7 +430,7 @@ function createKeyCache(
   // Read the global fetch at each request, because a framework can replace
   // it after the cache is created
   const fetchKeys: typeof fetch = (input, init) =>
-    (options.fetch ?? globalThis.fetch)(input, init);
+    globalThis.fetch(input, init);
 
   type KeySet = ReturnType<typeof createLocalJWKSet>;
   let keySet: KeySet | undefined;

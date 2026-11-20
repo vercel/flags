@@ -10,8 +10,9 @@
  * the manifest is a file of the build (`flags-manifest.json` in `distDir`),
  * not a public endpoint.
  */
-import { runtime } from 'flags';
+
 import { createManifest, type FlagsManifest } from 'flags/manifest';
+import { runtime } from 'flags/runtime';
 
 interface FlagsModuleImport {
   readonly id: string;

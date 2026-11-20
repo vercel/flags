@@ -9,8 +9,9 @@
       "flags/framework": ["../../src/framework.ts"],
       "flags/config": ["../../src/config-module.ts"],
       "flags/hooks": ["../../src/hooks-module.ts"],
-      "flags/overrides": ["../../src/overrides-module.ts"],
-      "flags/settings": ["../../src/settings-module.ts"]
+      "flags/settings": ["../../src/settings-module.ts"],
+      "flags/runtime": ["../../src/runtime-module.ts"],
+      "flags/explorer": ["../../src/explorer.ts"]
     }
   },
   "include": ["*.ts", "flags/*.ts"]

@@ -35,9 +35,8 @@ describe('withFlags', () => {
     });
   });
 
-  it('points flags/hooks, flags/overrides and flags/settings to the files', () => {
+  it('points flags/hooks and flags/settings to the files', () => {
     const dir = projectWith('flags/hooks.ts');
-    writeFileSync(join(dir, 'flags/overrides.ts'), 'export default {};');
     writeFileSync(join(dir, 'flags/config.json'), '{}');
     const config = withFlags<NextConfig>(
       {},
@@ -46,7 +45,6 @@ describe('withFlags', () => {
 
     expect(config.turbopack?.resolveAlias).toMatchObject({
       'flags/hooks': './flags/hooks.ts',
-      'flags/overrides': './flags/overrides.ts',
       'flags/settings': './flags/config.json',
     });
     // flags/config is the loader of the SDK, not a file of the app

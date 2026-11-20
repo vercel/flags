@@ -1,14 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-type Flags = typeof import('./index');
+type Flags = typeof import('./index') & typeof import('./runtime-module');
 
 /**
- * Loads a new copy of the package, as a bundler can do for each layer of an
- * application.
+ * Loads a new copy of the package (`flags` and `flags/runtime`), as a
+ * bundler can do for each layer of an application.
  */
 async function loadCopy(): Promise<Flags> {
   vi.resetModules();
-  return import('./index');
+  return {
+    ...(await import('./index')),
+    ...(await import('./runtime-module')),
+  };
 }
 
 const provider = {

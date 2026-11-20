@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 import { FLAGS_SECRET } from '../playwright.config';
 
 test('evaluates the flags with the middleware', async ({ request }) => {

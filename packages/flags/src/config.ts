@@ -1,4 +1,3 @@
-import type { OverridesOptions } from './overrides/reader';
 import type { Settings } from './settings';
 import type { Hook } from './types';
 
@@ -8,16 +7,12 @@ import type { Hook } from './types';
  * the framework binding gives them to `runtime.configure`:
  *
  * - `hooks`: the default export of `flags/hooks.ts`
- * - `overrides`: the default export of `flags/overrides.ts`
- * - `settings`: `flags/config.json`
+ * - `settings`: `flags/config.json`, e.g. which override tokens the SDK
+ *   accepts
  *
  * Without a framework plugin, call `runtime.configure` yourself.
  */
 export interface Config {
-  /**
-   * Which override tokens the SDK accepts. See `OverridesOptions`.
-   */
-  readonly overrides?: OverridesOptions;
   /**
    * OpenFeature hooks for all flags. They run first, before the hooks of the
    * source, of the call side and of the provider. They also run for
