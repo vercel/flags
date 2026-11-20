@@ -12,6 +12,10 @@ import type {
   FlagValuesType,
 } from '../types';
 import {
+  isFlagOverridesFromPlatform,
+  verifyFlagOverridesFromPlatform,
+} from './flag-overrides-platform';
+import {
   encryptFlagValuesForPlatform,
   isFlagValuesForPlatform,
 } from './flag-values-platform';
@@ -116,7 +120,10 @@ export async function encryptOverrides(
 /**
  * Decrypts and validates flag overrides data.
  *
- * @param encryptedData - The encrypted JWE token string
+ * On Vercel, it also accepts overrides which the Vercel Toolbar signed with
+ * Vercel KMS, without a secret.
+ *
+ * @param encryptedData - The encrypted JWE token string, or the signed JWS
  * @param secret - The decryption secret (defaults to FLAGS_SECRET env var)
  * @returns A promise resolving to the decrypted flag overrides or undefined if invalid
  * @throws Error if the secret is missing or invalid
@@ -125,6 +132,9 @@ export async function decryptOverrides(
   encryptedData: string,
   secret: string | undefined = process?.env?.FLAGS_SECRET,
 ): Promise<FlagOverridesType | undefined> {
+  if (isFlagOverridesFromPlatform(encryptedData)) {
+    return verifyFlagOverridesFromPlatform(encryptedData);
+  }
   if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
   const contents = await decryptJwe<{
     o: FlagOverridesType;
