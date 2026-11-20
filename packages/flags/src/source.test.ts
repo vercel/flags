@@ -127,10 +127,16 @@ describe('defineSource', () => {
       project: { system: 'unknown', projectId: 'x' },
     });
 
+    // The links of LaunchDarkly do not use teamId, so it is optional
     defineSource({
       provider,
-      // @ts-expect-error teamId is required for launchdarkly
       project: { system: 'launchdarkly', projectId: 'x' },
+    });
+
+    defineSource({
+      provider,
+      // @ts-expect-error projectId is required for launchdarkly
+      project: { system: 'launchdarkly' },
     });
 
     defineSource({

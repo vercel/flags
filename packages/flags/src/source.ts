@@ -17,9 +17,10 @@ export interface ProjectFieldsBySystem {
   'vercel-flags': { projectId?: string; teamId?: string };
   /**
    * `projectId` is the key of the project in LaunchDarkly. The link to a
-   * flag needs `environment`, the key of the environment.
+   * flag needs `environment`, the key of the environment. The links do not
+   * use `teamId`.
    */
-  launchdarkly: { projectId: string; teamId: string; environment?: string };
+  launchdarkly: { projectId: string; teamId?: string; environment?: string };
 }
 
 /**

@@ -181,7 +181,7 @@ management system. Each system has its own fields:
 | `system`         | Fields                                                     | Notes                                                                                                                       |
 | ---------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `'vercel-flags'` | `projectId?: string`, `teamId?: string`                    | Without fields, the Vercel project of the deployment. Set `projectId` (and `teamId` for another team) for a different project. |
-| `'launchdarkly'` | `projectId: string`, `teamId: string`, `environment?: string` | `projectId` is the project key. Links to a flag need `environment`.                                                          |
+| `'launchdarkly'` | `projectId: string`, `teamId?: string`, `environment?: string` | `projectId` is the project key. Links to a flag need `environment`.                                                          |
 | `'in-memory'`    | none                                                       | For providers without a dashboard, e.g. `InMemoryProvider`.                                                                 |
 
 Each project also accepts `systemManifest?: string`, an HTTPS URL of a system

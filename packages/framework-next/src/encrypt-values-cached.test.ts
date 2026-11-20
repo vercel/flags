@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const cacheLife = vi.fn();
-vi.mock('next/cache', () => ({ cacheLife }));
+import { encryptValues } from './encrypt-values-cached';
 
-const { encryptValues } = await import('./encrypt-values-cached');
+const { cacheLife } = vi.hoisted(() => ({ cacheLife: vi.fn() }));
+vi.mock('next/cache', () => ({ cacheLife }));
 
 afterEach(() => {
   vi.unstubAllEnvs();

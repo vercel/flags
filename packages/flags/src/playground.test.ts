@@ -161,7 +161,7 @@ describe('1. Sources and flags', () => {
     void (() => {
       defineSource({
         provider: createProvider(),
-        // @ts-expect-error launchdarkly requires projectId and teamId
+        // @ts-expect-error launchdarkly requires projectId
         project: { system: 'launchdarkly' },
       });
       // in-memory requires no fields

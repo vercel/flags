@@ -86,22 +86,29 @@ export function usesCacheComponents(config: NextConfig): boolean {
 
 const LOADER = '@flags-sdk/next/use-flags-loader';
 const MANIFEST_LOADER = '@flags-sdk/next/manifest-loader';
-// The module of the route of the manifest, in the build of the SDK
 // The module of the route of the manifest, in the build of this package
 const manifestModule = /[\\/]dist[\\/]manifest\.c?js$/;
 
 // Calls the compiled route of the manifest, and writes its result. In a
 // separate process, so that the modules of the application do not run in
-// the process of the build.
+// the process of the build. It exits when the file is written: a provider
+// can open a connection when its module loads, e.g. LaunchDarkly, and the
+// open connection must not keep the build waiting.
 const writeManifestScript = `
+const fs = require('node:fs');
 const [route, output] = process.argv.slice(1);
 const { routeModule } = require(route);
 Promise.resolve(routeModule.userland.GET())
   .then(async (response) => {
     if (!response.ok) throw new Error('The route returned ' + response.status);
-    require('node:fs').writeFileSync(output, JSON.stringify(await response.json(), null, 2));
+    fs.writeFileSync(output, JSON.stringify(await response.json(), null, 2));
+    process.exit(0);
   })
-  .catch((error) => { console.error(error); process.exitCode = 1; });
+  .catch((error) => {
+    // Synchronous, so that exit does not cut off the message
+    fs.writeSync(2, String(error && error.stack || error) + '\\n');
+    process.exit(1);
+  });
 `;
 
 /**
