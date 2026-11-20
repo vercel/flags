@@ -7,8 +7,8 @@ description: Use Vercel Flags with the Flags SDK through VercelProvider, the Ope
 
 The Flags SDK uses Vercel Flags through `VercelProvider`, the OpenFeature server provider of `@vercel/flags-core`. There is no separate adapter: `VercelProvider` is a regular OpenFeature provider, so everything on this page works the same way as with any other [provider](/docs/providers).
 
-<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie, and `catalog.ts` with a default export `CatalogLoader` which lists my flags. Add the plugin of my framework, which generates the code by default, import the flags from `flags:self`, and run the type check when finished.">
-  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie, and `catalog.ts` with a default export `CatalogLoader` which lists my flags. Add the plugin of my framework, which generates the code by default, import the flags from `flags:self`, and run the type check when finished.
+<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `catalog.ts` with `export { default } from '@vercel/flags-core/catalog'`, and, if my targeting rules use entities, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie. Add the plugin of my framework, which generates the code by default, import the flags from `flags:self`, and run the type check when finished.">
+  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`. Create the source `self` in `flags/sources/self/`: `provider.ts` with `export default new VercelProvider()` from `@vercel/flags-core/openfeature`, `catalog.ts` with `export { default } from '@vercel/flags-core/catalog'`, and, if my targeting rules use entities, `context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie. Add the plugin of my framework, which generates the code by default, import the flags from `flags:self`, and run the type check when finished.
 </CopyPrompt>
 
 <LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags" target="_blank">
@@ -55,7 +55,15 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 export default new VercelProvider();
 ```
 
-The default export of `context.ts` creates the evaluation context, once per request:
+The default export of `catalog.ts` gives the flags to the code generation. `@vercel/flags-core/catalog` reads them from your Vercel project, so you create each flag only once, in the dashboard:
+
+```ts title="flags/sources/self/catalog.ts"
+export { default } from '@vercel/flags-core/catalog';
+```
+
+The SDK generates one typed flag for each flag of the project, with its variants as options. In development, it updates the generated code when a flag changes in Vercel. See [The catalog](#the-catalog).
+
+`context.ts` is optional. Its default export creates the evaluation context, once per request. Add it when your targeting rules use entities, e.g. the user:
 
 ```ts title="flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
@@ -70,24 +78,7 @@ export default function getEvaluationContext(
 }
 ```
 
-The default export of `catalog.ts` lists the flags, for the code generation. For a start, return a static list. Later, [load it from Vercel](#load-the-catalog-from-vercel):
-
-```ts title="flags/sources/self/catalog.ts"
-import type { CatalogLoader } from 'flags';
-
-const loadCatalog: CatalogLoader = () => ({
-  project: { system: 'vercel-flags' },
-  flags: {
-    'summer-sale': {
-      variants: [false, true],
-      defaultValue: false,
-      description: 'Shows the summer sale banner',
-    },
-  },
-});
-
-export default loadCatalog;
-```
+Without `context.ts`, the provider gets only the evaluation context of the call side.
 
 ### 5. Add the plugin
 
@@ -197,7 +188,24 @@ export default new VercelProvider(createClient({ clientName: 'my-app' }));
 
 ## The flags of a different project
 
-A source can read the flags of a different Vercel project. Set `projectId` (and `teamId` for a project of a different team) in `project`, so that Flags Explorer links to the right project, and give the provider access to that project. With the file system API, put each project in a source folder of its own, e.g. `flags/sources/blog/`, and set `project` in its catalog. By hand:
+A source can read the flags of a different Vercel project. Set `projectId` (and `teamId` for a project of a different team) in `project`, so that Flags Explorer links to the right project, and give the provider access to that project.
+
+With the file system API, put each project in a source folder of its own, e.g. `flags/sources/shared/`. Give the provider and the catalog the same project:
+
+```ts title="flags/sources/shared/provider.ts"
+import { createClient } from '@vercel/flags-core';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+export default new VercelProvider(createClient({ projectId: 'prj_source' }));
+```
+
+```ts title="flags/sources/shared/catalog.ts"
+import { createCatalogLoader } from '@vercel/flags-core/catalog';
+
+export default createCatalogLoader({ projectId: 'prj_source' });
+```
+
+By hand:
 
 ```ts title="flags/other-projects.ts"
 import { createClient } from '@vercel/flags-core';
@@ -229,49 +237,52 @@ export const newSearch = bindFlag({ key: 'new-search', source: blog });
 - **Project Connections** let a project read the flags of another project of the same team, with its own OIDC token. Grant access in the **Flags → Connections** page of the source project. See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections).
 - **SDK keys** work for any project. The SDK key must belong to the project in `project`: the SDK cannot check this, because OpenFeature providers do not report their project.
 
-## Load the catalog from Vercel
+## The catalog
 
-A static catalog is enough for a start, but you then add each new flag twice: in the dashboard and in `catalog.ts`. A catalog can instead read the flags of your Vercel project, so that the SDK generates one typed flag for each flag in the dashboard, with its variants as options:
+`@vercel/flags-core/catalog` reads the flags of your project from the stream of Vercel Flags. It uses the SDK key in the `FLAGS` environment variable if you set one, and the OIDC token of the project otherwise, as `VercelProvider` does. A build takes the current flags once. A development server stays connected, and the SDK writes the generated code again after each change in Vercel.
+
+For options, use `createCatalogLoader`:
 
 ```ts title="flags/sources/self/catalog.ts"
-import type { DatafileInput } from '@vercel/flags-core';
-import type { Catalog, CatalogLoadOptions } from 'flags';
-import { streamDatafiles } from './stream';
+import { createCatalogLoader } from '@vercel/flags-core/catalog';
 
-function catalogFromDatafile(datafile: DatafileInput): Catalog {
-  if (!datafile.projectId || !datafile.environment || !datafile.definitions) {
-    throw new Error('The provider returned an invalid flags datafile.');
-  }
+export default createCatalogLoader({
+  // The datafile of Vercel Flags has no descriptions. Written as JSDoc.
+  describe: (key) => descriptions[key],
+  // Or: sdkKey: process.env.MY_FLAGS_KEY, projectId: 'prj_source'
+});
 
-  const flags = Object.fromEntries(
-    Object.entries(datafile.definitions).map(([key, definition]) => [
-      key,
-      { variants: definition.variants },
-    ]),
-  );
-
-  return {
-    // For the links of Flags Explorer
-    project: { system: 'vercel-flags', projectId: datafile.projectId },
-    revision: datafile.revision,
-    flags,
-  };
-}
-
-// Yields a new catalog after each change in Vercel, so that the
-// development server and `flags watch` update the generated code
-export default async function* loadCatalog({
-  signal,
-}: CatalogLoadOptions): AsyncGenerator<Catalog> {
-  for await (const datafile of streamDatafiles({ signal })) {
-    yield catalogFromDatafile(datafile);
-  }
-}
+const descriptions: Record<string, string> = {
+  'summer-sale': 'Shows the summer sale banner',
+};
 ```
 
-`stream.ts` subscribes to the changes of the flags of your project. Copy it from the [playground of the Flags SDK repository](https://github.com/vercel/flags/tree/main/apps/playground/flags/sources/site), which runs this setup against real Vercel Flags. The catalog runs only during code generation, in Node.js, not in your application.
+| Option     | Description                                                                                           |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| `sdkKey`   | The SDK key or connection string. The default is `FLAGS`, then the OIDC token.                         |
+| `projectId`| The flags of a connected project of the same team, with the OIDC token. Not together with `sdkKey`.    |
+| `describe` | The description of a flag, from its key.                                                              |
 
-An entry of the catalog can also have a `description` (written as JSDoc) and a `defaultValue` (returned when an evaluation fails). Without a `defaultValue`, a failing evaluation throws. See [Code generation](/docs/flags/code-generation).
+The catalog runs only during code generation, in Node.js, not in your application. It gives no `defaultValue`, so a flag whose evaluation fails throws. To give a default value, or to write the flags yourself, return a static catalog instead:
+
+```ts title="flags/sources/self/catalog.ts"
+import type { CatalogLoader } from 'flags';
+
+const loadCatalog: CatalogLoader = () => ({
+  project: { system: 'vercel-flags' },
+  flags: {
+    'summer-sale': {
+      variants: [false, true],
+      defaultValue: false,
+      description: 'Shows the summer sale banner',
+    },
+  },
+});
+
+export default loadCatalog;
+```
+
+`catalogFromDatafile(datafile, { describe })` turns a datafile into a catalog, if you load the datafile yourself. See [Code generation](/docs/flags/code-generation).
 
 ## Flags Explorer
 

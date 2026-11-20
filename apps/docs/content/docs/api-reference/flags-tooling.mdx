@@ -141,7 +141,12 @@ exist, with `WatchResult`:
 ### `renderSourceModule`
 
 ```ts
-function renderSourceModule(name: string, catalog: Catalog): string;
+function renderSourceModule(
+  name: string,
+  catalog: Catalog,
+  sourcesPath?: string,
+  files?: SourceFiles,
+): string;
 ```
 
 Returns the source code of the generated module of one source: a `'use flags'`
@@ -150,6 +155,11 @@ type of each flag comes from its variants (mixed types become `object`), the
 variants become its `options`, and the `defaultValue` of the catalog becomes
 its `defaultValue`. Throws for a source name that is not
 `[a-z][a-z0-9_-]*` (case-insensitive).
+
+`sourcesPath` is the path from the generated module to `flags/sources`. The
+default is `'../flags/sources'`. `files` tells which optional files the source
+has. With `{ context: false }`, the module does not import `context.ts`, and
+the source has no `getEvaluationContext`. The default is `{ context: true }`.
 
 ### `GENERATED_DIRECTORY`
 
@@ -171,6 +181,9 @@ their content. Precompute uses it to encode values.
 - `FlagsAliases`: `Record<string, string>`, e.g.
   `{ 'flags:self': './.flags/self.ts' }`, relative to the application.
 - `WatchResult`: the result of `watchFlags`.
+- `SourceFiles`: `{ context?: boolean }`, the optional files of a source, for
+  `renderSourceModule`. `context` is `true` if the source has `context.ts`.
+  The default is `true`.
 
 ## `flags/manifest`
 

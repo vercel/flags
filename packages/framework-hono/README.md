@@ -69,7 +69,7 @@ names its source. Use one of two ways:
 
 - Write `defineSource` and `bindFlag` by hand.
 - Put each source into `flags/sources/<source>` (`catalog.ts`,
-  `provider.ts` and `context.ts`). By convention, the main source of the
+  `provider.ts` and an optional `context.ts`). By convention, the main source of the
   application is `flags/sources/self`. Run `flags sync` (one time) or
   `flags watch` (after each change of a catalog), and import the generated
   module:

@@ -85,15 +85,15 @@ export default defineConfig({
 
 ### 3. Create the source `self`
 
-A source is a folder in `flags/sources`. The main source of your application is, by convention, `self`. It has three files:
+A source is a folder in `flags/sources`. The main source of your application is, by convention, `self`. It has two files, and one optional file:
 
 ```txt
 flags/
   sources/
     self/
       provider.ts   which provider evaluates the flags
-      context.ts    who the user is, for each request
       catalog.ts    which flags exist, for code generation
+      context.ts    optional: who the user is, for each request
 ```
 
 <Callout>
@@ -109,7 +109,15 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 export default new VercelProvider();
 ```
 
-The context tells the provider who the user is. The SDK calls it once for each request, even when a page evaluates many flags:
+The catalog lists the flags of the source. Code generation reads it, and writes one typed import for each flag. The catalog of Vercel Flags reads the flags of your Vercel project, and keeps the generated code in sync while you develop:
+
+```ts title="flags/sources/self/catalog.ts"
+export { default } from '@vercel/flags-core/catalog';
+```
+
+With another provider, the catalog can also return a list. See [Code generation](/docs/flags/code-generation).
+
+The context is optional. It tells the provider who the user is, e.g. for targeting rules. The SDK calls it once for each request, even when a page evaluates many flags:
 
 ```ts title="flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
@@ -121,27 +129,13 @@ export default function getEvaluationContext(request: FlagsRequest | undefined) 
 }
 ```
 
-The catalog lists the flags of the source. Code generation reads it, and writes one typed import for each flag. Start with a list. Later, you can load it from the API of your flag management system, and keep it in sync while you develop. See [Code generation](/docs/flags/code-generation).
-
-```ts title="flags/sources/self/catalog.ts"
-import type { CatalogLoader } from 'flags';
-
-const loadCatalog: CatalogLoader = () => ({
-  flags: {
-    enableSale: {
-      variants: [false, true],
-      description: 'Shows the summer sale',
-      defaultValue: false,
-    },
-  },
-});
-
-export default loadCatalog;
-```
+Without `context.ts`, the provider gets only the evaluation context of the call side.
 
 <Callout>
-  The provider of Vercel Flags uses the OIDC token of your project. Run `vercel
-  link` and `vercel env pull` once. See [Vercel Flags](/docs/providers/vercel).
+  The provider and the catalog of Vercel Flags use the OIDC token of your
+  project. Run `vercel link` and `vercel env pull` once, and create a boolean
+  flag `enableSale` in the dashboard of your project. See [Vercel
+  Flags](/docs/providers/vercel).
 </Callout>
 
 ### 4. Use the flag

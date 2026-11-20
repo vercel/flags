@@ -702,8 +702,8 @@ throws when it defines the flag. A `FlagDefinition` without a source fails
 at the evaluation.
 
 - By convention, the main source of an application is `flags/sources/self`,
-  with `catalog.ts`, `provider.ts` and `context.ts` (see "Code
-  generation"). The application imports its flags from `flags:self`:
+  with `catalog.ts`, `provider.ts` and an optional `context.ts` (see
+  "Code generation"). The application imports its flags from `flags:self`:
 
   ```ts
   import { 'summer-sale' as summerSale } from 'flags:self';
@@ -1344,14 +1344,20 @@ imports need the `.ts` extension.
 
 ### The files of a source
 
-Each source is a directory `flags/sources/<source>`, with three files. Each
-file has a default export:
+Each source is a directory `flags/sources/<source>`, with `catalog.ts` and
+`provider.ts`, and an optional `context.ts`. Each file has a default export:
 
 | File | Default export | Runs |
 | --- | --- | --- |
 | `catalog.ts` | A `CatalogLoader`: returns one `Catalog`, or yields a complete `Catalog` first and again after each change | In Node.js, at the generation only |
 | `provider.ts` | The OpenFeature provider | In the application |
-| `context.ts` | `getEvaluationContext(request, input)`, as for `defineSource` | In the application |
+| `context.ts` (optional) | `getEvaluationContext(request, input)`, as for `defineSource` | In the application |
+
+Without `context.ts`, the source has no `getEvaluationContext`: the
+provider gets only the evaluation context of the call side, and the flags
+of the source take no input (`flags/generated.d.ts` declares
+`type Input = undefined`). The generation checks for `context.ts` each time
+it writes the modules.
 
 A `Catalog` has `flags` (for each key: `variants` and an optional
 `description`), an optional `project` (as for `defineSource`, e.g. for the
@@ -1363,7 +1369,7 @@ must match `[a-z][a-z0-9_-]*`.
 `.flags/<source>.ts` starts with `'use flags'`, so the framework plugins
 register it, and `findFlagsModules` finds it (`.flags` is the only hidden
 directory it reads). It has one `defineSource` with `provider.ts`,
-`context.ts` and the `project` of the catalog (no `project` without
+`context.ts` (if the source has one) and the `project` of the catalog (no `project` without
 one), and one `bindFlag` for each flag, sorted by key:
 
 - `type` comes from the variants (see below for variants of more than one
@@ -1375,7 +1381,7 @@ one), and one `bindFlag` for each flag, sorted by key:
   so a key can have any characters.
 
 The generation imports only `catalog.ts`. It checks that each source has
-the three files before it runs a catalog. It renders all modules before it
+`provider.ts` and `catalog.ts` before it runs a catalog. It renders all modules before it
 writes one, and writes a file only when its content changes, with a rename,
 so a watcher never sees half a file. It removes the module of a removed
 source. If a catalog fails, the last modules stay. It also writes

@@ -7,7 +7,7 @@ description: Set up the Flags SDK in a Next.js App Router project with one line 
 
 **Requirements:** Next.js 15.4 or newer with the App Router and Turbopack, and Node.js 20.19, or 22.12 or newer.
 
-<CopyPrompt text="Add the Flags SDK v5 to my Next.js App Router app with its file system API. Install `flags`, `@flags-sdk/next` and `@vercel/flags-core`, wrap `next.config.ts` with `withFlags({})` from `@flags-sdk/next/plugin`, create the source `self` in `flags/sources/self` with `provider.ts` (default export `new VercelProvider()` of `@vercel/flags-core/openfeature`), `context.ts` (default export `getEvaluationContext(request)`) and `catalog.ts` (default export: a `CatalogLoader` with the flag `enableSale`), use the flag with `import { enableSale } from 'flags:self'` in a server component, add the manifest route `app/.well-known/flags/manifest.json/route.ts` with `export { GET } from '@flags-sdk/next/manifest'`, and run the type check and `next build` when finished.">
+<CopyPrompt text="Add the Flags SDK v5 to my Next.js App Router app with its file system API. Install `flags`, `@flags-sdk/next` and `@vercel/flags-core`, wrap `next.config.ts` with `withFlags({})` from `@flags-sdk/next/plugin`, create the source `self` in `flags/sources/self` with `provider.ts` (default export `new VercelProvider()` of `@vercel/flags-core/openfeature`) and `catalog.ts` (`export { default } from '@vercel/flags-core/catalog'`), and, if my targeting rules use entities, `context.ts` (default export `getEvaluationContext(request)`), use the flag with `import { enableSale } from 'flags:self'` in a server component, add the manifest route `app/.well-known/flags/manifest.json/route.ts` with `export { GET } from '@flags-sdk/next/manifest'`, and run the type check and `next build` when finished.">
   Add the Flags SDK v5 to my Next.js App Router app with its file system API. Install the packages, wrap `next.config.ts` with `withFlags`, create the source `self` in `flags/sources/self`, use `enableSale` from `flags:self` in a server component, add the manifest route, and run the type check and `next build` when finished.
 </CopyPrompt>
 
@@ -43,7 +43,7 @@ If `flags/config.ts` is not in the app directory or in its `src` folder, pass th
 
 ### 3. Create the source `self`
 
-By convention, the main source of an application is `self`: the folder `flags/sources/self` in the root of your project, with three files.
+By convention, the main source of an application is `self`: the folder `flags/sources/self` in the root of your project, with two files and one optional file.
 
 The provider evaluates the flags. It is any OpenFeature server provider:
 
@@ -53,7 +53,15 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 export default new VercelProvider();
 ```
 
-The context tells the provider who the user is. The SDK calls it once per request:
+The catalog lists the flags of the source, for the code generation. The catalog of Vercel Flags reads the flags of your Vercel project, and keeps the generated code in sync while you develop:
+
+```ts title="flags/sources/self/catalog.ts"
+export { default } from '@vercel/flags-core/catalog';
+```
+
+With another provider, the catalog can also return a list. See [Code generation](/docs/flags/code-generation).
+
+The context is optional. It tells the provider who the user is. The SDK calls it once per request:
 
 ```ts title="flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
@@ -65,25 +73,9 @@ export default function getEvaluationContext(
 }
 ```
 
-The catalog lists the flags of the source, for the code generation. Start with a list in your code:
+Without `context.ts`, the provider gets only the evaluation context of the call side.
 
-```ts title="flags/sources/self/catalog.ts"
-import type { CatalogLoader } from 'flags';
-
-const loadCatalog: CatalogLoader = () => ({
-  flags: {
-    enableSale: {
-      variants: [false, true],
-      description: 'Shows the summer sale',
-      defaultValue: false,
-    },
-  },
-});
-
-export default loadCatalog;
-```
-
-`VercelProvider` uses the OIDC token of your project: run `vercel link` and `vercel env pull` once. See [Vercel Flags](/docs/providers/vercel). To try the SDK without an account, export an in-memory provider instead, e.g. `TypedInMemoryProvider` of `@openfeature/server-sdk` (see [Custom providers](/docs/providers/custom-providers)).
+`VercelProvider` and the catalog use the OIDC token of your project. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project. See [Vercel Flags](/docs/providers/vercel). To try the SDK without an account, export an in-memory provider instead, e.g. `TypedInMemoryProvider` of `@openfeature/server-sdk` (see [Custom providers](/docs/providers/custom-providers)), and return a static catalog.
 
 ### 4. Use the flag in a page
 

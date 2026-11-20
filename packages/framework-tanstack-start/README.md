@@ -108,7 +108,7 @@ export default defineConfig({
 ```
 
 - Each source is a directory `flags/sources/<source>` with `catalog.ts`,
-  `provider.ts` and `context.ts`. By convention, the main source of the
+  `provider.ts` and an optional `context.ts`. By convention, the main source of the
   application is `flags/sources/self`.
 - The plugin generates `.flags/<source>.ts` one time for `vite build`, and
   watches the catalogs in `vite dev`. It adds the aliases

@@ -26,7 +26,7 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 export default new VercelProvider();
 ```
 
-Next to it, `context.ts` creates the evaluation context, and `catalog.ts` lists the flags of the source. [Code generation](/docs/flags/code-generation) writes `.flags/self.ts` from the folder, with the source and one flag for each flag of the catalog, and you import the flags:
+Next to it, `catalog.ts` lists the flags of the source, and the optional `context.ts` creates the evaluation context. [Code generation](/docs/flags/code-generation) writes `.flags/self.ts` from the folder, with the source and one flag for each flag of the catalog, and you import the flags:
 
 ```ts
 import { summerSale } from 'flags:self';

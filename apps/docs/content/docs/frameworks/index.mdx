@@ -34,7 +34,7 @@ Your framework is not in the list? You can [write a binding for it](/docs/framew
 
 ### With a bundler: the file system API
 
-In Next.js, SvelteKit, Nuxt and TanStack Start, the main source of your application is the folder `flags/sources/self`. In SvelteKit, it is `src/flags/sources/self`, since SvelteKit type-checks `src` only. The three files are the same in each of these frameworks:
+In Next.js, SvelteKit, Nuxt and TanStack Start, the main source of your application is the folder `flags/sources/self`. In SvelteKit, it is `src/flags/sources/self`, since SvelteKit type-checks `src` only. The files are the same in each of these frameworks. `context.ts` is optional:
 
 ```ts title="flags/sources/self/provider.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -46,7 +46,7 @@ export default new VercelProvider();
 ```ts title="flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
 
-// Runs one time for each request
+// Optional. Runs one time for each request
 export default function getEvaluationContext(
   request: FlagsRequest | undefined,
 ) {
@@ -55,21 +55,11 @@ export default function getEvaluationContext(
 ```
 
 ```ts title="flags/sources/self/catalog.ts"
-import type { CatalogLoader } from 'flags';
-
-// The flags of the source, for the code generation
-const loadCatalog: CatalogLoader = () => ({
-  flags: {
-    enableSale: {
-      variants: [false, true],
-      description: 'Shows the summer sale',
-      defaultValue: false,
-    },
-  },
-});
-
-export default loadCatalog;
+// The flags of your Vercel project, for the code generation
+export { default } from '@vercel/flags-core/catalog';
 ```
+
+The provider and the catalog of Vercel Flags use the OIDC token of your project. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project. With another provider, the catalog can also return a list.
 
 The plugin of your framework generates `.flags/self.ts` and the types in `flags/generated.d.ts`, and your code imports the flags:
 

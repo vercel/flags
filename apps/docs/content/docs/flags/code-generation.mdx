@@ -3,7 +3,7 @@ title: Code generation
 description: Put the provider, the context and the catalog of a source in flags/sources, and import each flag from flags:<source>.
 ---
 
-Code generation is the file system API of the Flags SDK. You describe a source with three files in `flags/sources/<source>`, and the SDK writes the `defineSource` and `bindFlag` calls for you, from the catalog of your flag management system. Then you import each flag by its key:
+Code generation is the file system API of the Flags SDK. You describe a source with two files, and an optional `context.ts`, in `flags/sources/<source>`, and the SDK writes the `defineSource` and `bindFlag` calls for you, from the catalog of your flag management system. Then you import each flag by its key:
 
 ```ts title="app/page.tsx"
 import { evaluate } from 'flags';
@@ -101,7 +101,7 @@ The only difference is the export name: the generated module exports each flag u
 
 ## The folder of a source
 
-Each source is a folder `flags/sources/<source>` in your application, with three files. By convention, the main source of an application is `self`:
+Each source is a folder `flags/sources/<source>` in your application, with two files and one optional file. By convention, the main source of an application is `self`:
 
 ```text
 flags/
@@ -109,11 +109,10 @@ flags/
     self/
       catalog.ts    # The flags of the source, for the generator only
       provider.ts   # The OpenFeature provider
-      context.ts    # getEvaluationContext(request, input)
+      context.ts    # Optional: getEvaluationContext(request, input)
     marketing/      # Optional: a second source, e.g. a second system
       catalog.ts
       provider.ts
-      context.ts
   generated.d.ts    # Generated: the types of flags:self and flags:marketing
 .flags/             # Generated, Git ignores it
   self.ts           # The module of flags:self
@@ -126,9 +125,9 @@ The folder `flags` is in the root of your application, or in `src` (`src/flags/s
 | --- | --- | --- |
 | `catalog.ts` | A `CatalogLoader`: returns one catalog, or yields a catalog after each change | In Node.js, only when the code is generated |
 | `provider.ts` | The OpenFeature provider | In your application |
-| `context.ts` | `getEvaluationContext(request, input)`, as for [`defineSource`](/docs/flags/provider-flags#sources) | In your application |
+| `context.ts` (optional) | `getEvaluationContext(request, input)`, as for [`defineSource`](/docs/flags/provider-flags#sources) | In your application |
 
-The name of the folder is the name of the source, and the module is `flags:<source>`. It must start with a letter, and contain only letters, digits, `-` and `_`. Each folder needs all three files.
+The name of the folder is the name of the source, and the module is `flags:<source>`. It must start with a letter, and contain only letters, digits, `-` and `_`. Each folder needs `provider.ts` and `catalog.ts`. `context.ts` is optional.
 
 ### `provider.ts`
 
@@ -142,7 +141,7 @@ export default new VercelProvider();
 
 ### `context.ts`
 
-The default export creates the evaluation context for the provider. It is the `getEvaluationContext` of the source, and runs once per request:
+This file is optional. The default export creates the evaluation context for the provider. It is the `getEvaluationContext` of the source, and runs once per request:
 
 ```ts title="flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
@@ -155,6 +154,8 @@ export default function getEvaluationContext(
 ```
 
 The second parameter, `input`, is the evaluation context of the call side. Leave it out if you do not need it. If you declare it with a type, e.g. `input: { teamId: string }`, the flags of the source require that context at each call, as with a hand-written source. See [The evaluation context](/docs/flags/evaluation-context).
+
+Without `context.ts`, the source has no `getEvaluationContext`. The provider gets only the evaluation context of the call side, and the generated flags take no input. Restart the dev server after you add or remove `context.ts`.
 
 ### `catalog.ts`
 
@@ -173,6 +174,14 @@ interface Catalog {
   revision?: number; // changes with each change of the catalog, if the system has one
 }
 ```
+
+For Vercel Flags, `@vercel/flags-core/catalog` is a complete catalog loader. It reads the flags of your Vercel project, and yields a new catalog after each change in Vercel:
+
+```ts title="flags/sources/self/catalog.ts"
+export { default } from '@vercel/flags-core/catalog';
+```
+
+It gives no `defaultValue`. See [Vercel Flags](/docs/providers/vercel#the-catalog) for its options. For other systems, write the catalog loader yourself, as below.
 
 A **static catalog** returns one catalog, e.g. from a list in your code or from one request to the API of your system. A list in your code is a good start:
 
@@ -242,8 +251,6 @@ export default async function* loadCatalog({
 }
 ```
 
-The [playground app](https://github.com/vercel/flags/tree/main/apps/playground) of the repository has a streaming catalog of Vercel Flags, which subscribes to the changes of a project.
-
 <Callout type="info">
   Node.js loads `catalog.ts` with its built-in type stripping, without a bundler. Use a Node.js version that strips types by default (22.18 or newer), use only erasable TypeScript syntax (no `enum`), and use relative imports for the other files of the source, e.g. `import { selfFlags } from './definitions'`. You do not need the `.ts` extension: the SDK finds the `.ts`, `.tsx` or `/index.ts` file of an import.
 </Callout>
@@ -253,7 +260,7 @@ The [playground app](https://github.com/vercel/flags/tree/main/apps/playground) 
 For each source, `.flags/<source>.ts` contains:
 
 - the `'use flags'` directive, so the framework packages register the flags and Flags Explorer finds them;
-- one `defineSource` with `provider.ts`, `context.ts` and the `project` of the catalog, if it has one;
+- one `defineSource` with `provider.ts`, `context.ts` (if the folder has one) and the `project` of the catalog, if it has one;
 - one `bindFlag` for each flag of the catalog, sorted by key, with:
   - `type` from the variants: `boolean`, `string` or `number` if all variants have that type, otherwise `object` (any JSON value, e.g. for variants of mixed types);
   - `options`: the variants. As for every flag, they do not limit the value: a variant that is added after the deployment goes through;
@@ -272,7 +279,7 @@ The generator writes a file only when its content changes, never writes half a f
 
 ### 1. Add the folder of the source
 
-Create `flags/sources/self` in the root of your project, next to `package.json`, with `provider.ts`, `context.ts` and `catalog.ts`, as above. In SvelteKit, create `src/flags/sources/self`.
+Create `flags/sources/self` in the root of your project, next to `package.json`, with `provider.ts`, `catalog.ts` and, if you need it, `context.ts`, as above. In SvelteKit, create `src/flags/sources/self`.
 
 ### 2. Add the plugin
 

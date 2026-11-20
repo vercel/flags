@@ -97,7 +97,7 @@ export default defineNuxtConfig({
 ```
 
 - Each source is a directory `flags/sources/<source>` with `catalog.ts`,
-  `provider.ts` and `context.ts`. By convention, the main source of the
+  `provider.ts` and an optional `context.ts`. By convention, the main source of the
   application is `flags/sources/self`.
 - The module generates `.flags/<source>.ts` one time for `nuxt build`, and
   watches the catalogs in `nuxt dev`. It adds the aliases `flags:<source>`

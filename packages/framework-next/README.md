@@ -302,7 +302,8 @@ export default async function Page({
 By default, `withFlags` writes the modules of `flags:<source>`
 from the catalogs of `flags/sources/<source>` (see the SPEC of `flags`,
 "Code generation"). By convention, the main source of the application is
-`flags/sources/self` (`catalog.ts`, `provider.ts` and `context.ts`):
+`flags/sources/self` (`catalog.ts`, `provider.ts` and an optional
+`context.ts`):
 
 ```ts
 // next.config.ts

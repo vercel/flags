@@ -258,11 +258,13 @@ A system which the SDK does not list yet adds itself with a pull request
 ## Code generation
 
 Code generation is optional. Each source is a directory
-`flags/sources/<source>` with three files:
+`flags/sources/<source>` with two files and one optional file:
 
 - `catalog.ts` loads the flags of the flag management system;
 - `provider.ts` exports the OpenFeature provider;
-- `context.ts` exports `getEvaluationContext(request, input)`.
+- `context.ts` (optional) exports `getEvaluationContext(request, input)`.
+  Without it, the provider gets only the evaluation context of the call
+  side.
 
 By convention, the main source is `flags/sources/self`. The SDK generates
 `.flags/self.ts` from it, and your code imports its flags from `flags:self`:

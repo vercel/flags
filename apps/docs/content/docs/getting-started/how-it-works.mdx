@@ -41,8 +41,8 @@ A source connects flags to a flag management system. It has three parts:
 With a framework with a bundler, a source is a folder. By convention, the main source of an app is `self`, in `flags/sources/self/`:
 
 - `provider.ts` exports the provider, e.g. `export default new VercelProvider()`,
-- `context.ts` exports `getEvaluationContext(request, input)`,
-- `catalog.ts` lists the flags of the source.
+- `catalog.ts` lists the flags of the source,
+- optionally, `context.ts` exports `getEvaluationContext(request, input)`.
 
 [Code generation](/docs/flags/code-generation) turns the folder into the module `flags:self`, with the source and one typed flag for each flag of the catalog:
 

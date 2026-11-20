@@ -18,7 +18,7 @@ const sale = await enableSale();
 ```txt
 flags/sources/self/
   provider.ts   export default new VercelProvider();
-  context.ts    export default (request) => ({ user: getUser(request) });
+  context.ts    optional: export default (request) => ({ user: getUser(request) });
   catalog.ts    the list of flags, for code generation
 ```
 

@@ -44,13 +44,13 @@ The form changes a demo cookie, not the configuration of the provider.
 
 ## Sources
 
-Each source is a directory with three files (see [flags/README.md](flags/README.md)):
+Each source is a directory with two files and an optional `context.ts` (see [flags/README.md](flags/README.md)):
 
 ```text
 flags/sources/site/
   catalog.ts   # Default export: a catalog loader. Runs in Node.js at generation.
   provider.ts  # Default export: the OpenFeature provider.
-  context.ts   # Default export: getEvaluationContext(request, input).
+  context.ts   # Optional. Default export: getEvaluationContext(request, input).
 ```
 
 ```ts

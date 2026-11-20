@@ -30,7 +30,7 @@ The module also enables the async context of Nitro, which the SDK needs to find 
 
 ### 3. Create the source `self`
 
-By convention, the main source of an application is `self`: the folder `flags/sources/self` in the root of your project, with three files.
+By convention, the main source of an application is `self`: the folder `flags/sources/self` in the root of your project, with two files and one optional file.
 
 ```ts title="flags/sources/self/provider.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -38,6 +38,15 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 // Any OpenFeature server provider works
 export default new VercelProvider();
 ```
+
+```ts title="flags/sources/self/catalog.ts"
+// The flags of your Vercel project, for the code generation
+export { default } from '@vercel/flags-core/catalog';
+```
+
+With another provider, the catalog can also return a list. See [Code generation](/docs/flags/code-generation).
+
+The context is optional. Without `context.ts`, the provider gets only the evaluation context of the call side.
 
 ```ts title="flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
@@ -50,24 +59,7 @@ export default function getEvaluationContext(
 }
 ```
 
-```ts title="flags/sources/self/catalog.ts"
-import type { CatalogLoader } from 'flags';
-
-// The flags of the source, for the code generation
-const loadCatalog: CatalogLoader = () => ({
-  flags: {
-    enableSale: {
-      variants: [false, true],
-      description: 'Shows the summer sale',
-      defaultValue: false,
-    },
-  },
-});
-
-export default loadCatalog;
-```
-
-`VercelProvider` uses the OIDC token of your project: run `vercel link` and `vercel env pull` once. To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk` instead.
+`VercelProvider` and the catalog use the OIDC token of your project. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project. See [Vercel Flags](/docs/providers/vercel). To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk` instead, and return a static catalog.
 
 ### 4. Use the flag in a server route
 

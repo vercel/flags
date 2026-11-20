@@ -27,6 +27,7 @@ src/
 │   ├── normalized-options.ts # Option normalization
 │   └── typed-emitter.ts      # Lightweight typed event emitter
 ├── openfeature.*.ts      # OpenFeature provider
+├── catalog.ts            # Catalog loader for the code generation of the Flags SDK
 ├── test-utils.ts         # Shared test helpers
 ├── utils/                # Utilities
 │   ├── usage-tracker.ts
@@ -228,6 +229,7 @@ The package has conditional exports based on environment:
 - **Default**: `./dist/index.default.js` - Standard usage
 - **Next.js**: `./dist/index.next-js.js` - Wraps functions with `'use cache'`
 - **OpenFeature**: `./openfeature` - OpenFeature server SDK provider
+- **Catalog**: `./catalog` - Catalog loader for the code generation of the Flags SDK (`loadCatalog` as default export, `createCatalogLoader`, `catalogFromDatafile`). Streams the datafile, runs in Node.js at build time and in development only
 
 ## Commands
 

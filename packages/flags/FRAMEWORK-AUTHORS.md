@@ -128,8 +128,8 @@ and loads `flags/config.ts`, without the initialization of providers.
 ## Code generation
 
 Code generation is optional. Each source is a directory
-`flags/sources/<source>` with `catalog.ts`, `provider.ts` and `context.ts`.
-By convention, the main source of an application is `flags/sources/self`.
+`flags/sources/<source>` with `catalog.ts`, `provider.ts` and an optional
+`context.ts`. By convention, the main source of an application is `flags/sources/self`.
 The folder `flags` is in the root of the application or in `src`. The build
 plugin generates `.flags/<source>.ts`, and the types in
 `flags/generated.d.ts`, with the functions of `flags/tooling`, and sets the

@@ -195,6 +195,50 @@ await OpenFeature.setProviderAndWait(new VercelProvider());
 const client = OpenFeature.getClient();
 ```
 
+## Catalog for code generation
+
+The code generation of the Flags SDK (the `flags` package) reads the flags of
+a source from its `catalog.ts`. `@vercel/flags-core/catalog` is the catalog of
+Vercel Flags. It reads the flags of your project from the stream of Vercel
+Flags:
+
+```ts
+// flags/sources/self/catalog.ts
+export { default } from '@vercel/flags-core/catalog';
+```
+
+A build takes the first catalog. A development server stays connected, and
+the SDK generates the code again after each change in Vercel. The catalog
+sets `project` (`{ system: 'vercel-flags', projectId }`) and `revision`. It
+gives no `defaultValue`, so a generated flag throws when its evaluation
+fails. If you need a `defaultValue`, write a static catalog instead.
+
+For options, use `createCatalogLoader`:
+
+```ts
+// flags/sources/self/catalog.ts
+import { createCatalogLoader } from '@vercel/flags-core/catalog';
+
+export default createCatalogLoader({
+  describe: (key) => descriptions[key],
+});
+
+const descriptions: Record<string, string> = {
+  'summer-sale': 'Shows the summer sale banner',
+};
+```
+
+| Option      | Description                                                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------- |
+| `sdkKey`    | The SDK key or connection string. The default is the `FLAGS` environment variable, then the OIDC token. |
+| `projectId` | The flags of a connected project of the same team, with the OIDC token. Not together with `sdkKey`. |
+| `describe`  | The description of a flag, from its key. The datafile has no descriptions.                        |
+| `fetch`     | The `fetch` for the stream, e.g. in tests.                                                        |
+
+For the OIDC token, run `vercel link` and `vercel env pull` once. The catalog
+throws on a `401` response. `catalogFromDatafile(datafile, { describe })`
+turns a datafile into a catalog, if you load the datafile yourself.
+
 ## Client debug logging
 
 Set `DEBUG=@vercel/flags-core` to enable detailed diagnostics:

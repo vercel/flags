@@ -105,7 +105,7 @@ export default defineConfig({
 ```
 
 - Each source is a directory `src/flags/sources/<source>` with `catalog.ts`,
-  `provider.ts` and `context.ts`. By convention, the main source of the
+  `provider.ts` and an optional `context.ts`. By convention, the main source of the
   application is `src/flags/sources/self`. Use `src/flags`, since SvelteKit
   type-checks `src` only.
 - The plugin generates `.flags/<source>.ts` one time for `vite build`, and

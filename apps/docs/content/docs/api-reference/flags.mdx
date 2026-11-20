@@ -676,8 +676,8 @@ export const config = defineConfig({
 Types for the files of [code generation](/docs/flags/code-generation) in
 `flags/sources/<source>/`. By convention, the main source of an app is
 `self`: the folder `flags/sources/self/` with `catalog.ts`, `provider.ts`
-(default export: the OpenFeature provider) and `context.ts` (default export:
-`getEvaluationContext(request, input)`). The code generation writes
+(default export: the OpenFeature provider) and an optional `context.ts`
+(default export: `getEvaluationContext(request, input)`). The code generation writes
 `.flags/self.ts`, and your code imports from `flags:self`.
 
 - `CatalogLoader`: the default export of `catalog.ts`.

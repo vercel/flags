@@ -61,7 +61,7 @@ const [sale, flow] = await evaluate([summerSale, checkout]);
 `'use flags'` at the top of `flags.ts` is optional. It marks a module that exports only flags, so that Flags Explorer can find them (see [Flags manifest](/docs/tooling/flags-manifest)). That is why the source has its own module.
 
 <Callout type="info">
-  With the file system API, you do not write this module. The folder `flags/sources/self` has a `provider.ts`, a `context.ts` and a `catalog.ts`, and the code generation writes `.flags/self.ts` with the same `defineSource` and `bindFlag` calls. See [Code generation](/docs/flags/code-generation).
+  With the file system API, you do not write this module. The folder `flags/sources/self` has a `provider.ts`, a `catalog.ts` and an optional `context.ts`, and the code generation writes `.flags/self.ts` with the same `defineSource` and `bindFlag` calls. See [Code generation](/docs/flags/code-generation).
 </Callout>
 
 ## Sources

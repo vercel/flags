@@ -42,7 +42,7 @@ See [Inline flags](/docs/flags/inline-flags).
 
 A flag of a source gets its value from a flag management system, such as Vercel Flags or any other system with an OpenFeature provider. A source connects flags to that provider, and creates the evaluation context for it. By convention, the main source of an application is `self`.
 
-In Next.js, SvelteKit, Nuxt and TanStack Start, you describe the source with three files in `flags/sources/self`, and import its flags from `flags:self`:
+In Next.js, SvelteKit, Nuxt and TanStack Start, you describe the source with two files in `flags/sources/self` (`provider.ts` and `catalog.ts`, and an optional `context.ts`), and import its flags from `flags:self`:
 
 ```ts title="flags/sources/self/provider.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
