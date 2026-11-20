@@ -334,15 +334,14 @@ When using a third-party provider alongside Vercel Flags, combine their data wit
 ```ts
 // src/hooks.server.ts
 import { createHandle } from 'flags/sveltekit';
-import { FLAGS_SECRET } from '$env/static/private';
 import * as flags from '$lib/flags';
 
-export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+export const handle = createHandle({ flags });
 ```
 
 ## FLAGS_SECRET
 
-Required for precompute and Flags Explorer. Vercel Flags activation creates a value per environment. Preserve existing values; do not rotate them during ordinary SDK setup. A missing local value does not mean the remote value is missing: check the target environment first, then follow [Pull environment variables](#pull-environment-variables) for Development.
+Optional on Vercel with `flags` 4.5.0 or later: Flags Explorer, overrides and precompute work without it when the project exposes the system environment variables. Still needed outside Vercel, for a prebuilt deployment (`vercel build` and `vercel deploy --prebuilt`), for precompute codes that must be valid in another deployment, and for `encryptOverrides` in tests. Vercel Flags activation creates a value per environment. Preserve existing values; do not rotate them during ordinary SDK setup. A missing local value does not mean the remote value is missing: check the target environment first, then follow [Pull environment variables](#pull-environment-variables) for Development.
 
 Only generate a secret for an environment where it is absent. Use 32 cryptographically random bytes, base64-encoded, with a distinct value per environment. Mark Preview and Production values Sensitive. Send generated values directly to storage, such as stdin for `vercel env add`; do not print them to terminal output, logs, or chat, or embed them in command arguments.
 

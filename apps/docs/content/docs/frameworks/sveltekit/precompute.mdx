@@ -7,8 +7,8 @@ description: Using the precompute pattern in SvelteKit
 This page shows how to implement the precompute pattern in Next.js to keep pages static, even when multiple feature flags are used on a single page, or even when feature flags are used across multiple pages.
 Ensure you've read about the general precompute concept to understand the pattern and benefits:
 
-<CopyPrompt text="Implement precomputed feature flags in my SvelteKit app. Add `FLAGS_SECRET`, group the relevant `flags/sveltekit` declarations, add server-side precompute logic, use SvelteKit `reroute` for client navigations, use Vercel Routing Middleware for full page requests, update the `[code]` route to read precomputed values, configure prerendering or ISR for variants, and run the relevant checks when finished.">
-  Implement precomputed feature flags in my SvelteKit app. Add `FLAGS_SECRET`, group the relevant `flags/sveltekit` declarations, add server-side precompute logic, use SvelteKit `reroute` for client navigations, use Vercel Routing Middleware for full page requests, update the `[code]` route to read precomputed values, configure prerendering or ISR for variants, and run the relevant checks when finished.
+<CopyPrompt text="Implement precomputed feature flags in my SvelteKit app. Group the relevant `flags/sveltekit` declarations, add server-side precompute logic, use SvelteKit `reroute` for client navigations, use Vercel Routing Middleware for full page requests, update the `[code]` route to read precomputed values, configure prerendering or ISR for variants, and run the relevant checks when finished.">
+  Implement precomputed feature flags in my SvelteKit app. Group the relevant `flags/sveltekit` declarations, add server-side precompute logic, use SvelteKit `reroute` for client navigations, use Vercel Routing Middleware for full page requests, update the `[code]` route to read precomputed values, configure prerendering or ISR for variants, and run the relevant checks when finished.
 </CopyPrompt>
 
 <LearnMore href="/principles/precompute" icon="arrow">
@@ -276,6 +276,22 @@ export async function entries() {
 export const load: PageServerLoad = async ({ params }) => {
   // ...
 };
+```
+
+<Callout type="warn">
+  A build cache that restores the output of another deployment reuses its codes, and they are not valid in the new deployment. This affects Turborepo, which Vercel runs with Remote Cache, because `VERCEL_DEPLOYMENT_KEY` is not part of the hash of a task. Add it to the `env` of the build task, as shown below, or set a `FLAGS_PRECOMPUTE_SECRET`.
+
+  For the same reason, do not cache the result of `generatePermutations`.
+</Callout>
+
+```json title="turbo.json"
+{
+  "tasks": {
+    "build": {
+      "env": ["VERCEL_DEPLOYMENT_KEY"]
+    }
+  }
+}
 ```
 
 ## Next steps

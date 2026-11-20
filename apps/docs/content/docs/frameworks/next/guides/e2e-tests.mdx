@@ -12,7 +12,7 @@ Overrides work with any provider connected through the Flags SDK.
 
 ## Before you start
 
-Use your application's existing `FLAGS_SECRET`, the secret that the Flags SDK uses for Flags Explorer overrides.
+Use your application's `FLAGS_SECRET`, the secret that the Flags SDK uses to read encrypted overrides. Flags Explorer works without a `FLAGS_SECRET` on Vercel, but `encryptOverrides` in your tests needs one. If your project on Vercel has no secret, follow this guide and then [create the overrides without a `FLAGS_SECRET`](#test-without-a-flags_secret).
 
 The Playwright configuration below loads the application's environment files. The application and tests use the same secret to read and create overrides.
 
@@ -192,6 +192,194 @@ Overrides support boolean, string, and numeric values, as well as arrays and obj
 For pages that use precomputed flag values, set overrides before the request that computes those values. Check the page content to confirm that the application used the expected flag values.
 
 The override cookie applies to requests on the configured hostname. Services that evaluate flags directly through a provider need their own test setup.
+
+## Test without a `FLAGS_SECRET`
+
+On Vercel, the Flags SDK also accepts overrides that Vercel signs, so the tests need no shared secret. A signed token is valid for one project and one environment, and it goes into the same `vercel-flag-overrides` cookie.
+
+There are two ways to get a signed token:
+
+| Approach | Use it when | Trade-off |
+| --- | --- | --- |
+| [The application signs](#let-the-application-sign-the-overrides) | The tests run against a deployment with Deployment Protection, or against a local server | Adds a route to the application |
+| [The tests call the Vercel API](#call-the-vercel-api-from-the-tests) | You can't or don't want to add a route | The tests need a Vercel access token |
+
+The application verifies a signed token for its own project, so the project must expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables). For a local server, run `vercel env pull` first.
+
+Both approaches replace the `encryptOverrides()` call of the fixture with a `getOverridesToken()` function. Signing is rate limited for each team, so the fixture requests one token for each set of overrides and reuses it:
+
+```ts title="tests/fixtures.ts"
+import { test as base } from '@playwright/test';
+import type { FlagOverridesType } from 'flags';
+import { getOverridesToken } from './overrides-token';
+
+type FlagFixtures = {
+  setFlagOverrides: (values: FlagOverridesType) => Promise<void>;
+};
+
+const tokens = new Map<string, Promise<string>>();
+
+function getOverridesTokenOnce(values: FlagOverridesType, baseURL: string) {
+  const key = JSON.stringify(values);
+  let token = tokens.get(key);
+  if (!token) {
+    token = getOverridesToken(values, baseURL);
+    // A failed request, e.g. by the rate limit, is not reused
+    token.catch(() => tokens.delete(key));
+    tokens.set(key, token);
+  }
+  return token;
+}
+
+export const test = base.extend<FlagFixtures>({
+  setFlagOverrides: async ({ context, baseURL }, use) => {
+    if (!baseURL) {
+      throw new Error('Set baseURL in the Playwright configuration.');
+    }
+
+    const target = new URL(baseURL);
+
+    await use(async (values) => {
+      await context.addCookies([
+        {
+          name: 'vercel-flag-overrides',
+          value: await getOverridesTokenOnce(values, baseURL),
+          domain: target.hostname,
+          path: '/',
+          httpOnly: true,
+          secure: target.protocol === 'https:',
+          sameSite: 'Lax',
+        },
+      ]);
+    });
+  },
+});
+
+export { expect } from '@playwright/test';
+```
+
+The fixture reuses a token for the whole test run, and a signed token expires after one hour by default. For a longer test run, set a `ttl` of up to one day in seconds: `signOverrides(overrides, { ttl })` in the route, or `ttl` in the body of the request to the Vercel API.
+
+### Let the application sign the overrides
+
+Add a route that signs the overrides with [`signOverrides()`](/docs/api-reference/core/core#signoverrides). It uses the OIDC token of the deployment, or the `VERCEL_OIDC_TOKEN` of `vercel env pull` locally, so there is no secret to manage:
+
+```ts title="app/api/internal/flag-overrides/route.ts#next"
+import { signOverrides } from 'flags';
+
+function isLocal() {
+  const environment = process.env.VERCEL_ENV;
+  return !environment || environment === 'development';
+}
+
+export async function POST(request: Request) {
+  // Off unless you enable it for the environment under test.
+  const enabled = process.env.FLAG_OVERRIDES_ROUTE === 'enabled';
+
+  // A deployment only answers on its own URL, never on a public domain.
+  const deploymentHost = process.env.VERCEL_URL;
+  const allowed = deploymentHost
+    ? request.headers.get('x-forwarded-host') === deploymentHost
+    : isLocal();
+
+  if (!enabled || !allowed) {
+    return new Response('Not found', { status: 404 });
+  }
+
+  const { overrides } = await request.json();
+  const token = await signOverrides(overrides);
+
+  return Response.json({ token }, { headers: { 'cache-control': 'no-store' } });
+}
+```
+
+<Callout type="warn">
+  Whoever reaches this route can override the flags of the deployment. The route only answers on the deployment URL (`VERCEL_URL`), which [Deployment Protection](https://vercel.com/docs/deployment-protection) guards. Without Deployment Protection, call the Vercel API from the tests instead.
+</Callout>
+
+The route is off by default. Set the environment variable `FLAG_OVERRIDES_ROUTE` to `enabled` only for the environments you test against, e.g. Preview and Development, and leave it unset for Production.
+
+Request the token from the application under test. Set `BASE_URL` to the deployment URL, not to a branch or custom domain:
+
+```ts title="tests/overrides-token.ts"
+import type { FlagOverridesType } from 'flags';
+
+export async function getOverridesToken(
+  overrides: FlagOverridesType,
+  baseURL: string,
+): Promise<string> {
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+
+  const response = await fetch(new URL('/api/internal/flag-overrides', baseURL), {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(bypassSecret ? { 'x-vercel-protection-bypass': bypassSecret } : {}),
+    },
+    body: JSON.stringify({ overrides }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`The application did not sign the overrides (HTTP ${response.status}).`);
+  }
+
+  const { token } = (await response.json()) as { token: string };
+  return token;
+}
+```
+
+### Call the Vercel API from the tests
+
+The tests can also ask Vercel for the token, without a change to the application. Create a [Vercel access token](https://vercel.com/docs/rest-api#creating-an-access-token) for an account that can read the project, and provide these variables to the tests:
+
+| Variable | Value |
+| --- | --- |
+| `VERCEL_TOKEN` | The access token |
+| `VERCEL_PROJECT_ID` | The ID or name of the project under test |
+| `VERCEL_TEAM_ID` | The ID of the team that owns the project |
+| `VERCEL_TARGET_ENV` | The environment under test: `production`, `preview`, `development`, or the slug of a custom environment |
+
+```ts title="tests/overrides-token.ts"
+import type { FlagOverridesType } from 'flags';
+
+export async function getOverridesToken(
+  overrides: FlagOverridesType,
+): Promise<string> {
+  const { VERCEL_TOKEN, VERCEL_PROJECT_ID, VERCEL_TEAM_ID, VERCEL_TARGET_ENV } =
+    process.env;
+
+  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID || !VERCEL_TARGET_ENV) {
+    throw new Error(
+      'Set VERCEL_TOKEN, VERCEL_PROJECT_ID and VERCEL_TARGET_ENV to sign flag overrides.',
+    );
+  }
+
+  const url = new URL(
+    `https://api.vercel.com/v1/projects/${encodeURIComponent(VERCEL_PROJECT_ID)}/feature-flags/overrides/sign`,
+  );
+  if (VERCEL_TEAM_ID) {
+    url.searchParams.set('teamId', VERCEL_TEAM_ID);
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${VERCEL_TOKEN}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ overrides, environment: VERCEL_TARGET_ENV }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Vercel did not sign the overrides (HTTP ${response.status}).`);
+  }
+
+  const { token } = (await response.json()) as { token: string };
+  return token;
+}
+```
+
+The `environment` must be the one of the application under test, because the application ignores a token for another environment. To change the lifetime, add a `ttl` in seconds to the request body.
 
 ## Next steps
 
