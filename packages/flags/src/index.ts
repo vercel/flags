@@ -44,6 +44,7 @@ export {
   OverridesError,
   type OverridesOptions,
   type PlatformProject,
+  signOverrides,
   type VercelOverridesOptions,
 } from './overrides';
 export { registerFlags, registerSources } from './register';

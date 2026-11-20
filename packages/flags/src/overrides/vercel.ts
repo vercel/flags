@@ -45,7 +45,7 @@ export interface VercelOverridesOptions {
    */
   readonly project?: Partial<PlatformProject>;
   /**
-   * The maximum lifetime of a token in seconds. The default is 24 hours.
+   * The maximum lifetime of a token in seconds. The default is 7 days.
    */
   readonly maxLifetimeSeconds?: number;
   /**
@@ -90,7 +90,7 @@ export const SIGNED_OVERRIDES_POLICY = Object.freeze({
   audience: 'vercel:flag-overrides',
   purpose: 'flag-overrides',
   version: 1,
-  maxLifetimeSeconds: 24 * 60 * 60,
+  maxLifetimeSeconds: 7 * 24 * 60 * 60,
   clockToleranceSeconds: 5,
   cooldownMs: 30_000,
   cacheMaxAgeMs: 300_000,
@@ -236,29 +236,64 @@ function resolveProject(
 }
 
 /**
+ * Reads the OIDC token of the host. On a deployment, Vercel adds it to each
+ * request as the header `x-vercel-oidc-token`. `vercel env pull` and a build
+ * have it as `VERCEL_OIDC_TOKEN`. The header comes first, as in
+ * `@vercel/oidc`.
+ *
+ * A visitor can not set the header: Vercel removes an `x-vercel-oidc-token`
+ * header from each incoming request, and adds only its own.
+ *
+ * @internal
+ */
+export function readOidcToken(): string | undefined {
+  try {
+    const context = Reflect.get(
+      globalThis,
+      Symbol.for('@vercel/request-context'),
+    )?.get?.();
+    const token: unknown = context?.headers?.['x-vercel-oidc-token'];
+    if (typeof token === 'string' && token) return token;
+  } catch {
+    // No request context
+  }
+  return process.env.VERCEL_OIDC_TOKEN || undefined;
+}
+
+type OidcClaims = {
+  readonly projectId?: string;
+  readonly environment?: string;
+  readonly teamId?: string;
+};
+
+// Decoded one time for each token, not for each call
+let decoded:
+  | { readonly token: string; readonly claims: OidcClaims }
+  | undefined;
+
+/**
  * Reads the project from the claims of the OIDC token of Vercel. The token is
  * only decoded, not verified: it is part of the configuration of the host,
  * like the other environment variables, not an input of a request. Its
  * claims stay correct also when it is expired.
  */
-function readOidcClaims():
-  | {
-      readonly projectId?: string;
-      readonly environment?: string;
-      readonly teamId?: string;
-    }
-  | undefined {
-  const token = process.env.VERCEL_OIDC_TOKEN;
+function readOidcClaims(): OidcClaims | undefined {
+  const token = readOidcToken();
   if (!token) return undefined;
+  if (decoded?.token === token) return decoded.claims;
   try {
     const claims = decodeJwt(token);
     const text = (value: unknown) =>
       typeof value === 'string' && value ? value : undefined;
-    return {
-      projectId: text(claims.project_id),
-      environment: text(claims.environment),
-      teamId: text(claims.owner_id),
+    decoded = {
+      token,
+      claims: {
+        projectId: text(claims.project_id),
+        environment: text(claims.environment),
+        teamId: text(claims.owner_id),
+      },
     };
+    return decoded.claims;
   } catch {
     return undefined;
   }
@@ -307,17 +342,72 @@ function hasValidClaims(
 
 function isInScope(scope: unknown, project: PlatformProject): boolean {
   if (!isPlainObject(scope)) return false;
-  const allowed = ['teamId', 'projectId', 'environments'];
+  // An unknown key could limit the scope in a way which the SDK can not check
+  const allowed = ['teamId', 'projectIds', 'environments'];
   if (Object.keys(scope).some((key) => !allowed.includes(key))) return false;
-  const { environments } = scope;
+  const { environments, projectIds } = scope;
   return (
-    scope.projectId === project.projectId &&
+    // All projects of a microfrontends group share the cookie
+    Array.isArray(projectIds) &&
+    projectIds.includes(project.projectId) &&
     (project.teamId === undefined || scope.teamId === project.teamId) &&
     Array.isArray(environments) &&
     environments.length > 0 &&
     environments.every((env) => typeof env === 'string' && env.length > 0) &&
     environments.includes(project.environment)
   );
+}
+
+const SIGN_TIMEOUT_MS = 10_000;
+
+/**
+ * Signs overrides with Vercel, so that a host without a `FLAGS_SECRET`
+ * accepts them in the override cookie, e.g. for end-to-end tests.
+ *
+ * Vercel signs them for the project and the environment of the OIDC token of
+ * the host: of the request on a deployment, or the `VERCEL_OIDC_TOKEN` of
+ * `vercel env pull`. The caller decides who gets the token: with it, a
+ * visitor overrides the flags of that project and environment.
+ *
+ * @param overrides - The overrides, by flag key.
+ * @param options.ttl - The lifetime of the token in seconds. The default is
+ * 1 hour, and Vercel allows at most 1 day.
+ * @returns The signed token (a JWS), for the cookie `flag-overrides`.
+ * @throws If the host has no OIDC token or project, or Vercel does not sign
+ * the overrides.
+ */
+export async function signOverrides(
+  overrides: FlagOverrides,
+  options: { readonly ttl?: number } = {},
+): Promise<string> {
+  const oidcToken = readOidcToken();
+  const { projectId } = findPlatformProject();
+  if (!oidcToken || !projectId) {
+    throw new Error(
+      'flags: Could not sign the overrides, because the OIDC token or the project of this host is not known. Run `vercel env pull` for local development. On Vercel, call it during a request.',
+    );
+  }
+  // Read the global fetch at each call, because a framework can replace it
+  const response = await globalThis.fetch(
+    `https://api.vercel.com/v1/projects/${encodeURIComponent(projectId)}/feature-flags/overrides/sign`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${oidcToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ overrides, ttl: options.ttl }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(SIGN_TIMEOUT_MS),
+    },
+  );
+  const data: unknown = await response.json().catch(() => undefined);
+  if (!response.ok || !isPlainObject(data) || typeof data.token !== 'string') {
+    throw new Error(
+      `flags: Could not sign the overrides: status ${response.status}.`,
+    );
+  }
+  return data.token;
 }
 
 class UnknownKeyError extends Error {}

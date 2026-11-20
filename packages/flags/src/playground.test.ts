@@ -636,7 +636,7 @@ describe('9. Overrides', () => {
     const token = await new SignJWT({
       ver: 1,
       pur: 'flag-overrides',
-      scope: { projectId: 'prj_shop', environments: ['preview'] },
+      scope: { projectIds: ['prj_shop'], environments: ['preview'] },
       overrides: { 'new-checkout': true },
     })
       .setProtectedHeader({ alg: 'ES256', kid: 'key-1' })
@@ -683,7 +683,7 @@ describe('9. Overrides', () => {
       pur: 'flag-overrides',
       scope: {
         teamId: 'team_acme',
-        projectId: 'prj_shop',
+        projectIds: ['prj_shop'],
         environments: ['development'],
       },
       overrides: { 'new-checkout': true },

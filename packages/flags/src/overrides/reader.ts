@@ -9,6 +9,7 @@ import type { JsonValue, OverrideRejection } from './types';
 import {
   createVercelVerifier,
   OverridesError,
+  readOidcToken,
   type VercelOverridesOptions,
   type VerifyResult,
 } from './vercel';
@@ -85,11 +86,11 @@ export function createOverridesReader(
 
   function vercel(): Verify | undefined {
     if (explicitVercel || options.vercel !== undefined) return explicitVercel;
-    // The default: on Vercel or with a linked project (VERCEL_OIDC_TOKEN of
-    // vercel env pull), unless a shared secret is used
-    const hasSecret = explicitKey !== undefined || !!process.env.FLAGS_SECRET;
-    const onVercel = !!process.env.VERCEL || !!process.env.VERCEL_OIDC_TOKEN;
-    if (!onVercel || hasSecret) return undefined;
+    // The default: on Vercel or with a linked project (the OIDC token of the
+    // request, or the VERCEL_OIDC_TOKEN of vercel env pull). Also with a
+    // shared secret: the Vercel Toolbar can create both kinds of tokens.
+    const onVercel = !!process.env.VERCEL || !!readOidcToken();
+    if (!onVercel) return undefined;
     defaultVercel ??= createVercelVerifier();
     return defaultVercel;
   }

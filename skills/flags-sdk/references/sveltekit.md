@@ -42,13 +42,29 @@ One-time setup that makes the toolbar aware of your flags:
 ```ts
 // src/hooks.server.ts
 import { createHandle } from 'flags/sveltekit';
-import { FLAGS_SECRET } from '$env/static/private';
 import * as flags from '$lib/flags';
 
-export const handle = createHandle({ secret: FLAGS_SECRET, flags });
+export const handle = createHandle({ flags });
 ```
 
 When composing with other handlers via SvelteKit's `sequence`, `createHandle` must come first.
+
+### Declare the environment variables (SvelteKit 3)
+
+SvelteKit 3 only exposes the environment variables that `src/env.ts` declares. Declare the ones the Flags SDK reads, so it sees the variables of `.env.local` (from `vercel env pull`) in local development and local builds:
+
+```ts
+// src/env.ts
+import { defineEnvVars } from '@sveltejs/kit/env';
+
+const optional = (value: string | undefined) => value;
+
+export const variables = defineEnvVars({
+  VERCEL_OIDC_TOKEN: { schema: optional },
+});
+```
+
+Keep the schema optional. Declare `FLAGS_SECRET` and `FLAGS_PRECOMPUTE_SECRET` the same way if the project has them. SvelteKit 2 needs no declaration.
 
 ### Use the flag
 

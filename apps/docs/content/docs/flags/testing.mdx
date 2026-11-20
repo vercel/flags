@@ -236,9 +236,49 @@ test('shows the express checkout', async ({ context, page, baseURL }) => {
 
 - An override must fit the type of the flag. Otherwise, it is ignored with a warning.
 - An override skips the provider, so the test does not depend on the rules in your flag management system.
-- With `FLAGS_SECRET` set, the SDK accepts only cookies of this secret. See [Overrides](/docs/tooling/overrides).
+- See [Overrides](/docs/tooling/overrides) for the cookies that the SDK accepts.
 
 The same cookie works in a unit test, with `runtime.onInvoke` and a `Request` with the header `cookie: flag-overrides=<token>`, if `FLAGS_SECRET` is set in the test process.
+
+## End-to-end tests without a `FLAGS_SECRET`
+
+On Vercel, and locally after `vercel env pull`, the SDK also accepts override cookies that Vercel signs. So a test against a Vercel project needs no shared secret. [`signOverrides`](/docs/api-reference/flags#signoverrides) asks Vercel for such a token. It uses the OIDC token of the host, so the token is valid only for the project and the environment of that host.
+
+Let the application sign the overrides, in a route that only your tests can reach:
+
+```ts title="app/api/internal/flag-overrides/route.ts"
+import { signOverrides } from 'flags';
+
+export async function POST(request: Request) {
+  // Off by default. Turn it on only for the environments you test against.
+  if (process.env.FLAG_OVERRIDES_ROUTE !== 'enabled') {
+    return new Response(null, { status: 404 });
+  }
+  const overrides = await request.json();
+  return Response.json({ token: await signOverrides(overrides) });
+}
+```
+
+```ts title="e2e/checkout.spec.ts"
+import { expect, test } from '@playwright/test';
+
+test('shows the express checkout', async ({ context, page, request, baseURL }) => {
+  const response = await request.post('/api/internal/flag-overrides', {
+    data: { checkout: 'express' },
+  });
+  const { token } = await response.json();
+  await context.addCookies([
+    { name: 'flag-overrides', value: token, url: baseURL! },
+  ]);
+
+  await page.goto('/checkout');
+  await expect(page.getByText('Express checkout')).toBeVisible();
+});
+```
+
+- Whoever reaches the route can override the flags of the deployment. Turn it on only for Preview and Development, and protect the deployment with [Deployment Protection](https://vercel.com/docs/deployment-protection).
+- Vercel limits how often a team can sign. Request one token for each set of overrides, and reuse it for the test run.
+- A token expires after one hour by default. For a longer test run, pass a `ttl` of up to one day in seconds: `signOverrides(overrides, { ttl: 4 * 60 * 60 })`.
 
 ## Type tests
 

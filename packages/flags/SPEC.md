@@ -749,11 +749,12 @@ overrides: encrypted with a shared secret, or signed by Vercel.
 
 The SDK needs no configuration:
 
-1. If `FLAGS_SECRET` is set, the SDK accepts only the tokens of this shared
+1. If `FLAGS_SECRET` is set, the SDK accepts the tokens of this shared
    secret. This is the behavior of v4.
-2. Otherwise, on Vercel or locally with a linked project (when `VERCEL` or
-   `VERCEL_OIDC_TOKEN` is set), the SDK accepts only the tokens that Vercel
-   signs for this project. Locally, Flags Explorer signs them, and
+2. On Vercel or locally with a linked project (when `VERCEL` is set, or the
+   host has an OIDC token: from the request, or `VERCEL_OIDC_TOKEN`), the
+   SDK accepts the tokens that Vercel signs for this project, also with a
+   `FLAGS_SECRET`. Locally, Flags Explorer signs them, and
    `vercel env pull` writes `VERCEL_OIDC_TOKEN`.
 3. Otherwise, the SDK accepts no tokens.
 
@@ -768,10 +769,9 @@ from the token.
   no tokens of the shared secret. An explicit secret that is not valid throws
   at once.
 - `vercel`: `true` accepts signed tokens with the defaults, an object sets
-  options, and `false` accepts no signed tokens. With an explicit value, the
-  rule "only the shared secret if `FLAGS_SECRET` is set" does not apply, so
-  both methods can be active, e.g. during a migration. Explicit options are
-  validated at once.
+  options, and `false` accepts no signed tokens. With an explicit value,
+  signed tokens are accepted also outside of Vercel, e.g. with a test
+  issuer. Explicit options are validated at once.
 
 The format of the token only selects the method: three parts for a signed
 token (JWS), five parts for an encrypted token (JWE). Each method verifies the
@@ -826,20 +826,30 @@ secret and no configuration.
   - The SDK decodes `VERCEL_OIDC_TOKEN`, but does not verify it. The token is
     part of the configuration of the host, like the other environment
     variables, not an input of a request. Its claims stay correct also when
-    it is expired. In Vercel Functions, the token can be missing from the
-    environment, but there `VERCEL_PROJECT_ID` is set.
+    it is expired. On a deployment, Vercel adds the token to each request as
+    the header `x-vercel-oidc-token`, and the SDK reads it from the request
+    context first. A visitor can not set this header: Vercel removes it from
+    each incoming request.
   - If the project ID or the environment is not known, the SDK throws an
     `OverridesError`.
 - The token is a JWT with these claims: `iss` (the issuer), `aud`
   (`vercel:flag-overrides`), `ver` (`1`), `pur` (`flag-overrides`), `iat`,
-  `exp`, `scope` (`projectId`, `environments`, optional `teamId`) and
-  `overrides`.
+  `exp`, `scope` (`projectIds`, `environments`, optional `teamId`) and
+  `overrides`. `projectIds` is a list, so that all projects of a
+  microfrontends group share one cookie. A scope with a single `projectId`,
+  or with another key, is rejected.
 - The SDK verifies: the algorithm (ES256 or RS512), the signature, the
   issuer, the audience, the time (5 seconds of tolerance), the lifetime, the
   version, the purpose, and that the overrides are JSON. The scope must have
   the project and the environment of the host, and its team if known.
-- The lifetime (`exp - iat`) is at most 24 hours. `maxLifetimeSeconds`
-  changes it, e.g. to one week.
+- The lifetime (`exp - iat`) is at most 7 days. `maxLifetimeSeconds`
+  changes it.
+- On Vercel, the SDK accepts signed tokens also when `FLAGS_SECRET` is set:
+  the Vercel Toolbar can create both kinds of tokens.
+- `signOverrides(overrides, { ttl })` asks Vercel to sign overrides with the
+  OIDC token of the host, e.g. for end-to-end tests without a
+  `FLAGS_SECRET`. The token is for the project and the environment of the
+  OIDC token.
 - The header must have a `kid`. A key or a URL in the header (`jwk`, `jku`,
   `x5u`) is never used, and the token is rejected.
 - The payload can be read by anyone. It is signed, but not encrypted. Do not

@@ -503,6 +503,26 @@ import { encryptOverrides } from 'flags';
 const token = await encryptOverrides({ 'summer-sale': true });
 ```
 
+### `signOverrides`
+
+```ts
+function signOverrides(
+  overrides: FlagOverrides,
+  options?: { ttl?: number }, // seconds. Default: 1 hour, at most 1 day
+): Promise<string>;
+```
+
+Asks Vercel to sign an override token, so that an application without a
+`FLAGS_SECRET` accepts it, e.g. for end-to-end tests. Vercel signs it for the
+project and the environment of the OIDC token of the host: the token of the
+request on a deployment, or the `VERCEL_OIDC_TOKEN` of `vercel env pull`. Set
+the result as the value of the cookie `flag-overrides`.
+
+Throws when the host has no OIDC token or no project, or when Vercel does not
+sign the overrides. Whoever gets the token can override the flags of that
+project and environment, so decide carefully who gets it. See
+[End-to-end tests without a `FLAGS_SECRET`](/docs/flags/testing#end-to-end-tests-without-a-flags_secret).
+
 ### `decryptOverrides`
 
 ```ts
@@ -524,7 +544,7 @@ The `overrides` option of the configuration.
 
 `VercelOverridesOptions` has `issuer`, `jwksUrl`, `project`
 (`Partial<PlatformProject>`: `projectId`, `environment`, `teamId?`),
-`maxLifetimeSeconds` (default 24 hours), `cacheMaxAgeMs` (default 5 minutes),
+`maxLifetimeSeconds` (default 7 days), `cacheMaxAgeMs` (default 5 minutes),
 `cooldownMs` (default 30 seconds), `allowInsecureLocalhost` and `fetch`. The
 defaults fit Flags Explorer on Vercel.
 

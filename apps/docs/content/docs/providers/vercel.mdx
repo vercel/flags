@@ -237,6 +237,8 @@ export const newSearch = bindFlag({ key: 'new-search', source: blog });
 - **Project Connections** let a project read the flags of another project of the same team, with its own OIDC token. Grant access in the **Flags → Connections** page of the source project. See [Project Connections](https://vercel.com/docs/flags/vercel-flags/project-connections).
 - **SDK keys** work for any project. The SDK key must belong to the project in `project`: the SDK cannot check this, because OpenFeature providers do not report their project.
 
+Set up the connection before your app evaluates the connected flags, and check it with `vercel flags connections list --project <source>`. Connections need `@vercel/flags-core` 1.11.0 or later, and `vercel flags connections` needs Vercel CLI 63.0.0 or later. If the first request of the client gets a 401 because the access is missing, the client does not retry: the flags return their `defaultValue` until the process restarts. So if a connected flag returns only its default value, check the connection, then restart your development server or redeploy.
+
 ## The catalog
 
 `@vercel/flags-core/catalog` reads the flags of your project from the stream of Vercel Flags. It uses the SDK key in the `FLAGS` environment variable if you set one, and the OIDC token of the project otherwise, as `VercelProvider` does. A build takes the current flags once. A development server stays connected, and the SDK writes the generated code again after each change in Vercel.

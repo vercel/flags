@@ -312,7 +312,8 @@ An override sets the value of a flag for one browser, with a cookie.
   base64url).
 - The payload MUST have the claim `pur` with the value `overrides`, the
   claim `o` with an object of flag keys and values, and MAY have `exp`.
-- If `FLAGS_SECRET` is set, the runtime MUST accept only this kind.
+- If `FLAGS_SECRET` is set, the runtime MUST accept this kind. On the
+  platform, it MUST also accept the kind of 10.2.
 
 ### 10.2 Signed by the platform
 
@@ -326,14 +327,15 @@ An override sets the value of a flag for one browser, with a cookie.
 - The payload MUST have `aud` with `vercel:flag-overrides`, `pur` with
   `flag-overrides`, `ver` with `1`, the integers `iat` and `exp`, the
   object `overrides` with flag keys and values, and the object `scope`
-  with `projectId`, `environments` (a non-empty list) and an optional
-  `teamId`.
+  with `projectIds` (a non-empty list, e.g. all projects of a
+  microfrontends group), `environments` (a non-empty list) and an
+  optional `teamId`.
 - The runtime reads `flag-overrides` before `vercel-flag-overrides`. Thus,
   a tool which writes one of them SHOULD delete the other.
-- The runtime MUST reject a token of an other platform project, of an
-  environment which is not in `environments`, with a scope which has
-  other fields, or with a lifetime (`exp` minus `iat`) longer than the
-  maximum (24 hours by default).
+- The runtime MUST reject a token whose `projectIds` do not contain the
+  platform project, of an environment which is not in `environments`, with
+  a scope which has other fields (also a single `projectId`), or with a
+  lifetime (`exp` minus `iat`) longer than the maximum (7 days by default).
 
 ### 10.3 Both kinds
 
