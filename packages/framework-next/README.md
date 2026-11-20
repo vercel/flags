@@ -119,8 +119,8 @@ configuration of all flags. None of them has a source:
 
 - `flags/hooks.ts`: the OpenFeature hooks for all flags, as the default
   export.
-- `flags/overrides.ts`: the options of the overrides, as the default export.
-- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`, or
+  `overrides`: which override cookies the SDK accepts.
 
 `withFlags` loads them automatically. In development, a change applies without a restart.
 
@@ -379,7 +379,6 @@ export { GET } from '@flags-sdk/next/manifest';
 | ----------------- | ------------------------- | -------------------------- |
 | `flags/framework` | `@flags-sdk/next/binding` | no framework binding       |
 | `flags/hooks`     | `flags/hooks.ts`          | no hooks                   |
-| `flags/overrides` | `flags/overrides.ts`      | no options                 |
 | `flags/settings`  | `flags/config.json`       | the default settings       |
 
 `withFlags` sets the alias of a file only if the file exists.
@@ -404,8 +403,8 @@ Before the first evaluation, the SDK calls `setupFramework` of
    such errors to `unstable_rethrow`, so that they reach Next.js unchanged.
    It also throws a `FlagInCacheError` again, so that a flag in a cache
    scope does not return its default value.
-3. **The config source.** It imports `flags/hooks`, `flags/overrides` and
-   `flags/settings`, and builds the configuration with `configFromModules`
+3. **The config source.** It imports `flags/hooks` and `flags/settings`,
+   and builds the configuration with `configFromModules`
    of `flags/config`. In
    production, the SDK loads the configuration one time. In development, it
    loads it again before each evaluation, so a change of a configuration
@@ -435,8 +434,8 @@ the configuration, the providers and their clients.
   the route with its own error.
 - **No `'use client'`.** The SDK uses `node:async_hooks`, and it is only for
   the server.
-- **Use a default export.** `flags/hooks.ts` and `flags/overrides.ts` must
-  export their value as the default export.
+- **Use a default export.** `flags/hooks.ts` must export its value as the
+  default export.
 - **In production, a change of a configuration file needs a new build**, as
   with each other source file. Only development loads it again without a
   restart.

@@ -197,8 +197,7 @@ You do not need configuration files. Your flags name their source, e.g. `self`, 
 Add a file to the folder `flags`, next to `flags/sources`, when you want settings for all flags:
 
 - `flags/hooks.ts`: OpenFeature hooks for every flag, as the default export.
-- `flags/overrides.ts`: the options of overrides, as the default export.
-- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`, or `overrides`: which override cookies the SDK accepts.
 
 The Vite plugin loads the files automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
 

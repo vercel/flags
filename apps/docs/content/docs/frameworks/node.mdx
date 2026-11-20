@@ -76,7 +76,7 @@ A plain Node.js HTTP server:
 
 ```ts title="src/server.ts"
 import { createServer } from 'node:http';
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { betaBanner, enableSale } from './flags.ts';
 
 // Initialize the providers before the first request
@@ -136,18 +136,18 @@ The SDK identifies a request by its `headers` object, so pass the same object fo
 
 You do not need configuration files. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without them.
 
-Add `flags/hooks.ts` when you want OpenFeature hooks for every flag, or `flags/overrides.ts` for the options of overrides. Each file has a default export. Without a framework plugin, nothing loads the files. Call `runtime.configure` at startup, before the first evaluation:
+Add `flags/hooks.ts` when you want OpenFeature hooks for every flag. It has a default export. Add `flags/config.json` for the static settings, e.g. the setting `overrides`. Without a framework plugin, nothing loads the files. Call `runtime.configure` at startup, before the first evaluation:
 
 ```ts title="src/server.ts"
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
+import settings from './flags/config.json' with { type: 'json' };
 import hooks from './flags/hooks.ts';
-import overrides from './flags/overrides.ts';
 
-runtime.configure({ hooks, overrides });
+runtime.configure({ hooks, settings });
 await runtime.onInit();
 ```
 
-The files look the same as in every framework. The static settings are in `flags/config.json`. `flags sync` and `flags watch` read it. If you need the settings at runtime, read the file yourself and pass them as `settings`. See [Configuration](/docs/flags/configuration).
+The files look the same as in every framework. `flags sync` and `flags watch` also read `flags/config.json`. The SDK reads it at runtime only when you pass it as `settings`. See [Configuration](/docs/flags/configuration).
 
 ## Scripts and background jobs
 

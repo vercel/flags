@@ -16,12 +16,17 @@ Node.js 20.19, or 22.12 or newer. The package runs only on the server.
 
 | Entry point      | For                                                                                  |
 | ---------------- | ------------------------------------------------------------------------------------ |
-| `flags`          | Applications: everything on this page                                                 |
+| `flags`          | Applications: define, evaluate and track flags, the errors, the reasons and the types |
+| `flags/runtime`  | Framework bindings, and applications without a framework plugin (Express, Hono, plain Node.js): [Runtime](#runtime), [Configuration](#configuration) and [Registration](#registration) |
+| `flags/explorer` | The protocol of Flags Explorer, e.g. for tests and CI: [Overrides](#overrides) and [Flag values](#flag-values) |
 | `flags/tooling`  | Framework packages and build tools. See [flags/tooling](/docs/api-reference/flags-tooling) |
 | `flags/manifest` | Tools that create or read the flags manifest. See [flags/manifest](/docs/api-reference/flags-tooling#flagsmanifest) |
 
-The subpaths `flags/framework`, `flags/hooks`, `flags/overrides` and
-`flags/settings` are replaced by bundler aliases of framework packages. The
+All copies of the package share one runtime, so `flags` and `flags/runtime`
+use the same runtime.
+
+The subpaths `flags/framework`, `flags/hooks` and `flags/settings` are
+replaced by bundler aliases of framework packages. The
 framework binding imports `flags/config`, which loads them. Your application
 does not import these subpaths. See
 [Custom frameworks](/docs/frameworks/custom-frameworks).
@@ -302,7 +307,7 @@ package. Framework packages call its methods for you. Without a framework,
 call them yourself. See [Without a framework](/docs/frameworks/node).
 
 ```ts
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 ```
 
 ### `runtime.configure`
@@ -311,12 +316,14 @@ import { runtime } from 'flags';
 runtime.configure(config: Config): void;
 ```
 
-Sets the configuration, e.g. `{ hooks }` with the default export of
-`flags/hooks.ts`. A framework binding calls it with the files of the folder
-`flags`. A new call replaces the configuration. Throws before it changes anything if
-the configuration is not valid, e.g. when `hooks` is not an array, when
-`settings` has an unknown key, or when it has a `defaultSource` (an option of earlier versions: give each flag its
-source).
+Sets the configuration, e.g. `{ hooks, settings }` with the default export of
+`flags/hooks.ts` and the content of `flags/config.json`. A framework binding
+calls it with the files of the folder `flags`. A new call replaces the
+configuration. Throws before it changes anything if the configuration is not
+valid, e.g. when `hooks` is not an array, when `settings` has an unknown key,
+when it has `overrides` (a setting of `flags/config.json`: use
+`settings: { overrides }`), or when it has a `defaultSource` (an option of
+earlier versions: give each flag its source).
 
 ### `runtime.onInit`
 
@@ -407,17 +414,17 @@ A framework binding calls these in its `setupFramework` function. See
 | Method                            | Description                                                                                                                                                                              |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `runtime.setGetRequest(fn)`       | `fn: GetRequest \| undefined`. Returns the current request as `FlagsRequestInit`, or `undefined` outside of a request. For frameworks without a wrapping middleware. The `headers` object must stay the same during one request, because the SDK identifies the request by it. Inside `onInvoke`, it is not called. |
-| `runtime.setLoadConfig(fn)`       | `fn: LoadConfig \| undefined`. Returns the configuration. Called once in production, and before each evaluation in development, so changes of `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` apply without a restart. Bindings pass `loadConfig` of `flags/config`. |
+| `runtime.setLoadConfig(fn)`       | `fn: LoadConfig \| undefined`. Returns the configuration. Called once in production, and before each evaluation in development, so changes of `flags/hooks.ts` and `flags/config.json` apply without a restart. Bindings pass `loadConfig` of `flags/config`. |
 | `runtime.setRethrow(fn)`          | `fn: ((error: unknown) => void) \| undefined`. Throws an error again if the framework must receive it, e.g. a redirect. The runtime calls it before it uses a `defaultValue`.          |
 
-Related types:
+Related types, also exports of `flags/runtime`:
 
 - `Runtime`: the type of `runtime`. There is no constructor.
 - `GetRequest`: `() => FlagsRequestInit | undefined | Promise<FlagsRequestInit | undefined>`.
 - `LoadConfig`: `() => Config | undefined | Promise<Config | undefined>`.
 - `SetupFramework`: `(runtime: Runtime) => void | Promise<void>`, the export
   `setupFramework` of a framework binding.
-- `FlagDefinition`: what the runtime needs to evaluate a flag (`key`, `type`,
+- `FlagDefinition` (an export of `flags`): what the runtime needs to evaluate a flag (`key`, `type`,
   `defaultValue`, `options`, `description`, `source`, `getEvaluationContext`,
   `decide`). Every `Flag` is a `FlagDefinition`. `evaluate`, `FlagValues`
   and precompute accept it.
@@ -426,7 +433,8 @@ Related types:
 
 Each part of the configuration has its own optional file in the folder
 `flags`. Framework plugins load them. See
-[Configuration](/docs/flags/configuration).
+[Configuration](/docs/flags/configuration). The types are exports of
+`flags/runtime`.
 
 ### `Config`
 
@@ -435,7 +443,6 @@ The type of the configuration, the argument of `runtime.configure`.
 | Field       | Type               | File                 | Description                                                                                          |
 | ----------- | ------------------ | -------------------- | ---------------------------------------------------------------------------------------------------- |
 | `hooks`     | `readonly Hook[]`  | `flags/hooks.ts`     | OpenFeature hooks for all flags. They run first, and also for overrides, with the reason `OVERRIDE`. |
-| `overrides` | `OverridesOptions` | `flags/overrides.ts` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions).                 |
 | `settings`  | `Settings`         | `flags/config.json`  | The static settings, which the plugins and the CLI also read. See [`Settings`](#settings).          |
 
 The configuration has no sources: each flag of a provider is declared on its
@@ -465,17 +472,35 @@ allowed. The JSON Schema is at
 | Setting      | Type      | Description                                                                                                                        |
 | ------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `selfSource` | `boolean` | The [default source `self`](/docs/flags/code-generation#the-default-source-self). `false` turns it off. The default is `true`. |
+| `overrides`  | `OverridesOptions` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions). |
 
 ```json title="flags/config.json"
 {
   "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
-  "selfSource": false
+  "selfSource": false,
+  "overrides": { "vercel": { "maxLifetimeSeconds": 2592000 } }
 }
 ```
 
+### `OverridesOptions`
+
+The setting `overrides` of `flags/config.json`. All options are JSON.
+
+| Option   | Type                                | Description                                                                                                                                                                  |
+| -------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `secret` | `false`                             | Accepts no tokens of the shared secret. The secret itself comes only from the environment variable `FLAGS_SECRET`. A string is an error.                                      |
+| `vercel` | `boolean \| VercelOverridesOptions` | Accepts tokens signed by Vercel. The default is `true` on Vercel or with a linked project (`VERCEL` or the OIDC token set), also with a shared secret, otherwise `false`. |
+
+`VercelOverridesOptions` has `issuer`, `jwksUrl`, `project`
+(`Partial<PlatformProject>`: `projectId`, `environment`, `teamId?`),
+`maxLifetimeSeconds` (default 7 days), `cacheMaxAgeMs` (default 5 minutes),
+`cooldownMs` (default 30 seconds) and `allowInsecureLocalhost`. The defaults
+fit Flags Explorer on Vercel. To accept no overrides, set
+`"overrides": { "secret": false, "vercel": false }`.
+
 ## Registration
 
-Flags register their sources when they are defined, and framework plugins
+Import these functions from `flags/runtime`. Flags register their sources when they are defined, and framework plugins
 register `'use flags'` modules for you. Call these functions only for
 sources whose flags are defined later, e.g. in lazily imported modules, or
 without a plugin.
@@ -491,6 +516,7 @@ Registers the sources of all flags that a module exports, so that
 flag.
 
 ```ts
+import { registerFlags } from 'flags/runtime';
 import * as flags from './flags';
 
 registerFlags(flags);
@@ -508,7 +534,9 @@ Registers sources directly. Throws for a value not returned by
 ## Overrides
 
 Overrides let Flags Explorer set the value of a flag for your browser, with the
-cookie `flag-overrides`. See [Overrides](/docs/tooling/overrides).
+cookie `flag-overrides`. See [Overrides](/docs/tooling/overrides). Import these
+functions and types from `flags/explorer`. Which tokens the SDK accepts is the
+setting [`overrides`](#overridesoptions) of `flags/config.json`.
 
 ### `encryptOverrides`
 
@@ -526,7 +554,7 @@ Throws without a secret, or when the secret is not 32 random bytes encoded as
 base64url.
 
 ```ts
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 
 const token = await encryptOverrides({ summerSale: true });
 ```
@@ -561,21 +589,6 @@ Decrypts a token of `encryptOverrides`. Returns `undefined` for a token that
 is not valid, e.g. expired or encrypted with another secret. Throws without a
 secret.
 
-### `OverridesOptions`
-
-The `overrides` option of the configuration: the default export of `flags/overrides.ts`.
-
-| Option   | Type                                | Description                                                                                                                                                                  |
-| -------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `secret` | `string \| false`                   | The shared secret for encrypted tokens. The default is `FLAGS_SECRET`. `false` accepts no such tokens.                                                                       |
-| `vercel` | `boolean \| VercelOverridesOptions` | Accepts tokens signed by Vercel. The default is `true` on Vercel or with a linked project (`VERCEL` or the OIDC token set), also with a shared secret, otherwise `false`. |
-
-`VercelOverridesOptions` has `issuer`, `jwksUrl`, `project`
-(`Partial<PlatformProject>`: `projectId`, `environment`, `teamId?`),
-`maxLifetimeSeconds` (default 7 days), `cacheMaxAgeMs` (default 5 minutes),
-`cooldownMs` (default 30 seconds), `allowInsecureLocalhost` and `fetch`. The
-defaults fit Flags Explorer on Vercel.
-
 Related types:
 
 - `FlagOverrides`: `Record<string, JsonValue>`.
@@ -583,12 +596,11 @@ Related types:
   `'wrong-scope'`. The SDK logs the reason, never the token.
 - `OverridesError`: thrown when the SDK can not verify signed tokens at all,
   e.g. because the public keys can not be loaded.
-- `PlatformProject`, `VercelOverridesOptions`: see above.
 
 ## Flag values
 
 Functions to put the values of flags into a page, for Flags Explorer and
-analytics. In Next.js, use [`FlagValues`](/docs/api-reference/next#flagvalues).
+analytics. Import them from `flags/explorer`. In Next.js, use [`FlagValues`](/docs/api-reference/next#flagvalues).
 
 ### `encryptFlagValues`
 
@@ -629,7 +641,7 @@ Returns the content of the flag values element, with each `<` escaped. Pass a
 token of `encryptFlagValues`, or plain values (visible to every visitor).
 
 ```ts
-import { encryptFlagValues, serializeFlagValues } from 'flags';
+import { encryptFlagValues, serializeFlagValues } from 'flags/explorer';
 
 const content = serializeFlagValues(await encryptFlagValues(values));
 // <script type="application/json" data-flag-values>{content}</script>

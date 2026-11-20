@@ -25,7 +25,7 @@ The code of the application imports only `flags`.
 
 ```ts
 // The module behind flags/framework
-import type { SetupFramework } from 'flags';
+import type { SetupFramework } from 'flags/runtime';
 
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);
@@ -35,11 +35,7 @@ export const setupFramework: SetupFramework = (runtime) => {
     // the aliases of the plugin apply
     const { configFromModules } = await import('flags/config');
     return configFromModules(
-      await Promise.all([
-        import('flags/hooks'),
-        import('flags/overrides'),
-        import('flags/settings'),
-      ]),
+      await Promise.all([import('flags/hooks'), import('flags/settings')]),
     );
   });
 };
@@ -61,17 +57,16 @@ The runtime calls `setupFramework` one time, before the first evaluation.
   `connection()` of Next.js. In a cache scope of the framework, e.g.
   `'use cache'`, the request source throws, and the rethrow throws this
   error again (see [STANDARD.md](./STANDARD.md), section 5.4).
-- **The config source** imports `flags/hooks`, `flags/overrides` and
-  `flags/settings` itself, and gives them to `configFromModules` of
-  `flags/config`, which returns the `Config` object
-  `{ hooks?, overrides?, settings? }`. The binding is bundled, so the
+- **The config source** imports `flags/hooks` and `flags/settings` itself,
+  and gives them to `configFromModules` of `flags/config`, which returns
+  the `Config` object `{ hooks?, settings? }`. The binding is bundled, so the
   aliases apply to its imports, also when the framework loads `flags` from
   `node_modules`. `configFromModules` returns the same object while the
   files do not change. In development, the runtime calls
   it before each evaluation, so a change applies without a restart.
 - **No static import of `flags`.** `flags` imports the binding, so the
-  binding imports only types from `flags`. It gets the runtime as an
-  argument.
+  binding imports only types from `flags` and `flags/runtime`. It gets the
+  runtime as an argument.
 
 ## The replaceable modules
 
@@ -84,11 +79,10 @@ Vite, `externals.inline` of Nitro).
 | ----------------- | ---------------- | --------------------------------------- |
 | `flags/framework` | no binding       | the framework binding                   |
 | `flags/hooks`     | no hooks         | `flags/hooks.ts` of the application     |
-| `flags/overrides` | no options       | `flags/overrides.ts` of the application |
 | `flags/settings`  | the defaults     | `flags/config.json` of the application  |
 
-`flags/config` is not replaced. It is the loader of the SDK, and imports the
-other three modules. Find the files with `findConfigModules(dir)` of
+`flags/config` is not replaced. It is the loader of the SDK. The binding
+imports the other two modules and gives them to it. Find the files with `findConfigModules(dir)` of
 `flags/tooling`. It returns the path of each file which exists, by its
 module, e.g. `{ 'flags/hooks': '/app/flags/hooks.ts' }`. Set an alias only
 for a file which exists. Without the file, `flags` ships an empty default
@@ -137,7 +131,7 @@ it, with the functions of `flags/tooling`:
 
 1. **Registration.** `hasUseFlagsDirective(source)` finds the directive,
    and `addSelfRegistration(source, fileName)` appends a call of
-   `registerFlags` with the exports of the module.
+   `registerFlags` of `flags/runtime` with the exports of the module.
 2. **The manifest.** `findFlagsModules(projectDir)` finds the modules. Import
    them with the bundler of the framework, and give their exports to
    `createManifest` of `flags/manifest`:
@@ -186,7 +180,7 @@ plugin: the application runs `flags sync` and imports `./.flags/self.ts`.
 | Function                 | Purpose                                                       |
 | ------------------------ | ------------------------------------------------------------- |
 | `registerFramework`      | Registers a binding without the alias                         |
-| `findConfigModules`      | Finds `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` in a directory or its `src` |
+| `findConfigModules`      | Finds `flags/hooks.ts` and `flags/config.json` in a directory or its `src` |
 | `readSettings`           | Reads and checks `flags/config.json`, or returns the defaults |
 | `hasUseFlagsDirective`   | Finds the `'use flags'` directive in the directive prologue   |
 | `addSelfRegistration`    | Appends the registration to a `'use flags'` module            |

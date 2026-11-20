@@ -10,7 +10,7 @@ The framework packages of the Flags SDK use only the public API of `flags`. You 
 If your framework has a middleware that wraps each request handler, you may not need a binding at all. Call `runtime.onInvoke` in a middleware, as [Hono](/docs/frameworks/hono) and [Express](/docs/frameworks/express) do:
 
 ```ts
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 
 app.use((request, next) => runtime.onInvoke(request, next));
 ```
@@ -29,7 +29,7 @@ Application code still imports only `flags`.
 
 ```ts title="binding.ts"
 // The module behind flags/framework
-import type { SetupFramework } from 'flags';
+import type { SetupFramework } from 'flags/runtime';
 
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);
@@ -39,11 +39,7 @@ export const setupFramework: SetupFramework = (runtime) => {
     // the aliases of the plugin apply
     const { configFromModules } = await import('flags/config');
     return configFromModules(
-      await Promise.all([
-        import('flags/hooks'),
-        import('flags/overrides'),
-        import('flags/settings'),
-      ]),
+      await Promise.all([import('flags/hooks'), import('flags/settings')]),
     );
   });
 };
@@ -53,8 +49,8 @@ The runtime calls `setupFramework` one time, before the first evaluation.
 
 - **`setGetRequest`** sets the request source. It returns the current request as a `FlagsRequestInit` (`headers`, `cookies` and `url`, each optional), or `undefined` outside of a request. The SDK identifies a request by its `headers` object, so return the same object during one request.
 - **`setRethrow`** sets a function that throws an error again if the framework must receive it, for example a redirect. The runtime calls it before it uses the default value of a flag. Use the check functions of the framework, such as `isRedirect()`.
-- **`setLoadConfig`** imports `flags/hooks`, `flags/overrides` and `flags/settings`, which the plugin points to `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`, and builds the configuration with `configFromModules` of `flags/config`. The imports are in the binding, because the binding is bundled, so the aliases apply. In development, the runtime calls it before each evaluation, so a change applies without a restart.
-- **No static import of `flags`.** `flags` imports the binding, so the binding imports only types from `flags`. It gets the runtime as an argument.
+- **`setLoadConfig`** imports `flags/hooks` and `flags/settings`, which the plugin points to `flags/hooks.ts` and `flags/config.json`, and builds the configuration with `configFromModules` of `flags/config`. The imports are in the binding, because the binding is bundled, so the aliases apply. In development, the runtime calls it before each evaluation, so a change applies without a restart.
+- **No static import of `flags`.** `flags` imports the binding, so the binding imports only types from `flags` and `flags/runtime`. It gets the runtime as an argument.
 
 ### Rendering and caches
 
@@ -68,7 +64,6 @@ The SDK imports these modules through its own package name. A bundler alias repl
 | --- | --- | --- |
 | `flags/framework` | no binding | the framework binding |
 | `flags/hooks` | no hooks | `flags/hooks.ts` of the application |
-| `flags/overrides` | the default override options | `flags/overrides.ts` of the application |
 | `flags/settings` | the default settings | `flags/config.json` of the application |
 
 - **Set an alias only for a file that exists.** `findConfigModules(dir)` of `flags/tooling` returns the files, e.g. `{ 'flags/hooks': '/app/flags/hooks.ts' }`. Without a file, `flags` gives an empty default module.
@@ -128,7 +123,7 @@ All three are optional. Call them from the lifecycle hooks of the framework, if 
 
 A module that starts with the `'use flags'` directive exports only flags, and importing it has no side effects. A build plugin does two things with it, with the functions of `flags/tooling`:
 
-1. **Registration.** `hasUseFlagsDirective(source)` finds the directive, and `addSelfRegistration(source, fileName)` appends a call of `registerFlags` with the exports of the module.
+1. **Registration.** `hasUseFlagsDirective(source)` finds the directive, and `addSelfRegistration(source, fileName)` appends a call of `registerFlags` of `flags/runtime` with the exports of the module.
 2. **The manifest.** `findFlagsModules(projectDir)` finds the modules. Import them with the bundler of the framework, and pass their exports to `createManifest` of `flags/manifest`:
    - in development, serve it at `/.well-known/flags/manifest.json` with `cache-control: no-store`, and only in development;
    - after a build, write it as `flags-manifest.json` (`MANIFEST_FILE`) into the server output. `writeManifestFromBuild` imports the built modules in a child process.
@@ -138,7 +133,7 @@ Call `runtime.prepare()` before `createManifest`. It sets up the binding and loa
 | Function of `flags/tooling` | Purpose |
 | --- | --- |
 | `registerFramework` | Registers a binding without the alias |
-| `findConfigModules` | Finds `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` in a directory or its `src` |
+| `findConfigModules` | Finds `flags/hooks.ts` and `flags/config.json` in a directory or its `src` |
 | `readSettings` | Reads and checks `flags/config.json` |
 | `hasUseFlagsDirective` | Finds the `'use flags'` directive in the directive prologue |
 | `addSelfRegistration` | Appends the registration to a `'use flags'` module |

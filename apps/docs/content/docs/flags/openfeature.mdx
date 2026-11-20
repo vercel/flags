@@ -137,7 +137,7 @@ The error codes are those of OpenFeature, e.g. `FLAG_NOT_FOUND`, `TYPE_MISMATCH`
 The runtime listens to the events of each provider (`provider.events`), from its first initialization until the shutdown:
 
 ```ts title="startup.ts"
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 
 runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', (details) => {
   console.log(`${details.providerName} changed: ${details.flagsChanged}`);

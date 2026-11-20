@@ -145,20 +145,20 @@ export default defineConfig({
 Close the providers after the tests, e.g. in a setup file of `test.setupFiles` in `vitest.config.ts`:
 
 ```ts title="test/setup.ts"
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { afterAll } from 'vitest';
 
 afterAll(() => runtime.onShutdown());
 ```
 
-Unless your test runner uses the plugin of your framework, `flags/hooks.ts` and `flags/overrides.ts` are not loaded in tests. To test with them, import them and call `runtime.configure({ hooks, overrides })` in the setup file. You can also test a flag through overrides (see below).
+Unless your test runner uses the plugin of your framework, `flags/hooks.ts` and `flags/config.json` are not loaded in tests. To test with them, import them and call `runtime.configure({ hooks, settings })` in the setup file. You can also test a flag through overrides (see below).
 
 ## Simulate a request
 
 In a test, there is no request, so `request` is `undefined` in `getEvaluationContext` and in `decide`. To test code that reads cookies or headers, run it in `runtime.onInvoke` with a Web `Request`. This example uses the mock of `./flags/self` above, where `newDashboard` is on for the user `alice`:
 
 ```ts title="flags.test.ts"
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { expect, it } from 'vitest';
 import { newDashboard } from './flags';
 
@@ -175,7 +175,7 @@ it('turns on the new dashboard for alice', async () => {
 This also tests [inline flags](/docs/flags/inline-flags):
 
 ```ts title="flags.test.ts"
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { expect, it } from 'vitest';
 import { betaBanner } from './flags';
 
@@ -220,7 +220,7 @@ export default defineConfig({
 
 ```ts title="e2e/checkout.spec.ts"
 import { expect, test } from '@playwright/test';
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 import { FLAGS_SECRET } from '../playwright.config';
 
 test('shows the express checkout', async ({ context, page, baseURL }) => {
@@ -247,7 +247,7 @@ On Vercel, and locally after `vercel env pull`, the SDK also accepts override co
 Let the application sign the overrides, in a route that only your tests can reach:
 
 ```ts title="app/api/internal/flag-overrides/route.ts"
-import { signOverrides } from 'flags';
+import { signOverrides } from 'flags/explorer';
 
 export async function POST(request: Request) {
   // Off by default. Turn it on only for the environments you test against.

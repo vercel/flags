@@ -20,7 +20,7 @@ The code of the application imports only `flags`. It never imports the binding.
 
 ```ts title="binding.ts"
 // The module behind flags/framework
-import type { SetupFramework } from 'flags';
+import type { SetupFramework } from 'flags/runtime';
 
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);
@@ -30,11 +30,7 @@ export const setupFramework: SetupFramework = (runtime) => {
     // the aliases of the plugin apply
     const { configFromModules } = await import('flags/config');
     return configFromModules(
-      await Promise.all([
-        import('flags/hooks'),
-        import('flags/overrides'),
-        import('flags/settings'),
-      ]),
+      await Promise.all([import('flags/hooks'), import('flags/settings')]),
     );
   });
 };
@@ -75,12 +71,11 @@ The SDK imports these modules through the name of its own package. A build plugi
 
 | `flags/framework` | No binding | The framework binding |
 | `flags/hooks` | No hooks | `flags/hooks.ts` of the application |
-| `flags/overrides` | The default override options | `flags/overrides.ts` of the application |
 | `flags/settings` | The default settings | `flags/config.json` of the application |
 
-- A plugin MUST set the alias of `flags/hooks`, `flags/overrides` or `flags/settings` only if the file exists. `findConfigModules` of `flags/tooling` returns the files. Without a file, the empty default module of `flags` applies.
-- A plugin MUST NOT replace `flags/config`. It is a module of the SDK: its `configFromModules` builds the `Config` object `{ hooks?, overrides?, settings? }` from the three modules.
-- The binding MUST import `flags/hooks`, `flags/overrides` and `flags/settings` itself, not through a module of `flags`. The binding is bundled, so the aliases apply to its imports, also when the framework loads `flags` from `node_modules`, e.g. Nitro in `nuxt dev`.
+- A plugin MUST set the alias of `flags/hooks` or `flags/settings` only if the file exists. `findConfigModules` of `flags/tooling` returns the files. Without a file, the empty default module of `flags` applies.
+- A plugin MUST NOT replace `flags/config`. It is a module of the SDK: its `configFromModules` builds the `Config` object `{ hooks?, settings? }` from the two modules.
+- The binding MUST import `flags/hooks` and `flags/settings` itself, not through a module of `flags`. The binding is bundled, so the aliases apply to its imports, also when the framework loads `flags` from `node_modules`, e.g. Nitro in `nuxt dev`.
 
 ### Replacement
 
@@ -113,7 +108,7 @@ export const setupFramework: SetupFramework; // (runtime: Runtime) => void | Pro
 ```
 
 - The runtime calls `setupFramework` once, before the first evaluation. If it fails, the evaluation fails, and the runtime calls it again at the next evaluation.
-- The binding MUST NOT import the package `flags` at runtime, because `flags` imports the binding. It MAY import its types. It receives the runtime as its argument.
+- The binding MUST NOT import the package `flags` at runtime, also not `flags/runtime`, because `flags` imports the binding. It MAY import their types. It receives the runtime as its argument.
 - The binding MUST use only the public API of `flags`.
 
 ### The request source
@@ -122,7 +117,8 @@ A framework which can give the current request at any time, but has no middlewar
 
 ```ts
 import { isHttpError, isRedirect } from '@sveltejs/kit';
-import type { FlagsRequestInit, SetupFramework } from 'flags';
+import type { FlagsRequestInit } from 'flags';
+import type { SetupFramework } from 'flags/runtime';
 import { getRequestEvent } from '$app/server';
 
 export const setupFramework: SetupFramework = (runtime) => {
@@ -133,11 +129,7 @@ export const setupFramework: SetupFramework = (runtime) => {
     // the aliases of the plugin apply
     const { configFromModules } = await import('flags/config');
     return configFromModules(
-      await Promise.all([
-        import('flags/hooks'),
-        import('flags/overrides'),
-        import('flags/settings'),
-      ]),
+      await Promise.all([import('flags/hooks'), import('flags/settings')]),
     );
   });
 };
@@ -170,7 +162,7 @@ This is the binding of `@flags-sdk/sveltekit`.
 A framework with a middleware which wraps the handler MAY call `runtime.onInvoke(request, next)` instead of a request source. Inside `onInvoke`, the runtime does not call the source. This is the middleware of `@flags-sdk/hono`:
 
 ```ts
-import { type Config, runtime } from 'flags';
+import { type Config, runtime } from 'flags/runtime';
 import type { MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
@@ -187,7 +179,7 @@ export function flags(options: { config?: Config } = {}): MiddlewareHandler {
 }
 ```
 
-A middleware is not behind the alias `flags/framework`, so it may import `flags`.
+A middleware is not behind the alias `flags/framework`, so it may import `flags` and `flags/runtime`.
 
 ### Signals
 
@@ -204,7 +196,7 @@ A framework with a bundler MUST call `runtime.setLoadConfig(source)`, where `sou
 
 - `configFromModules` returns the same object as long as the files do not change. The runtime configures again only for a new object.
 
-- In development, the runtime calls the source before each evaluation, and applies a new configuration. A change of `flags/hooks.ts`, `flags/overrides.ts` or `flags/config.json` applies without a restart.
+- In development, the runtime calls the source before each evaluation, and applies a new configuration. A change of `flags/hooks.ts` or `flags/config.json` applies without a restart.
 - In production, it calls the source once.
 
 ### Rendering and caches
@@ -222,8 +214,7 @@ The configuration of the application has one optional file for each part, in the
 | File | Part of `Config` | Read by |
 | --- | --- | --- |
 | `flags/hooks.ts` (or `.mts`, `.js`, `.mjs`) | `hooks`: the default export | The application |
-| `flags/overrides.ts` (or `.mts`, `.js`, `.mjs`) | `overrides`: the default export | The application |
-| `flags/config.json` | `settings` | The plugins, the CLI and the application |
+| `flags/config.json` | `settings`, e.g. `selfSource` and `overrides` (which override tokens the SDK accepts) | The plugins, the CLI and the application |
 
 - The code files MUST give their value as the default export.
 - `flags/config.json` is static. An implementation MUST reject an unknown key or a value of the wrong type. The key `$schema` is allowed. `readSettings` of `flags/tooling` reads and checks it.
@@ -258,7 +249,7 @@ Functions for bindings and build plugins:
 | Function | Purpose |
 | --- | --- |
 | `registerFramework` | Registers a binding without the alias |
-| `findConfigModules` | Finds `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` in a directory or its `src` |
+| `findConfigModules` | Finds `flags/hooks.ts` and `flags/config.json` in a directory or its `src` |
 | `readSettings` | Reads and checks `flags/config.json` |
 | `hasUseFlagsDirective` | Finds the `'use flags'` directive in the directive prologue |
 | `addSelfRegistration` | Appends the registration to a `'use flags'` module |

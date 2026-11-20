@@ -88,7 +88,7 @@ This keeps a page consistent, also when a rule of the flag changes during the re
 The framework package tells the SDK which request is running (see [Frameworks](/docs/frameworks)). Without a framework, wrap the handling of each request in `runtime.onInvoke`:
 
 ```ts title="server.ts"
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 
 // request is a Web Request, or { headers?, cookies?, url? }
 const response = await runtime.onInvoke(request, () => handle(request));

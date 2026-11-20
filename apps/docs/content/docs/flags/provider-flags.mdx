@@ -186,7 +186,7 @@ You do not start or stop providers yourself:
 If a source has no flag yet when the process starts, e.g. because its flags are defined in a module that is imported later, register it so that the SDK initializes it early:
 
 ```ts title="startup.ts"
-import { registerSources } from 'flags';
+import { registerSources } from 'flags/runtime';
 import { reports } from './reports-source';
 
 registerSources([reports]);

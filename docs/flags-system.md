@@ -74,9 +74,9 @@ must be safe to load in build tooling. Catalog code must not import runtime
 providers or request APIs. Credentials must never enter generated files.
 
 Manual connections need neither this directory layout nor `catalog.ts`. The
-global runtime policy has optional files in the folder `flags`: `hooks.ts` (hooks),
-`overrides.ts` (override options) and `config.json` (static settings, e.g.
-`selfSource`).
+global runtime policy has optional files in the folder `flags`: `hooks.ts` (hooks)
+and `config.json` (static settings, e.g. `selfSource` and the override
+options `overrides`).
 
 ## Types and evaluation context
 

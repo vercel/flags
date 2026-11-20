@@ -60,8 +60,8 @@ configuration of all flags. None of them has a source:
 
 - `flags/hooks.ts`: the OpenFeature hooks for all flags, as the default
   export.
-- `flags/overrides.ts`: the options of the overrides, as the default export.
-- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`, or
+  `overrides`: which override cookies the SDK accepts.
 
 The Vite plugin loads them automatically. In development, a change applies without a restart.
 

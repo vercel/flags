@@ -244,7 +244,7 @@ flags manifest [dir] [--out <file>]
 - `"selfSource": false` in `flags/config.json`: no default source `self`.
 - `flags watch`: generates, then again after each catalog change. With `-- command`, it starts the command after the first generation, e.g. `flags watch -- node --watch server.ts`. A change of a source file needs a restart.
 - Both load the `.env` files of the directory first, for the catalog credentials: `.env.<mode>.local`, `.env.local`, `.env.<mode>`, `.env`. An earlier file wins, and a variable that is already set wins over all files. The mode is `production` with `--production` or `NODE_ENV=production`, otherwise `development`.
-- `flags manifest`: for apps without a framework plugin. Imports the `'use flags'` modules of `dir` with Node.js, loads `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` if found, and writes `flags-manifest.json` (or `--out`). Run it on the `tsc` output or on TypeScript sources with Node.js 22.18 or newer, e.g. `"postbuild": "flags manifest dist"`.
+- `flags manifest`: for apps without a framework plugin. Imports the `'use flags'` modules of `dir` with Node.js, loads `flags/hooks.ts` and `flags/config.json` if found, and writes `flags-manifest.json` (or `--out`). Run it on the `tsc` output or on TypeScript sources with Node.js 22.18 or newer, e.g. `"postbuild": "flags manifest dist"`.
 
 ## Default values
 

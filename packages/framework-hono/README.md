@@ -53,10 +53,10 @@ part of the configuration of all flags:
 
 - `flags/hooks.ts`: the OpenFeature hooks for all flags, as the default
   export.
-- `flags/overrides.ts`: the options of the overrides, as the default export.
-- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`, or
+  `overrides`: which override cookies the SDK accepts.
 
-Without a bundler, nothing loads the code files. Import them, and pass them
+Without a bundler, nothing loads the files. Import them, and pass them
 to the middleware:
 
 ```ts
@@ -69,15 +69,15 @@ export default hooks;
 ```
 
 ```ts
+import settings from './flags/config.json' with { type: 'json' };
 import hooks from './flags/hooks';
-import overrides from './flags/overrides';
 
-app.use(flags({ config: { hooks, overrides } }));
+app.use(flags({ config: { hooks, settings } }));
 ```
 
 `flags sync`, `flags watch` and `flags manifest` read `flags/config.json`.
-The middleware does not read it. If your code needs the settings, read the
-file yourself, and pass them as `settings`. See
+The middleware reads it only when you pass it as `settings`, e.g. for the
+setting `overrides`. See
 [Configuration](https://flags-sdk.dev/docs/flags/configuration).
 
 ## Sources and code generation
@@ -103,13 +103,13 @@ flags manifest [dir] [--out <file>]
 ```
 
 - It imports the modules which start with `'use flags'` in `dir` with
-  Node.js, and writes `flags-manifest.json`. It loads `flags/hooks.ts`,
-  `flags/overrides.ts` and `flags/config.json` if it finds them.
+  Node.js, and writes `flags-manifest.json`. It loads `flags/hooks.ts`
+  and `flags/config.json` if it finds them.
 - Run it on the source if Node.js can run it (TypeScript with type
   stripping, Node.js 22.18 or newer), or on the output of `tsc`, which
   keeps the directive. A bundled output loses the directive.
 - Without a bundler, nothing appends the self-registration. Call
-  `registerFlags` by hand if a module has plain flag objects with a
+  `registerFlags` of `flags/runtime` by hand if a module has plain flag objects with a
   source.
 
 ## License

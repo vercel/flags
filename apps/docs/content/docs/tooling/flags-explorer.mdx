@@ -103,10 +103,10 @@ The values are encrypted by default, so that visitors cannot read them:
 - **With `FLAGS_SECRET`**, they are encrypted with this secret, in the format of v4 of the SDK.
 - **Without `FLAGS_SECRET`**, they are encrypted with a public key of Vercel. Only Vercel can decrypt them.
 
-Other frameworks write the element with the functions of `flags`:
+Other frameworks write the element with the functions of `flags/explorer`:
 
 ```ts
-import { encryptFlagValues, serializeFlagValues } from 'flags';
+import { encryptFlagValues, serializeFlagValues } from 'flags/explorer';
 
 const content = serializeFlagValues(
   await encryptFlagValues({ summerSale: true, checkout: 'express' }),

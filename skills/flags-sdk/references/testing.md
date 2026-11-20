@@ -130,20 +130,20 @@ Close the providers after the tests:
 
 ```ts
 // test/setup.ts (in test.setupFiles)
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { afterAll } from 'vitest';
 
 afterAll(() => runtime.onShutdown());
 ```
 
-Without the framework plugin, the configuration files are not loaded in tests. If the tests need the hooks or the overrides options, call `runtime.configure({ hooks, overrides })` in the setup file, with the default exports of `flags/hooks.ts` and `flags/overrides.ts`.
+Without the framework plugin, the configuration files are not loaded in tests. If the tests need the hooks or the settings, e.g. `overrides`, call `runtime.configure({ hooks, settings })` in the setup file, with the default export of `flags/hooks.ts` and the content of `flags/config.json`.
 
 ## Simulate a request
 
 In a test, `request` is `undefined`. Run the code in `runtime.onInvoke` with a Web `Request`:
 
 ```ts
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { expect, it } from 'vitest';
 import { betaBanner } from './flags';
 
@@ -190,7 +190,7 @@ export default defineConfig({
 ```ts
 // e2e/checkout.spec.ts
 import { expect, test } from '@playwright/test';
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 import { FLAGS_SECRET } from '../playwright.config';
 
 test('shows the express checkout', async ({ context, page, baseURL }) => {
@@ -216,7 +216,7 @@ On Vercel, and locally after `vercel env pull`, the SDK accepts tokens that Verc
 
 ```ts
 // app/api/internal/flag-overrides/route.ts
-import { signOverrides } from 'flags';
+import { signOverrides } from 'flags/explorer';
 
 export async function POST(request: Request) {
   // Off by default. Turn it on only for the environments you test against.

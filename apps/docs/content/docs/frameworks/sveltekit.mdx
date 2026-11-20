@@ -168,8 +168,7 @@ You do not need configuration files. Your flags name their source, e.g. `self`, 
 Add a file to the folder `src/flags`, next to `src/flags/sources`, when you want settings for all flags:
 
 - `src/flags/hooks.ts`: OpenFeature hooks for every flag, as the default export.
-- `src/flags/overrides.ts`: the options of overrides, as the default export.
-- `src/flags/config.json`: the static settings, e.g. `"selfSource": false`.
+- `src/flags/config.json`: the static settings, e.g. `"selfSource": false`, or `overrides`: which override cookies the SDK accepts.
 
 The Vite plugin loads the files automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
 
@@ -215,7 +214,7 @@ Without extra code, a provider initializes on its first evaluation. To initializ
 
 ```ts title="src/hooks.server.ts"
 import type { ServerInit } from '@sveltejs/kit';
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 
 export const init: ServerInit = async () => {
   await runtime.onInit();
@@ -237,4 +236,4 @@ To show the values of a request in Flags Explorer, write the flag values element
 
 ## How it works
 
-`flags()` points the alias `flags/framework` to `@flags-sdk/sveltekit/binding`, `flags/hooks`, `flags/overrides` and `flags/settings` to your `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` (if they exist), and, by default, each `flags:<source>` to its module in `.flags`. It bundles `flags` and `@flags-sdk/sveltekit` into the server code (`ssr.noExternal`), because an alias only reaches the SDK when the bundler processes it. The binding gets the request with `getRequestEvent()` and recognizes signals with `isRedirect()` and `isHttpError()`. The plugin deduplicates `@sveltejs/kit`, so that the binding and your code use one copy. The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).
+`flags()` points the alias `flags/framework` to `@flags-sdk/sveltekit/binding`, `flags/hooks` and `flags/settings` to your `flags/hooks.ts` and `flags/config.json` (if they exist), and, by default, each `flags:<source>` to its module in `.flags`. It bundles `flags` and `@flags-sdk/sveltekit` into the server code (`ssr.noExternal`), because an alias only reaches the SDK when the bundler processes it. The binding gets the request with `getRequestEvent()` and recognizes signals with `isRedirect()` and `isHttpError()`. The plugin deduplicates `@sveltejs/kit`, so that the binding and your code use one copy. The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).

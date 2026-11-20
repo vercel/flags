@@ -8,7 +8,7 @@ description: >
   `import { ... } from 'flags:<source>'`, the default source `flags:self` of
   `@vercel/flags-core` (`"selfSource": false` in `flags/config.json`), code generation (`flags sync`, `flags watch`,
   `.flags/`, `flags/generated.d.ts`), `'use flags'` modules, `evaluate`, `runtime`,
-  `flags/hooks.ts`, `flags/overrides.ts`, `flags/config.json`, the framework packages (`withFlags` of `@flags-sdk/next/plugin`,
+  `flags/hooks.ts`, `flags/config.json`, `flags/runtime`, `flags/explorer`, the framework packages (`withFlags` of `@flags-sdk/next/plugin`,
   `@flags-sdk/sveltekit`, `@flags-sdk/nuxt`, `@flags-sdk/tanstack-start`, `@flags-sdk/hono`,
   `@flags-sdk/express`, `@flags-sdk/vite`), precompute (`@flags-sdk/next/precompute`),
   `FlagValues`, Flags Explorer and its manifest route, overrides, `FLAGS_SECRET`,
@@ -44,7 +44,7 @@ Run the CLI steps of this skill yourself. Do not leave them to the user as "next
 - **`defaultValue`** is returned when the evaluation fails, and the SDK logs one line. Without it, the call throws a `FlagEvaluationError`.
 - **One value per request.** Each flag is evaluated once per request and context. Call flags directly: `await summerSale()`. Calls of many flags in parallel share the work (one evaluation context per request, one provider call per flag). `evaluate([a, b, c])` gives no speed advantage. Use it only as a convenience for a list of flags.
 - **`'use flags'` modules.** A module that starts with `'use flags'` exports only flags. The framework plugins register these flags, and the flags manifest for Flags Explorer lists them. Generated modules have the directive already.
-- **The runtime** (`runtime` of `flags`) knows the current request, initializes each provider once, and closes it at shutdown. The framework package connects it to the request. Without a framework, call `runtime.onInvoke(request, next)` yourself.
+- **The runtime** (`runtime` of `flags/runtime`) knows the current request, initializes each provider once, and closes it at shutdown. The framework package connects it to the request. Without a framework, call `runtime.onInvoke(request, next)` yourself.
 - **App code imports only `flags`** (and `flags:<source>`). The framework packages are only for the setup, plus precompute and `FlagValues` in Next.js.
 
 ## Decide the setup
@@ -55,9 +55,8 @@ For other providers, put a source into a folder. The plugin generates `.flags/<s
 
 ```txt
 flags/                    # in the app root or in src/ (SvelteKit: always src/flags)
-  config.json             # optional: static settings, e.g. { "selfSource": false }
+  config.json             # optional: static settings, e.g. { "selfSource": false } or "overrides"
   hooks.ts                # optional: default export: the hooks for all flags (Hook[])
-  overrides.ts            # optional: default export: the override options (OverridesOptions)
   sources/
     self/
       provider.ts         # default export: an OpenFeature provider (optional for the default source self)
@@ -268,7 +267,7 @@ Precompute keeps pages static while flags vary per visitor. The proxy calls `pre
 - **An empty `flags:self` in CI.** Without credentials, the default catalog gives no flags and the SDK warns; the build does not fail, but the type check fails at the import of a flag. Pull the credentials (or set `FLAGS`), commit `flags/generated.d.ts`, or set `"selfSource": false` in `flags/config.json`. A custom `catalog.ts` fails the build instead.
 - **Webpack in Next.js.** `withFlags` supports Turbopack only. A webpack build throws.
 - **A standalone `bindFlag` or a `source` option.** They do not exist. Declare a provider flag on its source: `self.bindFlag('summerSale')`. The runtime has no default source, and the configuration files have no source option.
-- **No `flags/config.ts` and no `defineConfig`.** They do not exist. Put the hooks for all flags into the default export of `flags/hooks.ts`, the override options into the default export of `flags/overrides.ts`, and the static settings into `flags/config.json`. The SDK checks `flags/config.json` strictly: an unknown key or a wrong type is an error.
+- **No `flags/config.ts` and no `defineConfig`.** They do not exist. Put the hooks for all flags into the default export of `flags/hooks.ts`, and the static settings, also the override options (`"overrides"`), into `flags/config.json`. There is no code file for the override options. The secret comes only from `FLAGS_SECRET`. The SDK checks `flags/config.json` strictly: an unknown key or a wrong type is an error.
 - **Missing `type`.** A non-boolean flag without `type` is a type error, and a string value fails at runtime with `TYPE_MISMATCH`.
 - **Other exports in a `'use flags'` module.** Each export must be a flag. Export sources, helpers, types and precompute groups from other modules. An export that is not a flag makes the manifest fail.
 - **Side effects in a `'use flags'` module or `provider.ts`.** Tools import these modules to read the flags, e.g. when a build writes the manifest. Do not open connections at import. Some providers connect when you create them (LaunchDarkly, Split, CloudBees), and some throw without a key (the Flagsmith client): keep them in one module of their own, or create them lazily on `initialize()`. See [references/providers.md](references/providers.md#providers-that-connect-at-import).

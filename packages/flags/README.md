@@ -173,8 +173,8 @@ TL;DR:
 - A source connects the flags to your flag management system.
 - Your code defines flags and calls them.
 - Optional: the folder `flags` holds the configuration for all flags:
-  `flags/hooks.ts` (hooks), `flags/overrides.ts` (overrides) and
-  `flags/config.json` (static settings).
+  `flags/hooks.ts` (hooks) and `flags/config.json` (static settings, e.g.
+  the overrides).
 
 ## Flags
 
@@ -315,24 +315,32 @@ a cookie. The SDK accepts two kinds of cookies:
   accepts only these.
 
 ```ts
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 
 const cookie = await encryptOverrides({ summerSale: true }); // e.g. in a test
 ```
 
-To change which cookies the SDK accepts, export the options
-(`OverridesOptions`) from `flags/overrides.ts`. See
-[Configuration](https://flags-sdk.dev/docs/flags/configuration).
+To change which cookies the SDK accepts, set `overrides` in
+`flags/config.json`. The secret itself comes only from `FLAGS_SECRET`:
+
+```json
+{
+  "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
+  "overrides": { "vercel": { "maxLifetimeSeconds": 2592000 } }
+}
+```
+
+See [Configuration](https://flags-sdk.dev/docs/flags/configuration#overrides).
 
 ## Flag values in the page
 
 A page can contain the values of its flags, for Flags Explorer and for
 analytics. The framework packages write the element, e.g. `<FlagValues>`
 of `@flags-sdk/next/flag-values`. Other code uses the functions of
-`flags`:
+`flags/explorer`:
 
 ```ts
-import { encryptFlagValues, serializeFlagValues } from 'flags';
+import { encryptFlagValues, serializeFlagValues } from 'flags/explorer';
 
 const content = serializeFlagValues(await encryptFlagValues(values));
 // <script type="application/json" data-flag-values>${content}</script>
@@ -392,11 +400,11 @@ secrets.
 ## Without a framework
 
 ```ts
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
+import settings from './flags/config.json' with { type: 'json' };
 import hooks from './flags/hooks';
-import overrides from './flags/overrides';
 
-runtime.configure({ hooks, overrides });
+runtime.configure({ hooks, settings });
 await runtime.onInit(); // optional: initialize the providers at startup
 
 // For each request, e.g. in a middleware
@@ -411,7 +419,13 @@ await runtime.onInvoke(request, () => handle(request));
 
 ## The packages
 
-- **`flags`:** the runtime and the API for your application.
+- **`flags`:** the API for your application: define, evaluate and track
+  flags.
+- **`flags/runtime`:** the runtime, for framework bindings and for
+  applications without a framework plugin, e.g. Express, Hono or plain
+  Node.js. All copies of the package share one runtime.
+- **`flags/explorer`:** the protocol of Flags Explorer: override tokens and
+  flag values.
 - **`@flags-sdk/<framework>`:** the setup for one framework. A framework
   can include this part itself later.
 - **`flags/tooling`:** functions for framework packages and build tools. See

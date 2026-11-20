@@ -9,8 +9,8 @@ uses the plugin of its framework package, not this one.
 ## Features
 
 - **The framework binding** behind `flags/framework`, and the configuration
-  files behind `flags/hooks` (`flags/hooks.ts`), `flags/overrides`
-  (`flags/overrides.ts`) and `flags/settings` (`flags/config.json`).
+  files behind `flags/hooks` (`flags/hooks.ts`) and `flags/settings`
+  (`flags/config.json`).
 - **`'use flags'` modules** register their flags.
 - **The manifest of the flags:** at `/.well-known/flags/manifest.json` in
   development, and as `flags-manifest.json` in the server output.

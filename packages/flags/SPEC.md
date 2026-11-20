@@ -43,7 +43,7 @@ writes a deployment adapter.
 
 1. Done: core primitives. Provider types, sources, flags, errors.
 2. Done: runtime lifecycle and registration. `runtime`,
-   `registerSources`, `registerFlags`.
+   `registerSources`, `registerFlags` (all in `flags/runtime`).
 3. Done: request scope. `runtime.onInvoke(request, next)` keeps the request
    with `AsyncLocalStorage`. `getEvaluationContext` runs once per request and
    source.
@@ -53,7 +53,7 @@ writes a deployment adapter.
 6. Done: overrides. Override cookies, trusted with the shared secret
    `FLAGS_SECRET` (the format of v4) or signed by Vercel (see "Overrides").
 7. Done: configuration. `runtime.configure` with the optional files
-   `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`. There is
+   `flags/hooks.ts` and `flags/config.json`. There is
    no default source: each flag of a provider is declared on its source (see
    "Configuration" and "No default source").
 8. Done: flag value types. Boolean, string, number and object flags, with
@@ -232,19 +232,18 @@ The package needs Node.js 20.19, or 22.12 or newer (`engines`). The CommonJS
 build loads `jose`, an ES module, with `require()`, and the overrides read
 `.vercel/project.json` with `process.getBuiltinModule`.
 
-Two modules can be replaced with a bundler alias. The runtime imports them
+The modules below can be replaced with a bundler alias. The runtime imports them
 through its own package name, and the build of the SDK keeps these imports:
 
 | Module            | Default              | Replaced by                                             |
 | ----------------- | -------------------- | ------------------------------------------------------- |
 | `flags/framework` | no framework binding | a framework plugin, e.g. with `@flags-sdk/next/binding` |
 | `flags/hooks`     | no hooks             | a framework plugin, with `flags/hooks.ts`               |
-| `flags/overrides` | no options           | a framework plugin, with `flags/overrides.ts`           |
 | `flags/settings`  | the defaults         | a framework plugin, with `flags/config.json`            |
 
 `flags/config` is not replaced. It exports `configFromModules`, which builds
-the `Config` object from the three modules (see "Configuration"). The
-binding imports the three modules itself: it is bundled, so the aliases
+the `Config` object from the two modules (see "Configuration"). The
+binding imports the two modules itself: it is bundled, so the aliases
 apply to its imports, also when a framework loads `flags` from
 `node_modules`, e.g. Nitro in `nuxt dev`.
 
@@ -689,8 +688,7 @@ with the result. Without a framework, the application calls it at startup.
 | File | Part of `Config` | Read by |
 | --- | --- | --- |
 | `flags/hooks.ts` | `hooks`: the default export, OpenFeature hooks for all flags (see "Hooks, events and tracking") | the application |
-| `flags/overrides.ts` | `overrides`: the default export, which override tokens the SDK accepts (see "Overrides") | the application |
-| `flags/config.json` | `settings`: the static settings (`Settings`) | the plugins, the CLI and the application |
+| `flags/config.json` | `settings`: the static settings (`Settings`), e.g. which override tokens the SDK accepts (see "Overrides") | the plugins, the CLI and the application |
 | `flags/sources/<source>/hooks.ts` | the hooks of one source, for `defineSource({ hooks })` | the application |
 
 ```ts
@@ -706,7 +704,8 @@ export default hooks;
 // flags/config.json
 {
   "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
-  "selfSource": false
+  "selfSource": false,
+  "overrides": { "vercel": { "maxLifetimeSeconds": 2592000 } }
 }
 ```
 
@@ -714,22 +713,24 @@ export default hooks;
   application. Only the JSON file is static, so every tool can read it.
   A source has the same split: `catalog.ts` at build time, and
   `provider.ts`, `context.ts` and `hooks.ts` in the application.
-- `flags/overrides.ts` is code, so it can read the environment, e.g.
-  `secret: process.env.MY_SECRET`.
-- `settings`: the only setting is `selfSource` (a boolean, the default is
-  `true`, see "The default source `self`"). The check is strict: an unknown
+- `settings`: the settings are `selfSource` (a boolean, the default is
+  `true`, see "The default source `self`") and `overrides`
+  (`OverridesOptions`, see "Overrides"). The check is strict: an unknown
   key or a wrong type is an error, in the plugins, in the CLI and in
   `runtime.configure`. `$schema` is allowed. The JSON Schema is
   `https://flags-sdk.dev/schemas/config.v1.json`.
-- The plugins alias `flags/hooks`, `flags/overrides` and `flags/settings` to
+- The plugins alias `flags/hooks` and `flags/settings` to
   the files (`findConfigModules` of `flags/tooling`). Without a file, the
   alias is not set, and the empty module of `flags` applies.
   `configFromModules` returns the same object while the files do not change, so
   the runtime does not configure again in development without a change.
 - Frameworks without a bundler (Hono, Express, plain Node.js) call
-  `runtime.configure({ hooks, overrides })` themselves. They can read
-  `flags/config.json` themselves if necessary. `flags sync` and
+  `runtime.configure({ hooks, settings })` themselves, with the content of
+  `flags/config.json` as `settings` if necessary. `flags sync` and
   `flags watch` read it anyway.
+- `Config` has no `overrides`. `runtime.configure({ overrides })` throws:
+  "The overrides are a setting of flags/config.json. Use
+  runtime.configure({ settings: { overrides } })."
 - The configuration has no source. `defaultSource` throws: "The
   configuration has no defaultSource. Give each flag its source, e.g. with
   flags/sources/self."
@@ -808,13 +809,14 @@ The SDK needs no configuration:
 The SDK reads these environment variables when a token needs them, because
 they can change until then. An empty variable counts as missing.
 
-The default export of `flags/overrides.ts` (the option `overrides` of the
-configuration, see "Configuration") changes the defaults. The trust comes
-only from the options and the environment, never from the token.
+The setting `overrides` of `flags/config.json` (`OverridesOptions`, see
+"Configuration") changes the defaults. All its options are JSON. The trust
+comes only from the options and the environment, never from the token.
 
-- `secret`: the shared secret. The default is `FLAGS_SECRET`. `false` accepts
-  no tokens of the shared secret. An explicit secret that is not valid throws
-  at once.
+- `secret`: only `false`, which accepts no tokens of the shared secret. The
+  secret itself comes only from `FLAGS_SECRET`, never from the file. A
+  string is an error: "overrides.secret in flags/config.json can only be
+  false. Set the secret with the environment variable FLAGS_SECRET."
 - `vercel`: `true` accepts signed tokens with the defaults, an object sets
   options, and `false` accepts no signed tokens. With an explicit value,
   signed tokens are accepted also outside of Vercel, e.g. with a test
@@ -1063,7 +1065,7 @@ provide the same itself.
 
 | Package | Contents | Used by |
 | --- | --- | --- |
-| `flags` | runtime, `defineFlag`, `defineSource` (with `source.bindFlag`), overrides, `evaluate`, `track`, `flags/manifest`, `flags/tooling`, the command line `flags` | the application, and the framework packages |
+| `flags` | `defineFlag`, `defineSource` (with `source.bindFlag`), `evaluate`, `track`, the errors, the reasons and the types; `flags/runtime`, `flags/explorer`, `flags/manifest`, `flags/tooling`, the command line `flags` | the application, and the framework packages |
 | `@flags-sdk/next` | `/binding`, `/plugin` (`withFlags`), `/precompute`, `/manifest` (the route), and the loaders of Turbopack | `next.config.ts`, `proxy.ts`, one route file |
 | `@flags-sdk/vite` | the generic Vite plugin: the binding, the configuration files, `'use flags'` modules, the manifest, the code generation | the framework packages for Vite |
 | `@flags-sdk/sveltekit` | `/binding`, `/vite` | `vite.config.ts` |
@@ -1072,6 +1074,20 @@ provide the same itself.
 | `@flags-sdk/hono` | the middleware | the setup of the app |
 | `@flags-sdk/express` | the middleware | the setup of the app |
 
+- The main export `flags` has the API of the application: `defineSource`,
+  `defineFlag`, `evaluate`, `track`, `FlagEvaluationError`,
+  `DECIDE_REASON`, `OVERRIDE_REASON` and the types.
+- `flags/runtime` has `runtime`, `registerFlags`, `registerSources` and the
+  types `Config`, `Settings`, `SetupFramework`, `GetRequest`, `LoadConfig`,
+  `Runtime`, `OverridesOptions`, `VercelOverridesOptions` and
+  `PlatformProject`. It is for framework bindings and for applications
+  without a framework plugin (Express, Hono, plain Node.js). All copies of
+  the package share one runtime.
+- `flags/explorer` has the protocol of Flags Explorer:
+  `encryptFlagValues`, `decryptFlagValues`, `serializeFlagValues`,
+  `encryptOverrides`, `decryptOverrides`, `signOverrides`, `OverridesError`
+  and the types `FlagValuesType`, `EncryptFlagValuesOptions`,
+  `OverrideRejection` and `FlagOverrides`.
 - The code of the application imports only `flags`. The framework packages
   are only for the setup, one time. Precompute of Next.js is the
   exception: it is a feature of Next.js, so its pages and its proxy import
@@ -1099,24 +1115,24 @@ A framework binding connects the SDK to a framework. It has two parts:
 1. **A build plugin**, e.g. `withFlags` of `@flags-sdk/next/plugin`. It sets
    these bundler aliases:
    - `flags/framework` to the module of the binding, e.g. `@flags-sdk/next/binding`.
-   - `flags/hooks`, `flags/overrides` and `flags/settings` to
-     `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` of the
-     application, each only if the file exists.
+   - `flags/hooks` and `flags/settings` to `flags/hooks.ts` and
+     `flags/config.json` of the application, each only if the file exists.
 2. **The module of the binding** behind `flags/framework`. It exports
    `setupFramework(runtime)`, which the runtime calls one time, before the
    first evaluation and in `onInit`.
 
 The application does not import the module of the binding. The runtime
 imports `flags/framework` itself, so the binding works in each bundle
-that uses `flags`. Without a plugin, `flags/framework`, `flags/hooks`,
-`flags/overrides` and `flags/settings` are empty modules.
+that uses `flags`. Without a plugin, `flags/framework`, `flags/hooks`
+and `flags/settings` are empty modules.
 
 The module of the binding:
 
-- must not import `flags` statically, because `flags` imports it. It gets
+- must not import `flags` or `flags/runtime` statically, because `flags`
+  imports it. It gets
   the runtime as an argument.
-- loads the configuration with dynamic imports of `flags/hooks`,
-  `flags/overrides` and `flags/settings`, and builds it with
+- loads the configuration with dynamic imports of `flags/hooks` and
+  `flags/settings`, and builds it with
   `configFromModules` of `flags/config`. The imports are dynamic because
   `flags/hooks.ts` can import `flags`, and they are in the binding, so that
   the aliases apply.
@@ -1134,8 +1150,7 @@ The module of the binding:
 - `setLoadConfig`: in production, the runtime calls it one time. In
   development (`NODE_ENV` is not `production`), it calls it before each
   evaluation, and configures again when it returns a different object. Thus,
-  a change of `flags/hooks.ts`, `flags/overrides.ts` or
-  `flags/config.json` applies without a restart. If the source
+  a change of `flags/hooks.ts` or `flags/config.json` applies without a restart. If the source
   throws, the evaluation fails, and the next one tries again.
 - `setRethrow`: some frameworks use errors as signals, e.g. Next.js to stop
   the static rendering, or to postpone a part of a page. The SDK must never
@@ -1149,7 +1164,7 @@ The tasks of a binding:
 
 | Task                                   | With a framework                                                                            | Without a framework                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Load the configuration files           | The plugin sets the aliases of the files, the binding calls `setLoadConfig`              | `runtime.configure({ hooks, overrides })` at startup       |
+| Load the configuration files           | The plugin sets the aliases of the files, the binding calls `setLoadConfig`              | `runtime.configure({ hooks, settings })` at startup        |
 | Give the request to the runtime        | `runtime.onInvoke(request, next)` in a middleware, or `setGetRequest`                    | `runtime.onInvoke` in a middleware                         |
 | Convert the request                    | The binding gives `FlagsRequestInit`, e.g. a Web `Request`                                  | The application converts it, e.g. Node.js headers          |
 | Let signals of the framework through   | `setRethrow`                                                                                | Not necessary                                              |
@@ -1159,8 +1174,8 @@ The tasks of a binding:
 
 Rules for each binding:
 
-- Use only the default exports of `flags/hooks.ts` and `flags/overrides.ts`,
-  and `flags/config.json`, through `configFromModules`.
+- Use only the default export of `flags/hooks.ts` and `flags/config.json`,
+  through `configFromModules`.
 - Give the request as `FlagsRequestInit`. Give the same `headers` object
   during one request.
 - Set the aliases for each bundler that the framework supports. For
@@ -1203,8 +1218,7 @@ export default withFlags({ /* the configuration of Next.js */ });
   supports only Turbopack: its `webpack` function throws, so a build with
   `--webpack` stops with a clear error. It keeps the aliases and the rules
   of the application. It finds
-  `flags/hooks.ts`, `flags/overrides.ts` (`.ts`, `.mts`, `.js` or `.mjs`) and
-  `flags/config.json` in the directory of the application or in `src`.
+  `flags/hooks.ts` (`.ts`, `.mts`, `.js` or `.mjs`) and `flags/config.json` in the directory of the application or in `src`.
 - The request: no middleware wraps the rendering, but `headers()` returns the
   same object during one request. Thus, `@flags-sdk/next/binding` uses
   `runtime.setGetRequest` with `headers()` and `cookies()`. The test shows
@@ -1234,7 +1248,7 @@ tested by hand, with a change of the configuration during the run.
 
 - `flags()` of `@flags-sdk/sveltekit/vite` uses `@flags-sdk/vite` with the
   binding `@flags-sdk/sveltekit/binding`. The plugin resolves the binding
-  from the project, points `flags/hooks`, `flags/overrides` and
+  from the project, points `flags/hooks` and
   `flags/settings` to the files of the application, and bundles
   `flags` and `@flags-sdk/sveltekit` into the server code
   (`ssr.noExternal`), so that the aliases reach the SDK.
@@ -1314,6 +1328,8 @@ tested by hand, with a change of the configuration during the run.
 
 ### Registration
 
+The functions are exports of `flags/runtime`.
+
 - `registerSources(sources)` registers sources. Use it when you
   have the sources.
 - `registerFlags(moduleExports)` registers the sources of all flags that a
@@ -1331,7 +1347,7 @@ A page can contain the values of its flags, for Flags Explorer and for the
 analytics of Vercel. The format is section 11 of `STANDARD.md`: the element
 `<script type="application/json" data-flag-values>`, as in v4.
 
-- `flags` has the standard: `encryptFlagValues`, `decryptFlagValues` (only
+- `flags/explorer` has the standard: `encryptFlagValues`, `decryptFlagValues` (only
   for `FLAGS_SECRET`) and `serializeFlagValues`. The type is
   `FlagValuesType`, as in v4, so that it does not conflict with the
   component `FlagValues`.
@@ -1603,7 +1619,7 @@ A module which starts with the `'use flags'` directive is a flags module:
   and string literals at the start), as for `'use client'`. It is not a
   parser.
 - The framework plugins append a self-registration to each flags module:
-  `import * as self from './flags'; registerFlags(self);`. `registerFlags`
+  `import { registerFlags } from 'flags/runtime'; import * as self from './flags'; registerFlags(self);`. `registerFlags`
   registers the sources of the exports, also of plain flag objects. Without
   a plugin, call `registerFlags` by hand.
 

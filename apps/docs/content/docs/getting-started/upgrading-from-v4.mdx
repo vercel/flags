@@ -17,6 +17,7 @@ Version 5 turns the Flags SDK from a Next.js and SvelteKit library into a standa
 | Framework-specific imports (`flags/next`, `flags/sveltekit`) | Your code imports only `flags`. Frameworks have a package for the setup: `@flags-sdk/next`, `@flags-sdk/sveltekit`, … |
 | `precompute`, `generatePermutations` from `flags/next`     | The same API in [`@flags-sdk/next/precompute`](/docs/frameworks/next/precompute)                      |
 | A flag called as `flag(code, group)` on a precomputed page | `getPrecomputed(flag, group, code)`                                                                  |
+| `encryptOverrides`, `decryptOverrides`, `encryptFlagValues`, `decryptFlagValues` from `flags` | The same functions from `flags/explorer` |
 | `FlagValues` from `flags/react`                            | [`FlagValues`](/docs/frameworks/next/flag-values) from `@flags-sdk/next/flag-values`, encrypted by default |
 | The endpoint `/.well-known/vercel/flags` with `getProviderData` | The [flags manifest](/docs/tooling/flags-manifest) of `'use flags'` modules                         |
 | Next.js and SvelteKit                                      | Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, and [no framework](/docs/frameworks/node)    |

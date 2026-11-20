@@ -95,13 +95,12 @@ build plugin replaces them.
 | --- | --- | --- |
 | `flags/framework` | no binding | the framework binding (section 5) |
 | `flags/hooks` | no hooks | `flags/hooks.ts` of the application (section 6) |
-| `flags/overrides` | no options | `flags/overrides.ts` of the application (section 6) |
 | `flags/settings` | the defaults | `flags/config.json` of the application (section 6) |
 
 The module `flags/config` exports `configFromModules`. It builds the
-`Config` object `{ hooks?, overrides?, settings? }` from the modules
-`flags/hooks`, `flags/overrides` and `flags/settings`. A build plugin MUST
-NOT replace it. The binding MUST import the three modules itself, so that
+`Config` object `{ hooks?, settings? }` from the modules `flags/hooks` and
+`flags/settings`. A build plugin MUST NOT replace it. The binding MUST
+import the two modules itself, so that
 the aliases apply to the imports of bundled code.
 
 ### 4.1 Replacement
@@ -181,11 +180,7 @@ runtime.setLoadConfig(async () => {
   // the aliases of the plugin apply
   const { configFromModules } = await import('flags/config');
   return configFromModules(
-    await Promise.all([
-      import('flags/hooks'),
-      import('flags/overrides'),
-      import('flags/settings'),
-    ]),
+    await Promise.all([import('flags/hooks'), import('flags/settings')]),
   );
 });
 ```
@@ -217,13 +212,11 @@ of the configuration. The configuration has no source.
 | File | Contains | Module |
 | --- | --- | --- |
 | `flags/hooks.ts` | The default export: the hooks for all flags | `flags/hooks` |
-| `flags/overrides.ts` | The default export: the override options (`OverridesOptions`) | `flags/overrides` |
-| `flags/config.json` | The static settings (`Settings`) | `flags/settings` |
+| `flags/config.json` | The static settings (`Settings`), e.g. the override options `overrides` (`OverridesOptions`) | `flags/settings` |
 
 - The folder `flags` MUST be in the directory of the application or in its
   `src` directory. An implementation MUST look in the directory first.
-- `flags/hooks.ts` and `flags/overrides.ts` MAY also end in `.mts`, `.js`
-  or `.mjs`.
+- `flags/hooks.ts` MAY also end in `.mts`, `.js` or `.mjs`.
 - A build plugin MUST set the alias of a module only if its file exists
   (`findConfigModules` of `flags/tooling`). Without the file, the module of
   `flags` is empty.
@@ -248,7 +241,7 @@ directive prologue.
   definition of flags and sources. It MUST NOT open network
   connections.
 - A build plugin SHOULD append a registration to each flags module, which
-  calls `registerFlags` with the exports of the module
+  calls `registerFlags` of `flags/runtime` with the exports of the module
   (`addSelfRegistration` of `flags/tooling`).
 - A build plugin MUST NOT examine more than the directive prologue to find
   the directive.
@@ -350,8 +343,10 @@ An override sets the value of a flag for one browser, with a cookie.
   base64 (with `+`, `/` and `=`), as v4 of the SDK did.
 - The payload MUST have the claim `pur` with the value `overrides`, the
   claim `o` with an object of flag keys and values, and MAY have `exp`.
-- If `FLAGS_SECRET` is set, the runtime MUST accept this kind. On the
-  platform, it MUST also accept the kind of 10.2.
+- If `FLAGS_SECRET` is set, the runtime MUST accept this kind, unless the
+  setting `overrides` of `flags/config.json` has `"secret": false`. On the
+  platform, it MUST also accept the kind of 10.2. The secret MUST come only
+  from the environment, never from `flags/config.json`.
 
 ### 10.2 Signed by the platform
 
@@ -397,7 +392,7 @@ e.g. Flags Explorer, or send them to an analytics service of the platform.
 - The content MUST be JSON: an object of flag keys and values (the plain
   form), or a string, which is a token of section 11.2 or 11.3.
 - The content MUST have each `<` escaped as `\u003c`. Thus, the content
-  can not end the element. `serializeFlagValues` of `flags` does this.
+  can not end the element. `serializeFlagValues` of `flags/explorer` does this.
 - A page MAY have more than one element. A tool MUST merge them in the
   order of the document. A later value of a flag replaces an earlier one.
 - The plain form shows the values to each visitor. An implementation MUST

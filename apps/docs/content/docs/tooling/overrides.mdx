@@ -82,7 +82,7 @@ Set it as an environment variable of your application, e.g. in `.env.local`, and
 
 ```ts title="e2e/checkout.spec.ts"
 import { expect, test } from '@playwright/test';
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 
 test('the express checkout', async ({ page, context, baseURL }) => {
   const token = await encryptOverrides({ checkout: 'express' });
@@ -102,20 +102,17 @@ Anyone with the secret can create overrides. Use a different secret for each app
 
 ## Configuration
 
-The default export of the optional [`flags/overrides.ts`](/docs/flags/configuration#flagsoverridests) changes the defaults. Without the file, overrides work with `FLAGS_SECRET` or on Vercel.
+The optional setting [`overrides`](/docs/flags/configuration#overrides) of `flags/config.json` changes the defaults. Without it, overrides work with `FLAGS_SECRET` or on Vercel.
 
-```ts title="flags/overrides.ts"
-import type { OverridesOptions } from 'flags';
-
-const overrides: OverridesOptions = {
-  // The shared secret. The default is FLAGS_SECRET. false accepts no such tokens.
-  secret: process.env.FLAGS_SECRET,
-  // Cookies signed by Vercel. true, false, or an object with options.
-  vercel: true,
-};
-
-export default overrides;
+```json title="flags/config.json"
+{
+  "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
+  "overrides": { "vercel": { "maxLifetimeSeconds": 2592000 } }
+}
 ```
+
+- `secret`: only `false`, which accepts no cookies of the shared secret. The secret itself comes only from the environment variable `FLAGS_SECRET`. To use a different secret, set it as `FLAGS_SECRET`.
+- `vercel`: cookies signed by Vercel. `true`, `false`, or an object with options.
 
 On Vercel, the SDK accepts both kinds by default, also when `FLAGS_SECRET` is set. With an explicit `vercel`, it also accepts signed cookies outside of Vercel, e.g. with a test issuer.
 
@@ -128,8 +125,9 @@ The options of `vercel`:
 | `issuer`, `jwksUrl` | The issuer of the Vercel Toolbar | For a test issuer. HTTPS only. |
 | `cacheMaxAgeMs` | 5 minutes | How long the public keys stay in the cache. |
 | `cooldownMs` | 30 seconds | The minimum time between two loads of the keys for an unknown key ID. |
+| `allowInsecureLocalhost` | `false` | Allows `http://localhost` for a local test issuer. |
 
-To turn overrides off, export `{ secret: false, vercel: false }` from `flags/overrides.ts`.
+To turn overrides off, set `"overrides": { "secret": false, "vercel": false }` in `flags/config.json`.
 
 ## Troubleshooting
 
@@ -141,7 +139,7 @@ flags: The override cookie was ignored. Reason: wrong-scope.
 
 - **`wrong-scope`**: the token is for a different project or environment. Check the linked project, and run `vercel env pull` again.
 - **`missing-secret`**: the cookie is encrypted, but the application has no `FLAGS_SECRET`. Set the same secret as the tool which created the cookie.
-- **`untrusted-jws`**: the cookie is signed by Vercel, but the application does not accept signed cookies here, e.g. because the application does not run on Vercel, or the project is not linked. Link the project, or set `vercel` in `flags/overrides.ts`.
+- **`untrusted-jws`**: the cookie is signed by Vercel, but the application does not accept signed cookies here, e.g. because the application does not run on Vercel, or the project is not linked. Link the project, or set `overrides.vercel` in `flags/config.json`.
 - **`expired-token`**, **`invalid-signature`**, **`unknown-key`**: create the override again in Flags Explorer.
 - **An override of one flag is ignored**: its value has a different type than the flag. The SDK logs `flags: The override of flag "<key>" was ignored`.
 

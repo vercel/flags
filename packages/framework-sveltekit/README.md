@@ -56,8 +56,8 @@ configuration of all flags. None of them has a source:
 
 - `flags/hooks.ts`: the OpenFeature hooks for all flags, as the default
   export.
-- `flags/overrides.ts`: the options of the overrides, as the default export.
-- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`, or
+  `overrides`: which override cookies the SDK accepts.
 
 The Vite plugin loads them automatically. In development, a change applies without a restart.
 
@@ -143,9 +143,8 @@ export default defineConfig({
 ## How it works
 
 - `flags()` points `flags/framework` to `@flags-sdk/sveltekit/binding`, and
-  `flags/hooks`, `flags/overrides` and `flags/settings` to
-  `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`, if they
-  exist. It bundles `flags` and
+  `flags/hooks` and `flags/settings` to `flags/hooks.ts` and
+  `flags/config.json`, if they exist. It bundles `flags` and
   `@flags-sdk/sveltekit` into the server code (`ssr.noExternal`), because
   an alias only reaches the SDK when the bundler processes it.
 - The binding gets the request with `getRequestEvent()`. The headers of the
@@ -159,8 +158,8 @@ export default defineConfig({
 
 ## Gotchas
 
-- **Use a default export.** `flags/hooks.ts` and `flags/overrides.ts` must
-  export their value as the default export.
+- **Use a default export.** `flags/hooks.ts` must export its value as the
+  default export.
 - **Prerendered pages have no request.** Their flags use the evaluation
   context without a request.
 

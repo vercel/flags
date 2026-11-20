@@ -1,6 +1,6 @@
 # API reference (v5)
 
-App code imports only `flags` and the generated `flags:<source>` modules. The framework packages are for the setup, and in Next.js also for precompute, `FlagValues` and the manifest route.
+App code imports `flags` and the generated `flags:<source>` modules. Apps without a framework plugin also import `flags/runtime`. Tests and CI can import `flags/explorer`. The framework packages are for the setup, and in Next.js also for precompute, `FlagValues` and the manifest route.
 
 ## Table of contents
 
@@ -28,11 +28,13 @@ Node.js 20.19, or 22.12 or newer. Server only.
 
 | Entry point      | For                                                             |
 | ---------------- | --------------------------------------------------------------- |
-| `flags`          | Applications                                                    |
+| `flags`          | Applications: define, evaluate and track flags, errors, reasons, types |
+| `flags/runtime`  | `runtime`, `registerFlags`, `registerSources`, `Config`, `Settings`, `OverridesOptions` and more. For bindings and apps without a framework plugin (Express, Hono, plain Node.js). All copies share one runtime. |
+| `flags/explorer` | The protocol of Flags Explorer: override tokens and flag values |
 | `flags/tooling`  | Framework packages and build tools                              |
 | `flags/manifest` | Tools that create or read the flags manifest                    |
 
-`flags/framework`, `flags/hooks`, `flags/overrides` and `flags/settings` are replaced by bundler aliases of the framework packages. `flags/config` exports `configFromModules` for the bindings. Apps do not import them.
+`flags/framework`, `flags/hooks` and `flags/settings` are replaced by bundler aliases of the framework packages. `flags/config` exports `configFromModules` for the bindings. Apps do not import them.
 
 ### Defining flags
 
@@ -166,11 +168,11 @@ Types: `Evaluate`, `FlagEvaluationContext<F>`, `EvaluateContext<F[]>`, `Evaluate
 
 ### Runtime
 
-`import { runtime } from 'flags'`. One runtime per process, shared by all copies of the package.
+`import { runtime } from 'flags/runtime'`. One runtime per process, shared by all copies of the package.
 
 | Method                                      | Description                                                                                                                       |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `runtime.configure(config)`                 | Sets the configuration: `{ hooks?, overrides?, settings? }` (the files `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`). Throws before it changes anything if the config is invalid, e.g. with a `defaultSource`. |
+| `runtime.configure(config)`                 | Sets the configuration: `{ hooks?, settings? }` (the files `flags/hooks.ts` and `flags/config.json`). Throws before it changes anything if the config is invalid, e.g. with a `defaultSource`, or with `overrides` (a setting: use `settings: { overrides }`). |
 | `runtime.onInit()`                          | Optional, at startup. Sets up the binding, loads the config, initializes the providers of all registered sources. Logs errors. |
 | `runtime.onInvoke(request, next)`           | Runs `next` in the scope of the request. `request` is a Web `Request` or `{ headers?, cookies?, url? }`. Pass the same `headers` object for the whole request. |
 | `runtime.onShutdown()`                      | At process stop. Waits for running initializations, then calls `onClose` of each provider.                                       |
@@ -181,7 +183,7 @@ Types: `Evaluate`, `FlagEvaluationContext<F>`, `EvaluateContext<F[]>`, `Evaluate
 | `runtime.evaluate`                          | The same as `evaluate`.                                                                                                           |
 | `runtime.setGetRequest(fn)`, `runtime.setRethrow(fn)`, `runtime.setLoadConfig(fn)` | For framework bindings only.                                                   |
 
-Types: `Runtime`, `GetRequest`, `LoadConfig`, `SetupFramework`, `FlagDefinition`.
+Types of `flags/runtime`: `Runtime`, `GetRequest`, `LoadConfig`, `SetupFramework`. `FlagDefinition` is a type of `flags`.
 
 ### Configuration
 
@@ -189,9 +191,8 @@ One optional file for each part, in `flags/` (in the app root or in `src/`). The
 
 | File | Contains | Read by |
 | --- | --- | --- |
-| `flags/config.json` | Static settings (`Settings`): `selfSource` (boolean, default `true`). `$schema` is allowed. An unknown key or a wrong type is an error. | The plugins, the CLI and the runtime |
+| `flags/config.json` | Static settings (`Settings`): `selfSource` (boolean, default `true`) and `overrides` (`OverridesOptions`, see below). `$schema` is allowed. An unknown key or a wrong type is an error. | The plugins, the CLI and the runtime |
 | `flags/hooks.ts` (`.mts`, `.js`, `.mjs`) | Default export: `Hook[]`, the hooks for all flags | The app |
-| `flags/overrides.ts` (`.mts`, `.js`, `.mjs`) | Default export: `OverridesOptions` (see below). Code is allowed, e.g. `secret: process.env.MY_SECRET` | The app |
 | `flags/sources/<source>/hooks.ts` | Default export: the hooks of one source, for `defineSource({ hooks })` | The app |
 
 ```ts
@@ -213,18 +214,19 @@ export default hooks;
 // flags/config.json
 {
   "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
-  "selfSource": false
+  "selfSource": false,
+  "overrides": { "vercel": { "maxLifetimeSeconds": 2592000 } }
 }
 ```
 
 - Hook order: `flags/hooks.ts` (all flags), then the source (`defineSource({ hooks })` or `flags/sources/<source>/hooks.ts`), then the call (`evaluate(..., { hooks })`), then `provider.hooks` (set by the provider, not by the app). The hooks also run for overrides.
 - No sources in the configuration.
-- The plugins of Next.js, SvelteKit, Nuxt and TanStack Start load the files, and reload them in development. Hono and Express: `app.use(flags({ config: { hooks, overrides } }))` with `import hooks from './flags/hooks'`. No framework: `runtime.configure({ hooks, overrides })`. Without a bundler, read `flags/config.json` yourself if the app needs it; `flags sync` and `flags watch` read it anyway.
-- Types: `Config` (`{ hooks?, overrides?, settings? }`), `Settings` (`{ selfSource?: boolean }`).
+- The plugins of Next.js, SvelteKit, Nuxt and TanStack Start load the files, and reload them in development. Hono and Express: `app.use(flags({ config: { hooks, settings } }))` with `import hooks from './flags/hooks'` and `import settings from './flags/config.json' with { type: 'json' }`. No framework: `runtime.configure({ hooks, settings })`. Without a bundler, the SDK reads `flags/config.json` at runtime only when you pass it as `settings`; `flags sync` and `flags watch` read it anyway.
+- Types of `flags/runtime`: `Config` (`{ hooks?, settings? }`), `Settings` (`{ selfSource?: boolean; overrides?: OverridesOptions }`).
 
 ### Registration
 
-Flags register their sources when they are defined, and the plugins register `'use flags'` modules. Use these only for sources whose flags are defined later, or without a plugin.
+Import from `flags/runtime`. Flags register their sources when they are defined, and the plugins register `'use flags'` modules. Use these only for sources whose flags are defined later, or without a plugin.
 
 - `registerFlags(moduleExports)`: registers the sources of all exported flags. Throws if an export is not a flag.
 - `registerSources(sources)`: registers sources directly.
@@ -238,6 +240,8 @@ Cookie `flag-overrides` (also the v4 cookie `vercel-flag-overrides`; `flag-overr
 3. Otherwise, no overrides.
 
 A valid override skips the provider, the provider initialization and the context chain. The hooks run with the reason `OVERRIDE`. An override of the wrong type is ignored with a warning.
+
+The functions and types below (except `OverridesOptions`) are exports of `flags/explorer`.
 
 #### `encryptOverrides`
 
@@ -265,16 +269,16 @@ Asks Vercel to sign a token for the project and environment of the host's OIDC t
 function decryptOverrides(token: string, secret?: string): Promise<FlagOverrides | undefined>;
 ```
 
-#### `OverridesOptions` (the default export of `flags/overrides.ts`)
+#### `OverridesOptions` (the setting `overrides` of `flags/config.json`)
 
 | Option   | Type                                | Description                                                                  |
 | -------- | ----------------------------------- | ---------------------------------------------------------------------------- |
-| `secret` | `string \| false`                   | The shared secret. Default `FLAGS_SECRET`. `false` accepts no such tokens.    |
+| `secret` | `false`                             | Accepts no tokens of the shared secret. The secret comes only from `FLAGS_SECRET`; a string is an error. |
 | `vercel` | `boolean \| VercelOverridesOptions` | Tokens signed by Vercel. `true`, `false`, or options.                          |
 
-`VercelOverridesOptions`: `project` (`projectId`, `environment`, `teamId?`), `maxLifetimeSeconds` (default 7 days), `issuer`, `jwksUrl`, `cacheMaxAgeMs` (default 5 minutes), `cooldownMs` (default 30 seconds), `allowInsecureLocalhost`, `fetch`. Turn overrides off with `{ secret: false, vercel: false }` in `flags/overrides.ts`.
+`VercelOverridesOptions`: `project` (`projectId`, `environment`, `teamId?`), `maxLifetimeSeconds` (default 7 days), `issuer`, `jwksUrl`, `cacheMaxAgeMs` (default 5 minutes), `cooldownMs` (default 30 seconds), `allowInsecureLocalhost`. All options are JSON. Turn overrides off with `"overrides": { "secret": false, "vercel": false }` in `flags/config.json`. Types of `flags/runtime`: `OverridesOptions`, `VercelOverridesOptions`, `PlatformProject`.
 
-Types: `FlagOverrides` (`Record<string, JsonValue>`), `OverrideRejection`, `OverridesError`, `PlatformProject`.
+Exports of `flags/explorer`: `FlagOverrides` (`Record<string, JsonValue>`), `OverrideRejection`, `OverridesError`.
 
 Rejection reasons in the log line `flags: The override cookie was ignored. Reason: <reason>.`: `malformed-token`, `token-too-large`, `missing-secret`, `invalid-secret`, `invalid-jwe`, `untrusted-jws`, `unsupported-algorithm`, `invalid-signature`, `expired-token`, `invalid-claims`, `wrong-scope`, `unknown-key`.
 
@@ -285,7 +289,7 @@ Rejection reasons in the log line `flags: The override cookie was ignored. Reaso
 
 ### Flag values
 
-For Flags Explorer and analytics. In Next.js, use `FlagValues` instead.
+For Flags Explorer and analytics. In Next.js, use `FlagValues` instead. Import from `flags/explorer`.
 
 ```ts
 function encryptFlagValues(values: Record<string, JsonValue>, options?: EncryptFlagValuesOptions): Promise<string>;
@@ -297,7 +301,8 @@ function serializeFlagValues(data: Record<string, JsonValue> | string): string;
 - `serializeFlagValues` escapes `<`, so the content cannot end the element.
 
 ```ts
-import { encryptFlagValues, evaluate, serializeFlagValues } from 'flags';
+import { evaluate } from 'flags';
+import { encryptFlagValues, serializeFlagValues } from 'flags/explorer';
 
 const [sale, flow] = await evaluate([summerSale, checkout]);
 const token = await encryptFlagValues({ summerSale: sale, checkout: flow });
@@ -336,7 +341,7 @@ The source is required. A generated module does not export its source: use `enab
 
 For framework packages and build tools. Apps do not use them.
 
-`flags/tooling`: `registerFramework(setup)`, `findConfigModules(dir)` (returns `{ 'flags/hooks'?, 'flags/overrides'?, 'flags/settings'? }`, the paths of `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` in `dir` or `dir/src`), `readSettings(dir)` (reads and checks `flags/config.json`; `{}` without the file), `hasUseFlagsDirective(source)`, `addSelfRegistration(source, fileName)`, `findFlagsModules(projectDir)`, `writeManifestFromBuild({ projectDir, modules, output })`, `generateFlags(dir?)` (behind `flags sync`, returns aliases such as `{ 'flags:self': './.flags/self.ts' }`), `watchFlags(dir, { signal })` (behind `flags watch`), `findGeneratedDeclarations(dir)` (finds `flags/generated.d.ts` in `dir` or `dir/src`), `renderSourceModule(name, catalog, sourcesPath?, files?)`, `optionIndex(value, options)`, `MANIFEST_FILE` (`'flags-manifest.json'`), `GENERATED_DIRECTORY` (`'.flags'`). `generateFlags` and `watchFlags` read `"selfSource"` of `flags/config.json`. Types: `FlagsAliases`, `WatchResult`, `ConfigModule`, `SourceFiles` (`{ context?: boolean; provider?: 'file' | 'vercel'; hooks?: boolean }`; `hooks` imports `hooks.ts` of the source; `'vercel'` renders `new VercelProvider()` instead of the import of `provider.ts`).
+`flags/tooling`: `registerFramework(setup)`, `findConfigModules(dir)` (returns `{ 'flags/hooks'?, 'flags/settings'? }`, the paths of `flags/hooks.ts` and `flags/config.json` in `dir` or `dir/src`), `readSettings(dir)` (reads and checks `flags/config.json`; `{}` without the file), `hasUseFlagsDirective(source)`, `addSelfRegistration(source, fileName)`, `findFlagsModules(projectDir)`, `writeManifestFromBuild({ projectDir, modules, output })`, `generateFlags(dir?)` (behind `flags sync`, returns aliases such as `{ 'flags:self': './.flags/self.ts' }`), `watchFlags(dir, { signal })` (behind `flags watch`), `findGeneratedDeclarations(dir)` (finds `flags/generated.d.ts` in `dir` or `dir/src`), `renderSourceModule(name, catalog, sourcesPath?, files?)`, `optionIndex(value, options)`, `MANIFEST_FILE` (`'flags-manifest.json'`), `GENERATED_DIRECTORY` (`'.flags'`). `generateFlags` and `watchFlags` read `"selfSource"` of `flags/config.json`. Types: `FlagsAliases`, `WatchResult`, `ConfigModule`, `SourceFiles` (`{ context?: boolean; provider?: 'file' | 'vercel'; hooks?: boolean }`; `hooks` imports `hooks.ts` of the source; `'vercel'` renders `new VercelProvider()` instead of the import of `provider.ts`).
 
 `flags/manifest`: `createManifest(modules)` (from `{ id, exports }` of `'use flags'` modules; throws for an export that is not a flag), `validateFlagsManifest`, `validateSystemManifest`, `resolveFlagLinks`, `expandTemplate`.
 
@@ -380,7 +385,7 @@ function withFlags<T extends object>(
 function withFlags<T extends object>(config: T, options: { dir?: string; disableCodeGeneration: true }): T;
 ```
 
-- Adds the aliases `flags/framework` (the binding: `headers()`, `cookies()`, `connection()`, `unstable_rethrow`), `flags/hooks`, `flags/overrides` and `flags/settings` (to `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`, if they exist), and `flags:<source>` (from `.flags/aliases.json`).
+- Adds the aliases `flags/framework` (the binding: `headers()`, `cookies()`, `connection()`, `unstable_rethrow`), `flags/hooks` and `flags/settings` (to `flags/hooks.ts` and `flags/config.json`, if they exist), and `flags:<source>` (from `.flags/aliases.json`).
 - Self-registers each `'use flags'` module, and writes `flags-manifest.json` into `distDir` after `next build`.
 - Injects a random precompute secret per build, unless `FLAGS_PRECOMPUTE_SECRET` is set.
 - With Cache Components, encrypts `FlagValues` in `'use cache'`.

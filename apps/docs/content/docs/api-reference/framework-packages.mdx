@@ -4,7 +4,7 @@ description: The API of the SvelteKit, Nuxt, TanStack Start, Vite, Hono and Expr
 ---
 
 Each framework package connects the Flags SDK to one framework: it gives the
-runtime the current request, loads the optional files of the folder `flags` (`hooks.ts`, `overrides.ts` and
+runtime the current request, loads the optional files of the folder `flags` (`hooks.ts` and
 `config.json`), and lets the signals of
 the framework through. Your application code imports only `flags`; these
 packages are only for the setup. For Next.js, see
@@ -35,8 +35,8 @@ function flags(options?: FlagsSvelteKitOptions): Plugin;
 ```
 
 The Vite plugin. It points `flags/framework` to the SvelteKit binding,
-`flags/hooks`, `flags/overrides` and `flags/settings` to `flags/hooks.ts`,
-`flags/overrides.ts` and `flags/config.json` (in the project or in `src`), registers
+`flags/hooks` and `flags/settings` to `flags/hooks.ts` and
+`flags/config.json` (in the project or in `src`), registers
 `'use flags'` modules, serves the manifest at
 `/.well-known/flags/manifest.json` in development, and writes
 `flags-manifest.json` after a build.
@@ -90,9 +90,9 @@ export default defineNuxtConfig({
 The module adds the Vite plugin of `@flags-sdk/vite` to the Vite build and to
 the Nitro build. It:
 
-- points `flags/framework` to the Nuxt binding, and `flags/hooks`,
-  `flags/overrides` and `flags/settings` to `flags/hooks.ts`,
-  `flags/overrides.ts` and `flags/config.json`, for each file that exists;
+- points `flags/framework` to the Nuxt binding, and `flags/hooks`
+  and `flags/settings` to `flags/hooks.ts` and `flags/config.json`, for each
+  file that exists;
 - enables `experimental.asyncContext` of Nitro, which the binding needs;
 - registers `'use flags'` modules, serves the manifest in `nuxt dev`, and
   writes `flags-manifest.json` into the server output (`.output/server`);
@@ -175,7 +175,7 @@ function flags(options?: FlagsVitePluginOptions): Plugin;
 
 | Option            | Type                                       | Description                                                                                                                                                    |
 | ----------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `binding`         | `string`                                   | The module behind `flags/framework`, resolved from the project. With it, the plugin also points `flags/hooks`, `flags/overrides` and `flags/settings` to the files of the folder `flags`. |
+| `binding`         | `string`                                   | The module behind `flags/framework`, resolved from the project. With it, the plugin also points `flags/hooks` and `flags/settings` to the files of the folder `flags`. |
 | `bundle`          | `readonly string[]`                        | More packages to bundle into the server code, e.g. the package of the binding. `flags` is always bundled when there is a binding.                              |
 | `dedupe`          | `readonly string[]`                        | Packages that the binding imports and that must be the copy of the project, e.g. `@sveltejs/kit` (`resolve.dedupe`).                                           |
 | `projectModules`  | `Readonly<Record<string, readonly string[]>>` | Modules that the binding imports, resolved to the first candidate the project has.                                                                          |
@@ -234,7 +234,7 @@ rethrow so that an `HTTPException` reaches Hono unchanged, also from
 
 | Option   | Type     | Description                                                                                                             |
 | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `config` | `Config` | The configuration, e.g. `{ hooks }` with the default export of `flags/hooks.ts`. The middleware passes it to `runtime.configure` once. |
+| `config` | `Config` | The configuration, e.g. `{ hooks, settings }` with the default export of `flags/hooks.ts` and the content of `flags/config.json`. The middleware passes it to `runtime.configure` once. |
 
 Hono often runs without a bundler, so the configuration is an option, not an
 alias.
@@ -273,7 +273,7 @@ handlers, which pass them to `next` as usual.
 
 | Option   | Type     | Description                                                                                                             |
 | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `config` | `Config` | The configuration, e.g. `{ hooks }` with the default export of `flags/hooks.ts`. The middleware passes it to `runtime.configure` once. |
+| `config` | `Config` | The configuration, e.g. `{ hooks, settings }` with the default export of `flags/hooks.ts` and the content of `flags/config.json`. The middleware passes it to `runtime.configure` once. |
 
 ```ts title="src/server.ts"
 import { flags } from '@flags-sdk/express';

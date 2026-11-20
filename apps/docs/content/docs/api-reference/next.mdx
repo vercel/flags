@@ -61,9 +61,8 @@ adds:
   SDK the current request (`headers()`, `cookies()`, and `connection()`),
   passes the signals of Next.js through `unstable_rethrow`, and loads the
   configuration.
-- The aliases `flags/hooks` to `flags/hooks.ts`, `flags/overrides` to
-  `flags/overrides.ts` and `flags/settings` to `flags/config.json`, for each
-  file that exists.
+- The aliases `flags/hooks` to `flags/hooks.ts` and `flags/settings` to
+  `flags/config.json`, for each file that exists.
 - The self-registration of each `'use flags'` module.
 - The modules of the route `@flags-sdk/next/manifest`, and
   `flags-manifest.json` in `distDir` after `next build`.
@@ -409,7 +408,7 @@ The framework binding of Next.js, of type `SetupFramework`. `withFlags` points
 2. Sets `runtime.setRethrow` to `unstable_rethrow` of Next.js, so `redirect()`,
    `notFound()` and "Dynamic server usage" reach Next.js.
 3. Sets `runtime.setLoadConfig` to `loadConfig` of `flags/config`, which
-   loads `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`.
+   loads `flags/hooks.ts` and `flags/config.json`.
 
 Server components only have `headers()` and `cookies()`, so `request.url` is
 `undefined` in the evaluation context chain.
@@ -422,7 +421,7 @@ Server components only have `headers()` and `cookies()`, so `request.url` is
 function encryptValues(values: FlagValuesType, options?: EncryptValuesOptions): Promise<string>;
 ```
 
-The encryption that `FlagValues` uses: `encryptFlagValues` of `flags`. With
+The encryption that `FlagValues` uses: `encryptFlagValues` of `flags/explorer`. With
 Cache Components, `withFlags` replaces it with a version that runs in
 `'use cache'`. `EncryptValuesOptions` is `EncryptFlagValuesOptions` without
 `fetch`.

@@ -16,6 +16,7 @@ Full guide: https://flags-sdk.dev/docs/getting-started/upgrading-from-v4
 | `flags/next`, `flags/sveltekit` imports in app code             | App code imports only `flags`. Setup packages: `@flags-sdk/next`, `@flags-sdk/sveltekit`, ... |
 | `precompute`, `generatePermutations` from `flags/next`          | The same API in `@flags-sdk/next/precompute`                                               |
 | A flag called as `flag(code, group)` on a precomputed page      | `getPrecomputed(flag, group, code)`                                                        |
+| `encryptOverrides`, `decryptOverrides`, `encryptFlagValues`, `decryptFlagValues` from `flags` | The same functions from `flags/explorer` |
 | `FlagValues` from `flags/react`                                 | `FlagValues` from `@flags-sdk/next/flag-values`, encrypted by default                      |
 | `/.well-known/vercel/flags` with `getProviderData`              | The flags manifest of `'use flags'` modules (`app/.well-known/flags/manifest.json/route.ts`) |
 | `vercelAdapter` of `@flags-sdk/vercel`                          | `new VercelProvider()` of `@vercel/flags-core/openfeature`                                  |

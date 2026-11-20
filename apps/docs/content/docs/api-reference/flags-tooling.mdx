@@ -63,7 +63,6 @@ which exists, by the module that a plugin replaces with it:
 | Module            | File                                                    |
 | ----------------- | ------------------------------------------------------- |
 | `flags/hooks`     | `flags/hooks.ts`, `.mts`, `.js` or `.mjs`               |
-| `flags/overrides` | `flags/overrides.ts`, `.mts`, `.js` or `.mjs`           |
 | `flags/settings`  | `flags/config.json`                                     |
 
 A plugin sets a bundler alias for each entry. Without a file, it sets no
@@ -104,7 +103,7 @@ function addSelfRegistration(source: string, fileName: string): string;
 ```
 
 Appends code to a `'use flags'` module that imports the module itself and
-passes its exports to `registerFlags`. A build plugin calls it in its
+passes its exports to `registerFlags` of `flags/runtime`. A build plugin calls it in its
 transform step, so nobody has to call `registerFlags` by hand. `fileName` is
 the file name of the module, for the self import.
 
@@ -240,7 +239,7 @@ their content. Precompute uses it to encode values.
 - `FlagsAliases`: `Record<string, string>`, e.g.
   `{ 'flags:self': './.flags/self.ts' }`, relative to the application.
 - `WatchResult`: the result of `watchFlags`.
-- `ConfigModule`: `'flags/hooks' | 'flags/overrides' | 'flags/settings'`,
+- `ConfigModule`: `'flags/hooks' | 'flags/settings'`,
   the modules which a plugin replaces with the files of the configuration.
 - `SourceFiles`: `{ context?: boolean; provider?: 'file' | 'vercel'; hooks?: boolean }`,
   the files of a source, for `renderSourceModule`. `context` is `true` if the
@@ -387,8 +386,8 @@ flags watch -- vite dev
 
 Writes the flags manifest for applications without a framework plugin, e.g.
 Hono or Express on Node.js. It imports the `'use flags'` modules in `dir`
-with Node.js, loads `flags/hooks.ts`, `flags/overrides.ts` and
-`flags/config.json` if it finds them (in `dir` or its `src`), and writes the
+with Node.js, loads `flags/hooks.ts` and `flags/config.json` if it finds
+them (in `dir` or its `src`), and writes the
 manifest.
 
 | Argument       | Description                                                                 |

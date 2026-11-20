@@ -1,6 +1,6 @@
 # Frameworks
 
-The flags and the call sites are the same in every framework. A framework package only gives the SDK the current request, loads the configuration files (`flags/hooks.ts`, `flags/overrides.ts`, `flags/config.json`), lets framework signals through, registers `'use flags'` modules, generates `flags:<source>`, and serves the manifest in development.
+The flags and the call sites are the same in every framework. A framework package only gives the SDK the current request, loads the configuration files (`flags/hooks.ts`, `flags/config.json`), lets framework signals through, registers `'use flags'` modules, generates `flags:<source>`, and serves the manifest in development.
 
 The source folder is the same in every framework with a bundler (see [code-generation.md](code-generation.md)). With `@vercel/flags-core` in `package.json`, the source `self` is the default source of Vercel Flags: no folder is needed. Add only the file of the part that you replace, e.g. the context:
 
@@ -90,7 +90,7 @@ The proxy (`proxy.ts`, formerly middleware) does not use `headers()`, so wrap th
 
 ```ts
 // proxy.ts
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { type NextRequest, NextResponse } from 'next/server';
 import { betaBanner } from './flags';
 
@@ -248,7 +248,7 @@ Initialize providers at startup (optional):
 ```ts
 // src/hooks.server.ts
 import type { ServerInit } from '@sveltejs/kit';
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 
 export const init: ServerInit = async () => {
   await runtime.onInit();
@@ -421,7 +421,7 @@ export const betaBanner = defineFlag({
 // src/server.ts
 import { flags } from '@flags-sdk/hono';
 import { serve } from '@hono/node-server';
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { Hono } from 'hono';
 import { betaBanner, enableSale } from './flags.ts';
 
@@ -463,7 +463,7 @@ pnpm add flags @flags-sdk/express @vercel/flags-core @openfeature/server-sdk
 // src/server.ts
 import { flags } from '@flags-sdk/express';
 import express from 'express';
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { betaBanner, enableSale } from './flags.ts';
 
 const app = express();
@@ -499,7 +499,7 @@ Install only `flags` (and your provider). Call the runtime yourself:
 | `runtime.onInit()`                | Once at startup        | Initializes the providers of all registered sources. Logs errors.    |
 | `runtime.onInvoke(request, next)` | For each request       | Runs `next` in the scope of the request. Returns its result.         |
 | `runtime.onShutdown()`            | When the process stops | Closes the providers.                                                |
-| `runtime.configure(config)`       | At startup             | Sets the configuration, e.g. `{ hooks, overrides }` of `flags/hooks.ts` and `flags/overrides.ts`. |
+| `runtime.configure(config)`       | At startup             | Sets the configuration, e.g. `{ hooks, settings }` of `flags/hooks.ts` and `flags/config.json`. |
 
 ```ts
 // A fetch handler: a Web Request fits as it is
@@ -514,7 +514,7 @@ export default {
 - With `node:http`, pass `{ headers, url }`, and pass the same `headers` object for the whole request. Without `cookies`, the SDK reads the `Cookie` header.
 - Scripts and cron jobs have no request. Pass what the flag needs with `evaluationContext`.
 - `'use flags'` is optional here. Add it if you want to write a manifest with `npx flags manifest`.
-- Without a bundler, nothing appends the self-registration of `'use flags'` modules. `source.bindFlag` registers its source itself. Call `registerFlags` for modules that export plain flag objects.
+- Without a bundler, nothing appends the self-registration of `'use flags'` modules. `source.bindFlag` registers its source itself. Call `registerFlags` of `flags/runtime` for modules that export plain flag objects.
 - Complete example: `examples/standard/plain` in the repository.
 
 ## Custom frameworks
@@ -525,7 +525,7 @@ Write a binding when the framework gives the request at any time (like `headers(
 
 ```ts
 // binding.ts: the module behind the alias flags/framework
-import type { SetupFramework } from 'flags';
+import type { SetupFramework } from 'flags/runtime';
 
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);
@@ -535,17 +535,13 @@ export const setupFramework: SetupFramework = (runtime) => {
     // the aliases of the plugin apply
     const { configFromModules } = await import('flags/config');
     return configFromModules(
-      await Promise.all([
-        import('flags/hooks'),
-        import('flags/overrides'),
-        import('flags/settings'),
-      ]),
+      await Promise.all([import('flags/hooks'), import('flags/settings')]),
     );
   });
 };
 ```
 
-- The build plugin aliases `flags/hooks`, `flags/overrides` and `flags/settings` to `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`, only for the files that exist. Find them with `findConfigModules(dir)` of `flags/tooling`. The binding imports the three modules itself, and builds the configuration with `configFromModules` of `flags/config`.
+- The build plugin aliases `flags/hooks` and `flags/settings` to `flags/hooks.ts` and `flags/config.json`, only for the files that exist. Find them with `findConfigModules(dir)` of `flags/tooling`. The binding imports the two modules itself, and builds the configuration with `configFromModules` of `flags/config`.
 
 - The binding imports only types from `flags`.
 - `setGetRequest` returns `FlagsRequestInit` or `undefined`, with the same `headers` object for one request.

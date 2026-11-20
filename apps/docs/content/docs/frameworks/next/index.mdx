@@ -137,7 +137,7 @@ Set the cookie `beta=1` to see the beta banner.
 - **The proxy.** The proxy (`proxy.ts`, formerly middleware) does not use `headers()` of `next/headers`, so wrap the call in `runtime.onInvoke`:
 
   ```ts title="proxy.ts"
-  import { runtime } from 'flags';
+  import { runtime } from 'flags/runtime';
   import { type NextRequest, NextResponse } from 'next/server';
   import { betaBanner } from './flags';
 
@@ -161,8 +161,7 @@ You do not need configuration files. Your flags name their source, e.g. `self`, 
 Add a file to the folder `flags`, next to `flags/sources`, when you want settings for all flags:
 
 - `flags/hooks.ts`: OpenFeature hooks for every flag, as the default export.
-- `flags/overrides.ts`: the options of overrides, as the default export.
-- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`, or `overrides`: which override cookies the SDK accepts.
 
 The `withFlags` plugin loads the files automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
 
@@ -287,7 +286,7 @@ To test both values of a flag in a browser, set the `flag-overrides` cookie, enc
 
 ```ts title="tests/fixtures.ts"
 import { test as base } from '@playwright/test';
-import { encryptOverrides, type FlagOverrides } from 'flags';
+import { encryptOverrides, type FlagOverrides } from 'flags/explorer';
 
 export const test = base.extend<{
   setFlagOverrides: (values: FlagOverrides) => Promise<void>;
@@ -338,10 +337,10 @@ The tests need the same `FLAGS_SECRET` as the app. To load it from your `.env` f
 
 ## How it works
 
-`withFlags` sets Turbopack aliases: `flags/framework` points to `@flags-sdk/next/binding`, and `flags/hooks`, `flags/overrides` and `flags/settings` point to your `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`, if they exist. It also points each `flags:<source>` to its module in `.flags`. Before the first evaluation, the SDK calls the binding, which sets three things:
+`withFlags` sets Turbopack aliases: `flags/framework` points to `@flags-sdk/next/binding`, and `flags/hooks` and `flags/settings` point to your `flags/hooks.ts` and `flags/config.json`, if they exist. It also points each `flags:<source>` to its module in `.flags`. Before the first evaluation, the SDK calls the binding, which sets three things:
 
 1. **The request.** It reads `headers()` and `cookies()`. `headers()` returns the same object for one request, so the SDK uses it to find the per-request cache. The binding also waits for `connection()`.
 2. **The rethrow.** It passes errors to `unstable_rethrow`, so that Next.js signals pass through.
-3. **The config.** It loads `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` and builds the configuration with `configFromModules` of `flags/config`: one time in production, and before each evaluation in development.
+3. **The config.** It loads `flags/hooks.ts` and `flags/config.json` and builds the configuration with `configFromModules` of `flags/config`: one time in production, and before each evaluation in development.
 
 Next.js can put more than one copy of the SDK into one process, one for each layer. All copies share one runtime through `globalThis`, so they share the configuration, the providers and their clients. The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).

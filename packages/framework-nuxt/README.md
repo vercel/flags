@@ -52,8 +52,8 @@ configuration of all flags. None of them has a source:
 
 - `flags/hooks.ts`: the OpenFeature hooks for all flags, as the default
   export.
-- `flags/overrides.ts`: the options of the overrides, as the default export.
-- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`, or
+  `overrides`: which override cookies the SDK accepts.
 
 The module loads them automatically. In development, a change applies without a restart.
 
@@ -135,9 +135,8 @@ export default defineNuxtConfig({
 ## How it works
 
 - The module sets `nitro.alias` for `flags/framework` (to
-  `@flags-sdk/nuxt/binding`), and for `flags/hooks`, `flags/overrides` and
-  `flags/settings` (to `flags/hooks.ts`, `flags/overrides.ts` and
-  `flags/config.json`, if they exist). It adds `flags` and
+  `@flags-sdk/nuxt/binding`), and for `flags/hooks` and `flags/settings`
+  (to `flags/hooks.ts` and `flags/config.json`, if they exist). It adds `flags` and
   `@flags-sdk/nuxt` to `nitro.externals.inline`, so that Nitro bundles the
   SDK and the aliases reach it. It points Nitro to its ESM files, so that
   the bundle has one copy of the SDK.
