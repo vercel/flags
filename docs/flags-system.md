@@ -73,7 +73,7 @@ must be safe to load in build tooling. Catalog code must not import runtime
 providers or request APIs. Credentials must never enter generated files.
 
 Manual connections need neither this directory layout nor `catalog.ts`. A central
-`flags.config.ts` is not required by the proposed source model. The final API for
+`flags/config.ts` is not required by the proposed source model. The final API for
 global runtime policy, such as hooks and overrides, is still open.
 
 ## Types and evaluation context

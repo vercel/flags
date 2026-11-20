@@ -94,7 +94,7 @@ build plugin or a platform replaces them.
 | Module | Default | Replaced by |
 | --- | --- | --- |
 | `flags/framework` | no binding | the framework binding (section 5) |
-| `flags/config` | no configuration | `flags.config.ts` of the application (section 6) |
+| `flags/config` | no configuration | `flags/config.ts` of the application (section 6) |
 | `flags/default-provider` | the OFREP provider of Vercel Flags | the provider of a platform (section 8) |
 
 ### 4.1 Replacement
@@ -197,10 +197,10 @@ evaluation belongs to the request.
   application evaluates the flag outside, and passes the value into the
   cache scope.
 
-## 6. `flags.config.ts`
+## 6. `flags/config.ts`
 
-- The file MUST be named `flags.config.ts`, `flags.config.mts`,
-  `flags.config.js` or `flags.config.mjs`, in the directory of the
+- The file MUST be named `flags/config.ts`, `flags/config.mts`,
+  `flags/config.js` or `flags/config.mjs`, in the directory of the
   application or in its `src` directory.
 - The configuration MUST be the named export `config`. A default export
   MUST NOT be read.
@@ -282,7 +282,7 @@ The manifest MUST conform to the JSON Schema
 
 - A platform MAY replace `flags/default-provider` with its own provider,
   for its builds. It MUST NOT replace it for development.
-- A `defaultSource` of `flags.config.ts` MUST win over the provider of
+- A `defaultSource` of `flags/config.ts` MUST win over the provider of
   the platform. The runtime does this.
 - A platform SHOULD put `flags-manifest.json` of the build into its build
   output, so that tools can read it.

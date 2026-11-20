@@ -11,7 +11,7 @@
  * ```
  *
  * It points `flags/framework` to the binding of this package, and does the
- * rest of `@flags-sdk/vite`: `flags.config.ts`, `'use flags'` modules, the
+ * rest of `@flags-sdk/vite`: `flags/config.ts`, `'use flags'` modules, the
  * manifest of the flags, and the default provider of the platform. The
  * adapter of SvelteKit runs after the build of Vite, so it is too late for
  * the alias of the default provider. Thus, the plugin sets it.

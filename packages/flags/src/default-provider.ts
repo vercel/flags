@@ -34,7 +34,7 @@ export function createDefaultProvider(): Provider {
   const fail = () =>
     Promise.reject(
       new Error(
-        'flags: A flag without a source uses the default source, which is not available yet. Pass a source to bindFlag, or set defaultSource in flags.config.ts.',
+        'flags: A flag without a source uses the default source, which is not available yet. Pass a source to bindFlag, or set defaultSource in flags/config.ts.',
       ),
     );
   return {
@@ -59,13 +59,13 @@ export function createVercelOfrepProvider(): Provider {
   function current(): ProviderOfAllTypes {
     if (!process.env.VERCEL_OIDC_TOKEN) {
       throw new Error(
-        'flags: A flag without a source uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default source in flags.config.ts, or pass a source to bindFlag.',
+        'flags: A flag without a source uses Vercel Flags, but the project is not connected to Vercel. Run `vercel link` and `vercel env pull`, set a default source in flags/config.ts, or pass a source to bindFlag.',
       );
     }
     if (process.env.NODE_ENV === 'production' && !warnedAboutProduction) {
       warnedAboutProduction = true;
       logger.warn(
-        'flags: Flags without a source use OFREP, which sends one request for each evaluation. For production, set a default source in flags.config.ts, e.g. with VercelProvider of @vercel/flags-core/openfeature.',
+        'flags: Flags without a source use OFREP, which sends one request for each evaluation. For production, set a default source in flags/config.ts, e.g. with VercelProvider of @vercel/flags-core/openfeature.',
       );
     }
     ofrep ??= createOfrepProvider({

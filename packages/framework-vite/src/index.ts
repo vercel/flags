@@ -3,7 +3,7 @@
  * `@flags-sdk/sveltekit/vite`. An application uses the plugin of its
  * framework package. It uses the bundler of the framework for:
  *
- * - The framework binding behind `flags/framework`, and `flags.config.ts`
+ * - The framework binding behind `flags/framework`, and `flags/config.ts`
  *   behind `flags/config`.
  * - A module with the `'use flags'` directive registers its flags itself,
  *   so nobody calls `registerFlags` by hand.
@@ -45,7 +45,7 @@ export interface FlagsVitePluginOptions {
   /**
    * The framework binding: the module behind `flags/framework`, e.g.
    * `@flags-sdk/sveltekit/binding`. With it, the plugin also points
-   * `flags/config` to `flags.config.ts`, so that the SDK gets the request
+   * `flags/config` to `flags/config.ts`, so that the SDK gets the request
    * and the configuration without code in the application. A framework
    * package sets it.
    */
@@ -149,7 +149,7 @@ const copies = new WeakMap<ViteDevServer, Promise<DevImporter>>();
  * copy of the SSR environment imports the modules.
  *
  * The copy stays open as long as the dev server: the runtime keeps the
- * loader of flags.config.ts of the copy as its config loader. Each manifest
+ * loader of flags/config.ts of the copy as its config loader. Each manifest
  * clears its modules first, so it imports the current files. `vite` is only
  * loaded when it is necessary.
  */
@@ -318,7 +318,7 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
             load.refresh?.();
             if (options.binding) {
               // The SDK in the server code has the framework binding, so the
-              // runtime can load flags.config.ts, which gives the default
+              // runtime can load flags/config.ts, which gives the default
               // connection of the flags without a connection
               await load.import('flags');
               await runtime.prepare();

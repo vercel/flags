@@ -8,12 +8,12 @@ import { evaluate } from 'flags';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { newCheckout } from './default-flags.ts';
-import { config } from './flags.config.ts';
+import { config } from './flags/config.ts';
 import { bannerText, summerSale } from './flags.ts';
 
 const app = new Hono();
 
-// Each request runs in runtime.onInvoke, and the SDK uses flags.config.ts
+// Each request runs in runtime.onInvoke, and the SDK uses flags/config.ts
 app.use(flags({ config }));
 
 app.get('/', async (c) => {

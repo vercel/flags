@@ -1,6 +1,6 @@
 import { defineConfig, defineSource } from 'flags';
 
-// The pattern of flags.config.ts: the configuration and the registration of
+// The pattern of flags/config.ts: the configuration and the registration of
 // its type in one file
 export const config = defineConfig({
   defaultSource: defineSource({

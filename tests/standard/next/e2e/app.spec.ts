@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { decryptFlagValues, encryptOverrides } from 'flags';
 import { FLAGS_SECRET } from '../playwright.config';
 
-// The app: withFlags loads flags.config.ts, and the flags use its default
+// The app: withFlags loads flags/config.ts, and the flags use its default
 // source, with the user from a cookie of the request
 
 test('evaluates the flags in a server component', async ({ request }) => {

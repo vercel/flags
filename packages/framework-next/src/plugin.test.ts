@@ -32,23 +32,23 @@ describe('withFlags', () => {
     });
   });
 
-  it('points flags/config to flags.config.ts', () => {
-    const dir = projectWith('flags.config.ts');
+  it('points flags/config to flags/config.ts', () => {
+    const dir = projectWith('flags/config.ts');
     const config = withFlags<NextConfig>({}, { dir });
 
     expect(config.turbopack?.resolveAlias).toMatchObject({
-      'flags/config': './flags.config.ts',
+      'flags/config': './flags/config.ts',
     });
   });
 
-  it('finds flags.config.ts in src', () => {
-    const dir = projectWith('src/flags.config.ts');
+  it('finds flags/config.ts in src', () => {
+    const dir = projectWith('src/flags/config.ts');
 
-    expect(findConfigFile(dir)).toBe(join(dir, 'src', 'flags.config.ts'));
+    expect(findConfigFile(dir)).toBe(join(dir, 'src', 'flags/config.ts'));
     expect(
       withFlags<NextConfig>({}, { dir }).turbopack?.resolveAlias,
     ).toMatchObject({
-      'flags/config': './src/flags.config.ts',
+      'flags/config': './src/flags/config.ts',
     });
   });
 

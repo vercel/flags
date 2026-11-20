@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
-// The platform variant: flags.config.ts has no default source, and the
+// The platform variant: flags/config.ts has no default source, and the
 // test adapter points flags/default-provider to the provider of the platform
 
 test('uses the default provider of the platform', async ({ request }) => {

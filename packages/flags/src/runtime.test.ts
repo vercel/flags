@@ -541,12 +541,12 @@ describe('runtime', () => {
 
     it('fails the evaluation when the configuration can not be loaded', async () => {
       runtime.setLoadConfig(() => {
-        throw new Error('flags.config.ts has an error');
+        throw new Error('flags/config.ts has an error');
       });
 
       await expect(
         bindFlag({ key: 'a', source: sourceWith(true) })(),
-      ).rejects.toThrow('flags.config.ts has an error');
+      ).rejects.toThrow('flags/config.ts has an error');
     });
   });
 

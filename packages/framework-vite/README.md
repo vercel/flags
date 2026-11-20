@@ -8,7 +8,7 @@ uses the plugin of its framework package, not this one.
 
 ## Features
 
-- **The framework binding** behind `flags/framework`, and `flags.config.ts`
+- **The framework binding** behind `flags/framework`, and `flags/config.ts`
   behind `flags/config`.
 - **`'use flags'` modules** register their flags.
 - **The manifest of the flags:** at `/.well-known/flags/manifest.json` in

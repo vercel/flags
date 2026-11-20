@@ -1,7 +1,7 @@
 # @flags-sdk/next
 
 The Next.js package of the [Flags SDK](../flags). It connects the SDK to
-Next.js: the request of each page, `flags.config.ts`, the signals of
+Next.js: the request of each page, `flags/config.ts`, the signals of
 Next.js, discovery for Flags Explorer, and precompute.
 
 ```ts
@@ -55,43 +55,51 @@ export default withFlags({
 ```
 
 That is the only required step. `withFlags` keeps your configuration, also
-your aliases and rules of Turbopack. If `flags.config.ts` is not in the
+your aliases and rules of Turbopack. If `flags/config.ts` is not in the
 directory of the application or in its `src`, give the directory:
 `withFlags({}, { dir: '/path/to/the/app' })`.
 
 ### 2️⃣ Give the flags a source
 
-Each flag of a provider has a source (`bindFlag({ key, source })`), or uses
-the default source of `flags.config.ts`. For now, without
-`flags.config.ts`, the built-in default source throws. Code generation can
-write the sources and flags for you (see "Code generation").
-
-### 3️⃣ `flags.config.ts`
+Each flag of a provider names its source:
 
 ```ts
-// flags.config.ts
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
+// flags.ts
+'use flags';
 
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
+import { bindFlag, defineSource } from 'flags';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
+
+const vercel = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (_input, request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
 });
 
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
+export const summerSale = bindFlag({ key: 'summer-sale', source: vercel });
 ```
 
-The file must export `config`. It can be `flags.config.ts`, `.mts`, `.js`
-or `.mjs`. In development, a change applies without a restart.
+Code generation can write the sources and flags for you (see "Code
+generation").
+
+### 3️⃣ Optional: `flags/config.ts`
+
+You do not need a configuration file. Add `flags/config.ts` (or
+`src/flags/config.ts`), next to `flags/sources`, for settings of all flags:
+OpenFeature `hooks`, the options of `overrides`, or a `defaultSource` for
+flags without a source. `withFlags` loads it automatically. The file must
+export `config`. In development, a change applies without a restart.
+
+```ts
+// flags/config.ts
+import { defineConfig } from 'flags';
+
+export const config = defineConfig({
+  hooks: [myLoggingHook],
+});
+```
 
 ## Usage
 
@@ -318,15 +326,15 @@ export { GET } from '@flags-sdk/next/manifest';
 On Vercel, the deployment adapter of Next.js points the module
 `flags/default-provider` to the fast provider of Vercel Flags
 (`@vercel/flags-core/default-provider`). Thus, flags without a source
-evaluate without a request for each flag, also without `flags.config.ts`.
+evaluate without a request for each flag, also without `flags/config.ts`.
 
 - The adapter does this only for builds. Development uses the
-  default source of `flags.config.ts`.
-- A `defaultSource` in `flags.config.ts` always wins over the provider of
+  default source of `flags/config.ts`.
+- A `defaultSource` in `flags/config.ts` always wins over the provider of
   the platform.
 - Without the deployment adapter, e.g. on a different host, flags without a
   source use the built-in default source, which throws for now. Set a
-  `defaultSource` in `flags.config.ts`.
+  `defaultSource` in `flags/config.ts`.
 
 ## How it works
 
@@ -335,7 +343,7 @@ evaluate without a request for each flag, also without `flags.config.ts`.
 | Alias               | Points to          | Default without the plugin |
 | ------------------- | ------------------ | -------------------------- |
 | `flags/framework` | `@flags-sdk/next/binding`       | no framework binding       |
-| `flags/config`      | `flags.config.ts`  | no configuration           |
+| `flags/config`      | `flags/config.ts`  | no configuration           |
 
 The SDK imports `flags/framework` itself, so the binding works in each
 bundle that uses `flags`. The application never imports `@flags-sdk/next/binding`.
@@ -357,10 +365,10 @@ Before the first evaluation, the SDK calls `setupFramework` of
    such errors to `unstable_rethrow`, so that they reach Next.js unchanged.
    It also throws a `FlagInCacheError` again, so that a flag in a cache
    scope does not return its default value.
-3. **The config source.** It loads `flags.config.ts` with
+3. **The config source.** It loads `flags/config.ts` with
    `import('flags/config')`. In production, the SDK loads it one time. In
    development, it loads it again before each evaluation, so a change of
-   `flags.config.ts` applies without a restart.
+   `flags/config.ts` applies without a restart.
 
 Next.js can put more than one copy of the SDK into one process, e.g. one for
 each layer. All copies share one runtime through `globalThis`, so they share
@@ -387,19 +395,19 @@ the configuration, the providers and their clients.
 - **No `'use client'`.** The SDK uses `node:async_hooks`, and it is only for
   the server.
 - **The registration of the type must be in the TypeScript program.** If
-  `tsconfig.json` does not include `flags.config.ts`, flags without a
+  `tsconfig.json` does not include `flags/config.ts`, flags without a
   source lose the types of the configured source. The type check
   does not fail, but it is less strict.
-- **The export must be `config`.** A default export of `flags.config.ts` is
+- **The export must be `config`.** A default export of `flags/config.ts` is
   not read.
 - **A conditional configuration loses its types.** E.g.
   `export const config = condition ? configA : configB` is a union, so the
   registered type falls back to the open context.
-- **In production, a change of `flags.config.ts` needs a new build**, as
+- **In production, a change of `flags/config.ts` needs a new build**, as
   with each other source file. Only development loads it again without a
   restart.
 - **The adapter of the platform runs only for builds.** In development, the
-  flags use `flags.config.ts`, not the fast provider of the platform. Install `@vercel/flags-core` and set it in `flags.config.ts` for
+  flags use `flags/config.ts`, not the fast provider of the platform. Install `@vercel/flags-core` and set it in `flags/config.ts` for
   fast evaluations during development.
 - **Without `defaultValue`, each issue throws a `FlagEvaluationError`**: a
   provider that throws, an `errorCode`, the reason `ERROR`, a value of the

@@ -26,7 +26,7 @@ import { prepareCodeGeneration, readAliases } from './code-generation';
 export interface FlagsPluginOptions {
   /**
    * The directory of the application, where the plugin looks for
-   * `flags.config.ts` and `flags/sources`. The default is the current
+   * `flags/config.ts` and `flags/sources`. The default is the current
    * directory.
    */
   readonly dir?: string;
@@ -191,7 +191,7 @@ function turbopackRules(
  * - The alias `flags/framework` points to `@flags-sdk/next/binding`, which
  *   gives the
  *   runtime the current request of Next.js, and loads the configuration.
- * - The alias `flags/config` points to `flags.config.ts`, if it exists.
+ * - The alias `flags/config` points to `flags/config.ts`, if it exists.
  * - A module with the `'use flags'` directive registers its flags itself,
  *   so nobody calls `registerFlags` by hand.
  * - The route `@flags-sdk/next/manifest` gets the modules with `'use flags'`,

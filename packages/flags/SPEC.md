@@ -53,7 +53,7 @@ writes a deployment adapter.
 6. Done: overrides. Override cookies, trusted with the shared secret
    `FLAGS_SECRET` (the format of v4) or signed by Vercel (see "Overrides").
 7. Done: configuration and default source. `runtime.configure` with
-   `flags.config.ts`. A flag without a source uses the default source
+   `flags/config.ts`. A flag without a source uses the default source
    of the application, else the default provider: OFREP, or a fast provider
    that a framework puts in with an alias (see "Configuration" and "Default
    source").
@@ -85,7 +85,7 @@ writes a deployment adapter.
     `validateFlagsManifest` of `flags/manifest` checks a manifest. The provider contract is
     OpenFeature, so the standard of this SDK is the contract between
     frameworks and the SDK: `FlagsRequestInit`, the lifecycle,
-    `flags.config.ts`, the alias of `flags/default-provider`, and the format
+    `flags/config.ts`, the alias of `flags/default-provider`, and the format
     of discovery.
 15. Done: one standard with sources. "Source" becomes "source"
     (`defineSource`, `bindFlag`), and code generation from catalogs
@@ -237,7 +237,7 @@ through its own package name, and the build of the SDK keeps these imports:
 | ------------------------ | --------------------------- | --------------------------------------------- |
 | `flags/default-provider` | OFREP                       | a platform, e.g. with `@vercel/flags-core`    |
 | `flags/framework`      | no framework binding        | a framework plugin, e.g. with `@flags-sdk/next/binding`    |
-| `flags/config`           | no configuration            | a framework plugin, with `flags.config.ts`    |
+| `flags/config`           | no configuration            | a framework plugin, with `flags/config.ts`    |
 
 A bundler can put more than one copy of the package into one process, e.g.
 one copy for each layer of Next.js. Thus, the state is on `globalThis`, under
@@ -663,12 +663,12 @@ await track(launchdarkly, 'purchase', {
 ## Configuration
 
 `runtime.configure(config)` configures the SDK. By convention, the
-configuration is the export `config` of `flags.config.ts`, and the framework
+configuration is the export `config` of `flags/config.ts`, and the framework
 binding calls `runtime.configure` with it. Without a framework, the
 application calls it at startup.
 
 ```ts
-// flags.config.ts
+// flags/config.ts
 import { defineConfig, defineSource } from 'flags';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
@@ -699,9 +699,9 @@ declare module 'flags' {
   call of `configure` replaces it: the old one is not initialized any more,
   and if it was initialized, the runtime closes its provider, unless a flag
   still uses that provider. Thus, a reload in development, or one call of
-  `configure` for each copy of `flags.config.ts`, does not leave open
+  `configure` for each copy of `flags/config.ts`, does not leave open
   clients.
-- The convention has one name: `flags.config.ts` exports `config`, not a
+- The convention has one name: `flags/config.ts` exports `config`, not a
   default export. A default export would need a separate name anyway for
   `typeof config`, and two accepted names would be ambiguous.
 
@@ -710,15 +710,15 @@ declare module 'flags' {
 - `defineConfig(config)` returns the configuration as it is, with its exact
   type (a `const` type parameter). It does not use `Register`, so that
   `Register` can refer to `typeof config` without a circular type.
-- The application registers the type in `flags.config.ts` itself, with
+- The application registers the type in `flags/config.ts` itself, with
   `declare module 'flags'`. No generated declaration file is necessary.
-  `flags.config.ts` is part of the TypeScript program, so the registration
+  `flags/config.ts` is part of the TypeScript program, so the registration
   applies to the full program.
 - With the registration, a flag without a source has the types of the
   configured default source (`ConfiguredSource`), e.g. the input of
   its `getEvaluationContext`. Without it, the flag has the open
   `DefaultSourceInput`.
-- If `flags.config.ts` is not in the TypeScript program, the types fall back
+- If `flags/config.ts` is not in the TypeScript program, the types fall back
   to the open context. The type check does not fail, but it is less strict.
 - `test/register` tests this pattern with its own TypeScript program, as part
   of `type-check`. A registration applies to the full program, so the other
@@ -757,7 +757,7 @@ The gradual path:
 | Step | What the user does                   | Result                                                                      |
 | ---- | ------------------------------------ | --------------------------------------------------------------------------- |
 | 0    | Nothing                              | For now, an error. On Vercel, a fast provider, if the framework puts it in. |
-| 1    | Writes `flags.config.ts`             | Evaluation context and fast evaluations everywhere. No flag changes.        |
+| 1    | Writes `flags/config.ts`             | Evaluation context and fast evaluations everywhere. No flag changes.        |
 | 2    | Adds `source` to some flags          | More than one provider.                                                     |
 
 ### The built-in default provider
@@ -765,7 +765,7 @@ The gradual path:
 For now, the built-in implementation of `flags/default-provider` throws on
 each evaluation: "A flag without a source uses the default source, which is
 not available yet. Pass a source to bindFlag, or set defaultSource in
-flags.config.ts." The error comes at the evaluation, not at the definition,
+flags/config.ts." The error comes at the evaluation, not at the definition,
 so that imports in tests and scripts do not fail. A flag with `defaultValue`
 returns it and logs the error. A replacement with an alias (see below) and
 the `defaultSource` of the configuration still work.
@@ -778,12 +778,12 @@ later, when the OFREP endpoint of Vercel Flags is available:
   `vercel env pull` can renew it.
 - Without the token, the evaluation throws an error that tells the user to
   run `vercel link` and `vercel env pull`, to set a default source in
-  `flags.config.ts`, or to pass a source. The error comes at the
+  `flags/config.ts`, or to pass a source. The error comes at the
   evaluation, not at the definition, so that imports in tests and scripts do
   not fail. A flag with `defaultValue` returns it and logs the error.
 - With `NODE_ENV=production`, it logs a warning one time: OFREP sends one
   request for each evaluation, so set a default source in
-  `flags.config.ts`, e.g. with `VercelProvider`.
+  `flags/config.ts`, e.g. with `VercelProvider`.
 
 ### Replacing the default provider with an alias
 
@@ -1139,7 +1139,7 @@ provide the same itself.
 | --- | --- | --- |
 | `flags` | runtime, `defineFlag`, `bindFlag`, `defineSource`, overrides, `evaluate`, `track`, `flags/manifest`, `flags/tooling`, the command line `flags` | the application, and the framework packages |
 | `@flags-sdk/next` | `/binding`, `/plugin` (`withFlags`), `/precompute`, `/manifest` (the route), and the loaders of Turbopack | `next.config.ts`, `proxy.ts`, one route file |
-| `@flags-sdk/vite` | the generic Vite plugin: the binding, `flags.config.ts`, `'use flags'` modules, the manifest, the default provider of the platform | the framework packages for Vite |
+| `@flags-sdk/vite` | the generic Vite plugin: the binding, `flags/config.ts`, `'use flags'` modules, the manifest, the default provider of the platform | the framework packages for Vite |
 | `@flags-sdk/sveltekit` | `/binding`, `/vite` | `vite.config.ts` |
 | `@flags-sdk/nuxt` | the module, `/binding`, `/plugin` (Nitro) | `nuxt.config.ts` |
 | `@flags-sdk/tanstack-start` | `/binding`, `/vite` | `vite.config.ts` |
@@ -1172,7 +1172,7 @@ A framework binding connects the SDK to a framework. It has two parts:
 1. **A build plugin**, e.g. `withFlags` of `@flags-sdk/next/plugin`. It sets two
    bundler aliases:
    - `flags/framework` to the module of the binding, e.g. `@flags-sdk/next/binding`.
-   - `flags/config` to the `flags.config.ts` of the application, if it exists.
+   - `flags/config` to the `flags/config.ts` of the application, if it exists.
 2. **The module of the binding** behind `flags/framework`. It exports
    `setupFramework(runtime)`, which the runtime calls one time, before the
    first evaluation and in `onInit`.
@@ -1187,7 +1187,7 @@ The module of the binding:
 - must not import `flags` statically, because `flags` imports it. It gets
   the runtime as an argument.
 - loads the configuration with a dynamic `import('flags/config')`, because
-  `flags.config.ts` imports `flags`.
+  `flags/config.ts` imports `flags`.
 - uses only the public API of the SDK, so that a framework can take it over,
   e.g. as its own module behind the same alias.
 
@@ -1202,7 +1202,7 @@ The module of the binding:
 - `setLoadConfig`: in production, the runtime calls it one time. In
   development (`NODE_ENV` is not `production`), it calls it before each
   evaluation, and configures again when it returns a different object. Thus,
-  a change of `flags.config.ts` applies without a restart, and `configure`
+  a change of `flags/config.ts` applies without a restart, and `configure`
   closes the old default source. If the source throws, the evaluation
   fails, and the next one tries again.
 - `setRethrow`: some frameworks use errors as signals, e.g. Next.js to stop
@@ -1217,7 +1217,7 @@ The tasks of a binding:
 
 | Task                                   | With a framework                                                                            | Without a framework                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Load `flags.config.ts`                 | The plugin sets the alias of `flags/config`, the binding calls `setLoadConfig`           | `runtime.configure(config)` at startup                     |
+| Load `flags/config.ts`                 | The plugin sets the alias of `flags/config`, the binding calls `setLoadConfig`           | `runtime.configure(config)` at startup                     |
 | Give the request to the runtime        | `runtime.onInvoke(request, next)` in a middleware, or `setGetRequest`                    | `runtime.onInvoke` in a middleware                         |
 | Convert the request                    | The binding gives `FlagsRequestInit`, e.g. a Web `Request`                                  | The application converts it, e.g. Node.js headers          |
 | Let signals of the framework through   | `setRethrow`                                                                                | Not necessary                                              |
@@ -1227,7 +1227,7 @@ The tasks of a binding:
 
 Rules for each binding:
 
-- Use only the export `config` of `flags.config.ts`.
+- Use only the export `config` of `flags/config.ts`.
 - Give the request as `FlagsRequestInit`. Give the same `headers` object
   during one request.
 - Set the alias of `flags/default-provider` only when the build is for a
@@ -1273,7 +1273,7 @@ export default withFlags({ /* the configuration of Next.js */ });
   supports only Turbopack: its `webpack` function throws, so a build with
   `--webpack` stops with a clear error. It keeps the aliases and the rules
   of the application. It finds
-  `flags.config.ts` (`.ts`, `.mts`, `.js` or `.mjs`) in the directory of the
+  `flags/config.ts` (`.ts`, `.mts`, `.js` or `.mjs`) in the directory of the
   application or in `src`.
 - The request: no middleware wraps the rendering, but `headers()` returns the
   same object during one request. Thus, `@flags-sdk/next/binding` uses
@@ -1298,14 +1298,14 @@ export default withFlags({ /* the configuration of Next.js */ });
 `tests/standard/next` tests the binding with two builds: Turbopack, and
 Turbopack with a test adapter of the platform. `pnpm test:e2e` runs 16
 tests with HTTP requests, without a browser. `next dev` was also
-tested by hand, with a change of `flags.config.ts` during the run.
+tested by hand, with a change of `flags/config.ts` during the run.
 
 **SvelteKit** (done). Package: `@flags-sdk/sveltekit`. Guide:
 `../framework-sveltekit/README.md`.
 
 - `flags()` of `@flags-sdk/sveltekit/vite` uses `@flags-sdk/vite` with the
   binding `@flags-sdk/sveltekit/binding`. The plugin resolves the binding
-  from the project, points `flags/config` to `flags.config.ts`, and bundles
+  from the project, points `flags/config` to `flags/config.ts`, and bundles
   `flags` and `@flags-sdk/sveltekit` into the server code
   (`ssr.noExternal`), so that the aliases reach the SDK.
 - The request: `getRequestEvent()` of `$app/server` (SvelteKit 2.20 or
@@ -1610,7 +1610,7 @@ build of the application.
    definitions refer to it by an id: the system, and a number if two
    sources have the same system. Two source objects with the same
    project are one source. A flag without a source has the default
-   source, so the Next.js route loads `flags.config.ts` first
+   source, so the Next.js route loads `flags/config.ts` first
    (`runtime.prepare()`).
 2. Vercel Flags uses the platform project of Vercel as its flag project.
    Thus, its variables `projectId`, `environment` and `teamId` come from
@@ -1798,7 +1798,7 @@ Not decided yet.
   application.
 - **Tracing** with OpenTelemetry, as v4 had, e.g. as a hook.
 - **More checks in the conformance suite:** `onInit` and `onShutdown`, the
-  reload of `flags.config.ts` in development, and the default provider of a
+  reload of `flags/config.ts` in development, and the default provider of a
   platform.
 - **More frameworks:** Astro, React Router, Remix.
 - **A security review** of the overrides and of the precompute codes.

@@ -12,9 +12,9 @@ const sale = await summerSale();
 
 - **Any flag management system.** Use the OpenFeature provider of Vercel
   Flags, LaunchDarkly, Statsig or any other system, without a wrapper.
-- **One default source.** Flags without a source use the default source
-  of `flags.config.ts`. A deployment on Vercel can give a fast provider.
-  For now, without a configuration the built-in default source throws.
+- **Explicit sources, an optional default.** Each flag names its source.
+  Optionally, `flags/config.ts` sets a default source for flags without
+  one; a deployment on Vercel can give a fast provider for it.
 - **Code generation, if you want it.** Put each source into
   `flags/sources/<source>`, and import its flags with
   `import { summerSale } from 'flags:shop'`. The generated code is the same
@@ -101,41 +101,16 @@ export default withFlags({});
 ```
 
 The framework package gives the SDK the current request, loads
-`flags.config.ts`, and lets the signals of the framework through, e.g. a
+`flags/config.ts`, and lets the signals of the framework through, e.g. a
 redirect.
 
-### 2️⃣ Connect to your flag management system
+### 2️⃣ Connect your flag management system
 
-Flags without a source use the default source of `flags.config.ts`. In it,
-you choose the OpenFeature provider, and how the evaluation context is
-created. For now, without `flags.config.ts`, the built-in default source
-throws:
+A source connects flags to an OpenFeature provider, and creates the
+evaluation context from the request:
 
 ```sh
 pnpm add @vercel/flags-core @openfeature/server-sdk
-```
-
-```ts
-// flags.config.ts
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
-
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
-  }),
-});
-
-// Gives flags without a source the types of this source
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
 ```
 
 ### 3️⃣ Define your flags
@@ -144,20 +119,37 @@ declare module 'flags' {
 // flags.ts
 'use flags';
 
-import { bindFlag } from 'flags';
+import { bindFlag, defineFlag, defineSource } from 'flags';
+import { VercelProvider } from '@vercel/flags-core/openfeature';
 
-export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });
+const vercel = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (_input, request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
+  }),
+});
+
+// A flag of the source
 export const checkout = bindFlag({
   key: 'checkout',
+  source: vercel,
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
   description: 'The checkout flow',
 });
+
+// An inline flag, which the code decides
+export const summerSale = defineFlag({
+  key: 'summer-sale',
+  decide: () => Date.now() > Date.parse('2026-06-21'),
+});
 ```
 
 `'use flags'` is optional. It lets Flags Explorer find the flags (see
-[Discovery](#discovery)).
+[Discovery](#discovery)). Code generation can write the sources and flags
+for you, so that you import them from `flags:<source>`.
 
 ### 4️⃣ Evaluate them on the server
 
@@ -168,15 +160,16 @@ import { checkout, summerSale } from '../flags';
 
 export default async function Page() {
   const [sale, flow] = await evaluate([summerSale, checkout]);
-  // flow has the type 'control' | 'express'
+  // flow has the type 'control' | 'express' | (string & {})
 }
 ```
 
 TL;DR:
 
 - The framework package connects the SDK to the request, one time.
-- `flags.config.ts` connects the flags to your flag management system.
+- A source connects the flags to your flag management system.
 - Your code defines flags and calls them.
+- Optional: `flags/config.ts` holds settings for all flags, e.g. hooks.
 
 ## Flags
 
@@ -294,7 +287,7 @@ const content = serializeFlagValues(await encryptFlagValues(values));
 The SDK runs the OpenFeature parts which the OpenFeature client usually runs:
 
 ```ts
-// flags.config.ts
+// flags/config.ts
 import { defineConfig, OVERRIDE_REASON } from 'flags';
 
 export const config = defineConfig({
@@ -331,7 +324,7 @@ secrets.
 
 ```ts
 import { runtime } from 'flags';
-import { config } from './flags.config';
+import { config } from './flags/config';
 
 runtime.configure(config);
 await runtime.onInit(); // optional: initialize the providers at startup

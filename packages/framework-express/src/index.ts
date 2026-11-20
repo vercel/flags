@@ -3,7 +3,7 @@
  *
  * ```ts
  * import { flags } from '@flags-sdk/express';
- * import { config } from './flags.config';
+ * import { config } from './flags/config';
  *
  * app.use(flags({ config }));
  * ```
@@ -16,7 +16,7 @@ import { type Config, type FlagsRequestInit, runtime } from 'flags';
 
 export interface FlagsMiddlewareOptions {
   /**
-   * The configuration, e.g. the export `config` of `flags.config.ts`. The
+   * The configuration, e.g. the export `config` of `flags/config.ts`. The
    * middleware gives it to `runtime.configure` one time.
    */
   readonly config?: Config;

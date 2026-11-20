@@ -1,7 +1,7 @@
 # @flags-sdk/tanstack-start
 
 The TanStack Start package of the [Flags SDK](../flags). It connects the SDK
-to TanStack Start: the current request, `flags.config.ts`, the signals of
+to TanStack Start: the current request, `flags/config.ts`, the signals of
 TanStack Router, discovery for Flags Explorer, and the default provider of
 the platform.
 
@@ -51,44 +51,25 @@ export default defineConfig({
 
 That is the only required step.
 
-### 2️⃣ `flags.config.ts`
+### 2️⃣ Optional: `flags/config.ts`
 
-Flags without a source use the default source of `flags.config.ts`. In a
-build on Vercel, they use the fast provider of `@vercel/flags-core`, if the
-project has it. For now, without `flags.config.ts`, the built-in default
-source throws in development. Write `flags.config.ts`, e.g. with the
-provider of Vercel Flags:
-
-```sh
-pnpm add @vercel/flags-core @openfeature/server-sdk
-```
-
-Put it in the directory of the project or in `src`:
+You do not need a configuration file: each flag names its source, and
+overrides work with `FLAGS_SECRET`, or on Vercel, without one. Add
+`flags/config.ts` (or `src/flags/config.ts`), next to `flags/sources`, for
+settings of all flags: OpenFeature `hooks`, the options of `overrides`, or
+a `defaultSource` for flags without a source. The Vite plugin loads it automatically.
 
 ```ts
-// src/flags.config.ts
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
+// flags/config.ts
+import { defineConfig } from 'flags';
 
 export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
-  }),
+  hooks: [myLoggingHook],
 });
-
-// Gives flags without a source the types of this source
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
 ```
 
-Any other OpenFeature provider works in the same way.
+In a build on Vercel, flags without a source use the fast provider of
+`@vercel/flags-core`, if the project has it.
 
 ## Usage
 
@@ -122,7 +103,7 @@ and tracking.
 
 On Vercel, the plugin uses `@vercel/flags-core/default-provider` if the
 project has it. `flags({ defaultProvider: './src/provider.ts' })` gives an
-other module. A `defaultSource` in `flags.config.ts` always wins.
+other module. A `defaultSource` in `flags/config.ts` always wins.
 
 ## How it works
 

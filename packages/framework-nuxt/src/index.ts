@@ -15,7 +15,7 @@
  *   `flags-manifest.json` into the server output (`.output/server`).
  * - The framework binding (`@flags-sdk/nuxt/binding`) gives the SDK the
  *   request
- *   with `useEvent()`, and `flags.config.ts`. The module sets
+ *   with `useEvent()`, and `flags/config.ts`. The module sets
  *   `experimental.asyncContext` of Nitro for it.
  * - A Nitro plugin calls `runtime.onInit` and `runtime.onShutdown`.
  * - The default provider of the platform: during a build on Vercel, the

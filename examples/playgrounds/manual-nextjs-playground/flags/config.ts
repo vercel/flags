@@ -1,4 +1,4 @@
-// flags.config.ts
+// flags/config.ts
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 import { defineConfig, defineSource } from 'flags';
 

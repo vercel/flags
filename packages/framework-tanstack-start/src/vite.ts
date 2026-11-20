@@ -11,7 +11,7 @@
  * ```
  *
  * It points `flags/framework` to the binding of this package, and does the
- * rest of `@flags-sdk/vite`: `flags.config.ts`, `'use flags'` modules, the
+ * rest of `@flags-sdk/vite`: `flags/config.ts`, `'use flags'` modules, the
  * manifest of the flags, and the default provider of the platform.
  */
 import { flags as flagsVite } from '@flags-sdk/vite';

@@ -38,10 +38,10 @@ export function rethrow(error: unknown): void {
 
 /**
  * Gives the runtime the current request of Next.js, a way to load
- * `flags.config.ts`, and the errors which Next.js must receive.
+ * `flags/config.ts`, and the errors which Next.js must receive.
  *
  * It must not import `flags` at runtime, because `flags` imports this
- * module. Type imports are removed by the build. `flags.config.ts` imports `flags`, so it is loaded with a dynamic
+ * module. Type imports are removed by the build. `flags/config.ts` imports `flags`, so it is loaded with a dynamic
  * `import()`.
  */
 export const setupFramework: SetupFramework = async (runtime) => {

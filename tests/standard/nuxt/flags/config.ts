@@ -1,5 +1,5 @@
-import { redirect } from '@tanstack/react-router';
 import { defineConfig, defineSource } from 'flags';
+import { createError } from '#imports';
 
 export const config = defineConfig({
   defaultSource: defineSource({
@@ -9,13 +9,15 @@ export const config = defineConfig({
         value: context.user === 'alice',
       }),
       resolveStringEvaluation: async () => ({
-        value: 'Hello from flags.config.ts',
+        value: 'Hello from flags/config.ts',
       }),
     },
     project: { system: 'in-memory' },
     getEvaluationContext: (_context, request) => {
-      // A signal of TanStack Start must reach TanStack Start
-      if (request?.cookies?.get('blocked')) throw redirect({ to: '/blocked' });
+      // A signal of Nitro must reach Nitro
+      if (request?.cookies?.get('blocked')) {
+        throw createError({ statusCode: 403, statusMessage: 'Blocked' });
+      }
       return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
     },
   }),

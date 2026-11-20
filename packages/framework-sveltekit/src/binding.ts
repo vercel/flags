@@ -13,7 +13,7 @@ import { getRequestEvent } from '$app/server';
 
 /**
  * Gives the runtime the current request of SvelteKit, the errors which
- * SvelteKit must receive, and a way to load `flags.config.ts`.
+ * SvelteKit must receive, and a way to load `flags/config.ts`.
  */
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);

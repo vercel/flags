@@ -9,7 +9,7 @@ const appConfig = defineConfig({
         value: context.user === 'alice',
       }),
       resolveStringEvaluation: async () => ({
-        value: 'Hello from flags.config.ts',
+        value: 'Hello from flags/config.ts',
       }),
     },
     project: { system: 'in-memory' },

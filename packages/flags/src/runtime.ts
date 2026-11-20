@@ -445,11 +445,11 @@ class RuntimeImpl {
 
   /**
    * Sets a function which returns the configuration, e.g. the export
-   * `config` of `flags.config.ts`. The framework binding sets it.
+   * `config` of `flags/config.ts`. The framework binding sets it.
    *
    * In production, the runtime calls it one time. In development, the
    * runtime calls it before each evaluation, and configures again when it
-   * returns a different object, so that a change of `flags.config.ts`
+   * returns a different object, so that a change of `flags/config.ts`
    * applies without a restart.
    */
   setLoadConfig(loadConfig: LoadConfig | undefined): void {
@@ -459,7 +459,7 @@ class RuntimeImpl {
 
   /**
    * Configures the SDK. By convention, the framework binding calls it
-   * with the export `config` of `flags.config.ts`. Without a framework, call
+   * with the export `config` of `flags/config.ts`. Without a framework, call
    * it at startup.
    *
    * A new call replaces the configuration, e.g. after a reload in
@@ -469,7 +469,7 @@ class RuntimeImpl {
    *
    * @example
    * ```ts
-   * import { config } from './flags.config';
+   * import { config } from './flags/config';
    *
    * runtime.configure(config);
    * ```

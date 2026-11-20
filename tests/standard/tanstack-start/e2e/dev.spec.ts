@@ -46,7 +46,7 @@ test('serves the manifest of the flags in development', async ({ request }) => {
   ]);
 });
 
-test('uses flags.config.ts and the request without a middleware', async ({
+test('uses flags/config.ts and the request without a middleware', async ({
   request,
 }) => {
   const [anonymous, alice] = await Promise.all([
@@ -56,7 +56,7 @@ test('uses flags.config.ts and the request without a middleware', async ({
 
   expect(await anonymous.json()).toEqual({
     dark: false,
-    text: 'Hello from flags.config.ts',
+    text: 'Hello from flags/config.ts',
   });
   expect(await alice.json()).toMatchObject({ dark: true });
 });

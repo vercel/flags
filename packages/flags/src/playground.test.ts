@@ -597,7 +597,7 @@ describe('9. Overrides', () => {
   });
 
   it('accepts longer lifetimes of signed cookies when configured', () => {
-    // flags.config.ts. The default is 24 hours.
+    // flags/config.ts. The default is 24 hours.
     const config = defineConfig({
       overrides: {
         vercel: {
@@ -719,29 +719,29 @@ describe('9. Overrides', () => {
   });
 });
 
-describe('10. Zero configuration and flags.config.ts', () => {
+describe('10. Zero configuration and flags/config.ts', () => {
   // A flag without a source uses the default source. Without
   // configuration, that will be Vercel Flags, but for now the built-in
   // default source throws. When a framework builds for Vercel, it can
   // replace its provider with a fast one (see default-provider-alias.test.ts).
   //
   // To get more, e.g. an evaluation context, the application writes one
-  // file, flags.config.ts. The flags do not change.
+  // file, flags/config.ts. The flags do not change.
 
   it('tells what to do without a source', async () => {
     const summerSale = bindFlag({ key: 'summer-sale' });
 
     await expect(summerSale()).rejects.toThrow(
-      'Pass a source to bindFlag, or set defaultSource in flags.config.ts.',
+      'Pass a source to bindFlag, or set defaultSource in flags/config.ts.',
     );
   });
 
-  it('upgrades all flags with one default source in flags.config.ts', async () => {
+  it('upgrades all flags with one default source in flags/config.ts', async () => {
     // The flags of the application, without a source
     const newCheckout = bindFlag({ key: 'new-checkout' });
     const summerSale = bindFlag({ key: 'summer-sale' });
 
-    // flags.config.ts: e.g. VercelProvider of @vercel/flags-core/openfeature.
+    // flags/config.ts: e.g. VercelProvider of @vercel/flags-core/openfeature.
     // Here, a
     // source with an evaluation context from a cookie.
     const config = defineConfig({
@@ -866,7 +866,7 @@ describe('12. What a framework binding does', () => {
 
     // Next.js: headers() and cookies() of the current request
     runtime.setGetRequest(async () => ({ headers }));
-    // flags.config.ts. In development, the runtime loads it again.
+    // flags/config.ts. In development, the runtime loads it again.
     runtime.setLoadConfig(() =>
       defineConfig({
         defaultSource: defineSource({
@@ -901,7 +901,7 @@ describe('13. Hooks, events and tracking', () => {
         );
       },
     };
-    // flags.config.ts: hooks for all flags. A source and the call side
+    // flags/config.ts: hooks for all flags. A source and the call side
     // can add more.
     runtime.configure(defineConfig({ hooks: [logEvaluations] }));
     const newCheckout = bindFlag({

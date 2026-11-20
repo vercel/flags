@@ -14,7 +14,7 @@ import { getRequestURL, isError, useEvent } from '#imports';
 
 /**
  * Gives the runtime the current request of Nitro, the errors which Nitro
- * must receive, and a way to load `flags.config.ts`.
+ * must receive, and a way to load `flags/config.ts`.
  */
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);

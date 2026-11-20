@@ -74,10 +74,10 @@ describe('flags/framework replaced by a framework', () => {
   });
 
   it('fails the evaluation and tries again after an error', async () => {
-    setup.mockRejectedValueOnce(new Error('flags.config.ts has an error'));
+    setup.mockRejectedValueOnce(new Error('flags/config.ts has an error'));
     const flag = bindFlag({ key: 'a', source: source() });
 
-    await expect(flag()).rejects.toThrow('flags.config.ts has an error');
+    await expect(flag()).rejects.toThrow('flags/config.ts has an error');
     await expect(flag()).resolves.toBe(true);
     expect(setup).toHaveBeenCalledTimes(2);
   });

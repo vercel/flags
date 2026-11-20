@@ -25,7 +25,7 @@ test('evaluates the flags in development', async ({ request }) => {
   });
 });
 
-test('uses flags.config.ts and the request without onInvoke', async ({
+test('uses flags/config.ts and the request without onInvoke', async ({
   request,
 }) => {
   const [anonymous, alice] = await Promise.all([
@@ -35,7 +35,7 @@ test('uses flags.config.ts and the request without onInvoke', async ({
 
   expect(await anonymous.json()).toEqual({
     checkout: false,
-    text: 'Hello from flags.config.ts',
+    text: 'Hello from flags/config.ts',
   });
   expect(await alice.json()).toMatchObject({ checkout: true });
 });

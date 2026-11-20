@@ -11,5 +11,5 @@
       "flags/config": ["../../src/config-module.ts"]
     }
   },
-  "include": ["*.ts"]
+  "include": ["*.ts", "flags/*.ts"]
 }

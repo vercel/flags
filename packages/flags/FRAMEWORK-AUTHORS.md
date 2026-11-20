@@ -49,7 +49,7 @@ The runtime calls `setupFramework` one time, before the first evaluation.
   `connection()` of Next.js. In a cache scope of the framework, e.g.
   `'use cache'`, the request source throws, and the rethrow throws this
   error again (see [STANDARD.md](./STANDARD.md), section 5.4).
-- **The config source** loads `flags.config.ts` through the alias
+- **The config source** loads `flags/config.ts` through the alias
   `flags/config`. In development, the runtime calls it before each
   evaluation, so a change applies without a restart.
 - **No static import of `flags`.** `flags` imports the binding, so the
@@ -66,7 +66,7 @@ Vite, `externals.inline` of Nitro).
 | Module                   | Default          | Replaced by                                 |
 | ------------------------ | ---------------- | ------------------------------------------- |
 | `flags/framework`        | no binding       | the framework binding                       |
-| `flags/config`           | no configuration | `flags.config.ts` of the application        |
+| `flags/config`           | no configuration | `flags/config.ts` of the application        |
 | `flags/default-provider` | throws for now   | the provider of a platform, for its builds  |
 
 - **Resolve from the project.** With pnpm, a replacement which is a package
@@ -124,14 +124,14 @@ it, with the functions of `flags/tooling`:
      child process, so they do not run in the process of the build.
 
 Call `runtime.prepare()` before `createManifest`, so that flags without a
-source get the default source of `flags.config.ts`.
+source get the default source of `flags/config.ts`.
 
 ## `flags/tooling`
 
 | Function                 | Purpose                                                       |
 | ------------------------ | ------------------------------------------------------------- |
 | `registerFramework`      | Registers a binding without the alias                         |
-| `findConfigFile`         | Finds `flags.config.ts` in a directory or its `src`           |
+| `findConfigFile`         | Finds `flags/config.ts` in a directory or its `src`           |
 | `hasUseFlagsDirective`   | Finds the `'use flags'` directive in the directive prologue   |
 | `addSelfRegistration`    | Appends the registration to a `'use flags'` module            |
 | `findFlagsModules`       | Finds the `'use flags'` modules of a project                  |
@@ -144,7 +144,7 @@ source get the default source of `flags.config.ts`.
 - Set the alias of `flags/default-provider` for your builds, not for
   development. The module exports `createDefaultProvider()`, which returns
   an OpenFeature provider. The runtime calls it one time for each process.
-- A `defaultSource` in `flags.config.ts` always wins over your
+- A `defaultSource` in `flags/config.ts` always wins over your
   provider.
 - Put `flags-manifest.json` of the build into your build output, so that
   tools can read it.
@@ -176,7 +176,7 @@ suite and more end-to-end tests over HTTP. Each app tests:
 
 - the evaluation with the request, and one evaluation context for each
   request;
-- `flags.config.ts` without code in the application;
+- `flags/config.ts` without code in the application;
 - an override cookie;
 - a signal of the framework from `getEvaluationContext`, e.g. a redirect;
 - the registration of a `'use flags'` module, and the manifest in

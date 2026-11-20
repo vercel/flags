@@ -16,7 +16,7 @@ import type { FlagsRequestInit, SetupFramework } from 'flags';
 
 /**
  * Gives the runtime the current request of TanStack Start, the errors which
- * TanStack Start must receive, and a way to load `flags.config.ts`.
+ * TanStack Start must receive, and a way to load `flags/config.ts`.
  */
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);

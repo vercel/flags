@@ -17,7 +17,7 @@
  * Hono on Node.js. It imports the modules with the `'use flags'` directive in `dir` (the
  * default is the current directory) with Node.js, and writes the manifest of
  * their flags, by default to `flags-manifest.json` in `dir`. If it finds
- * `flags.config.ts` (in `dir`, its `src`, or the current directory), it
+ * `flags/config.ts` (in `dir`, its `src`, or the current directory), it
  * loads it for the default source. Run it after the
  * build, on the output of the build, or on the source if Node.js can run it,
  * e.g. TypeScript with type stripping.
@@ -63,7 +63,7 @@ export async function manifest(args: string[]): Promise<string> {
     modules.push({ id, exports: { ...exports } });
   }
   // Flags without a source use the default source of
-  // flags.config.ts, if the project has one
+  // flags/config.ts, if the project has one
   const configFile = findConfigFile(root) ?? findConfigFile(process.cwd());
   if (configFile) {
     const { config } = (await import(pathToFileURL(configFile).href)) as {
