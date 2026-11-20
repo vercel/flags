@@ -1,7 +1,7 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FlagEvaluationError } from './errors';
-import { bindFlag } from './flag';
+
 import { logger } from './logger';
 import { runtime } from './runtime';
 import { defineSource } from './source';
@@ -40,10 +40,8 @@ describe('logger', () => {
       provider: new TypedInMemoryProvider({}),
       project: { system: 'in-memory' },
     });
-    const flag = bindFlag({
-      key: 'missing',
+    const flag = source.bindFlag('missing', {
       defaultValue: false,
-      source,
     });
 
     await flag();
@@ -59,10 +57,8 @@ describe('logger', () => {
       provider: new TypedInMemoryProvider({}),
       project: { system: 'in-memory' },
     });
-    const flag = bindFlag({
-      key: 'missing',
+    const flag = source.bindFlag('missing', {
       defaultValue: false,
-      source,
     });
 
     await flag();
@@ -80,7 +76,7 @@ describe('logger', () => {
       },
       project: { system: 'in-memory' },
     });
-    const flag = bindFlag({ key: 'a', defaultValue: true, source });
+    const flag = source.bindFlag('a', { defaultValue: true });
 
     await flag();
     expect(debug).toHaveBeenCalledWith(expect.any(FlagEvaluationError));
@@ -96,7 +92,7 @@ describe('logger', () => {
       },
       project: { system: 'in-memory' },
     });
-    const flag = bindFlag({ key: 'a', defaultValue: true, source });
+    const flag = source.bindFlag('a', { defaultValue: true });
 
     await flag();
     expect(console.error).toHaveBeenCalledWith(

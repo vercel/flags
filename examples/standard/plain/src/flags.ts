@@ -1,5 +1,5 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { bindFlag, defineFlag, defineSource } from 'flags';
+import { defineFlag, defineSource } from 'flags';
 
 // A source connects flags to an OpenFeature provider. Here it is an
 // in-memory provider, so the demo needs no account. Any OpenFeature
@@ -45,11 +45,9 @@ export const shop = defineSource({
   }),
 });
 
-export const summerSale = bindFlag({ key: 'summer-sale', source: shop });
+export const summerSale = shop.bindFlag('summer-sale');
 
-export const bannerText = bindFlag({
-  key: 'banner-text',
-  source: shop,
+export const bannerText = shop.bindFlag('banner-text', {
   type: 'string',
   defaultValue: 'Welcome',
 });
@@ -61,9 +59,7 @@ const teams: Record<string, { plan: string }> = {
   tiny: { plan: 'hobby' },
 };
 
-export const teamInsights = bindFlag({
-  key: 'team-insights',
-  source: shop,
+export const teamInsights = shop.bindFlag('team-insights', {
   getEvaluationContext: (_request, context: { teamSlug: string }) => ({
     team: teams[context.teamSlug] ?? { plan: 'unknown' },
   }),

@@ -1,7 +1,7 @@
 'use flags';
 
 import { StatsigProvider } from '@flags-sdk/statsig/openfeature';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
 const statsig = defineSource({
   // The OpenFeature provider of @flags-sdk/statsig, on the Statsig Server
@@ -15,18 +15,17 @@ const statsig = defineSource({
 });
 
 // The `text` parameter of the dynamic config `welcome_message_text`
-export const welcomeMessage = bindFlag({
-  key: 'config:welcome_message_text.text',
-  source: statsig,
-  type: 'string',
-  description: 'The welcome message shown on the home page.',
-  defaultValue: 'Welcome to the Statsig example',
-});
+export const welcomeMessage = statsig.bindFlag(
+  'config:welcome_message_text.text',
+  {
+    type: 'string',
+    description: 'The welcome message shown on the home page.',
+    defaultValue: 'Welcome to the Statsig example',
+  },
+);
 
 // The feature gate `show_banner`
-export const showBanner = bindFlag({
-  key: 'show_banner',
-  source: statsig,
+export const showBanner = statsig.bindFlag('show_banner', {
   description: 'Show the promotional banner on the home page.',
   defaultValue: false,
 });

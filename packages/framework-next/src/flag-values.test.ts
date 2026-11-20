@@ -1,5 +1,5 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { bindFlag, decryptFlagValues, defineSource } from 'flags';
+import { decryptFlagValues, defineSource } from 'flags';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,14 +23,10 @@ const shop = defineSource({
   } as const),
   project: { system: 'in-memory' },
 });
-const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: shop,
+const summerSale = shop.bindFlag('summer-sale', {
   defaultValue: false,
 });
-const banner = bindFlag({
-  key: 'banner',
-  source: shop,
+const banner = shop.bindFlag('banner', {
   type: 'string',
   defaultValue: '',
 });

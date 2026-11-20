@@ -18,7 +18,6 @@ import {
   it,
   vi,
 } from 'vitest';
-import { bindFlag } from '../flag';
 import { runtime } from '../runtime';
 import { defineSource } from '../source';
 import type { Provider } from '../types';
@@ -44,7 +43,7 @@ function createFlag(key = 'new-checkout') {
     provider,
     project: { system: 'in-memory' },
   });
-  return { flag: bindFlag({ key, source }), provider };
+  return { flag: source.bindFlag(key), provider };
 }
 
 function withCookie(cookie: string) {

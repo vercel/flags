@@ -1,7 +1,7 @@
 'use flags';
 
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import { bindFlag, defineFlag, defineSource } from 'flags';
+import { defineFlag, defineSource } from 'flags';
 
 // A 'use flags' module exports only flags. withFlags registers them, and
 // the discovery endpoint lists them for Flags Explorer.
@@ -38,15 +38,11 @@ const shop = defineSource({
   }),
 });
 
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: shop,
+export const summerSale = shop.bindFlag('summer-sale', {
   description: 'The summer sale banner',
 });
 
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: shop,
+export const checkout = shop.bindFlag('checkout', {
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',

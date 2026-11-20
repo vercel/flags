@@ -1,6 +1,6 @@
 'use flags';
 
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
 // A 'use flags' module: it exports only flags, and the plugin of @flags-sdk/tanstack-start/vite
 // registers them
@@ -18,15 +18,11 @@ const shop = defineSource({
   }),
 });
 
-export const newCheckout = bindFlag({
-  key: 'new-checkout',
-  source: shop,
+export const newCheckout = shop.bindFlag('new-checkout', {
   defaultValue: false,
 });
-export const bannerText = bindFlag({
-  key: 'banner-text',
+export const bannerText = shop.bindFlag('banner-text', {
   type: 'string',
   defaultValue: 'Welcome',
   description: 'The text of the banner',
-  source: shop,
 });

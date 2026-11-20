@@ -1,7 +1,7 @@
 'use flags';
 
 import { PostHogProvider } from '@flags-sdk/posthog/openfeature';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { PostHog } from 'posthog-node';
 
 // Local evaluation is optional. With a feature flags secret key (phs_...),
@@ -30,16 +30,12 @@ const source = defineSource({
 });
 
 // The type `object` reads the JSON payload of the flag. Here it is a string.
-export const welcomeMessage = bindFlag({
-  key: 'welcome_message',
-  source,
+export const welcomeMessage = source.bindFlag('welcome_message', {
   type: 'object',
   defaultValue: 'Welcome to the PostHog example',
 });
 
 // The type `boolean` reads whether the flag is enabled for the user.
-export const showBanner = bindFlag({
-  key: 'show_banner',
-  source,
+export const showBanner = source.bindFlag('show_banner', {
   defaultValue: false,
 });

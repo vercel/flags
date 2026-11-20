@@ -10,7 +10,7 @@ import {
   vi,
 } from 'vitest';
 import { evaluate } from './evaluate';
-import { bindFlag } from './flag';
+
 import { encryptOverrides } from './overrides/shared-secret';
 import { runtime } from './runtime';
 import { defineSource } from './source';
@@ -78,7 +78,7 @@ afterEach(() => {
 
 describe('flag value types', () => {
   it('is a boolean without a type', async () => {
-    const flag = bindFlag({ key: 'summer-sale', source: source() });
+    const flag = source().bindFlag('summer-sale');
 
     expect(flag.type).toBe('boolean');
     await expect(flag()).resolves.toBe(true);
@@ -86,10 +86,8 @@ describe('flag value types', () => {
   });
 
   it('evaluates a string flag', async () => {
-    const flag = bindFlag({
-      key: 'banner-text',
+    const flag = source().bindFlag('banner-text', {
       type: 'string',
-      source: source(),
     });
 
     await expect(flag()).resolves.toBe('Sale!');
@@ -97,11 +95,9 @@ describe('flag value types', () => {
   });
 
   it('evaluates a number flag', async () => {
-    const flag = bindFlag({
-      key: 'max-items',
+    const flag = source().bindFlag('max-items', {
       type: 'number',
       defaultValue: 5,
-      source: source(),
     });
 
     await expect(flag()).resolves.toBe(10);
@@ -109,10 +105,8 @@ describe('flag value types', () => {
   });
 
   it('evaluates an object flag', async () => {
-    const flag = bindFlag({
-      key: 'theme',
+    const flag = source().bindFlag('theme', {
       type: 'object',
-      source: source(),
     });
 
     await expect(flag()).resolves.toEqual({ color: 'red' });
@@ -127,10 +121,11 @@ describe('flag value types', () => {
       resolveBooleanEvaluation: async () => ({ value: false }),
       resolveObjectEvaluation: async () => ({ value: value as never }),
     };
-    const flag = bindFlag({
-      key: 'settings',
+    const flag = defineSource({
+      provider,
+      project: { system: 'in-memory' },
+    }).bindFlag('settings', {
       type: 'object',
-      source: defineSource({ provider, project: { system: 'in-memory' } }),
     });
 
     await expect(flag()).resolves.toBeNull();
@@ -145,16 +140,12 @@ describe('flag value types', () => {
 
   it('gives the types of the flags to evaluate', async () => {
     const c = source();
-    const sale = bindFlag({ key: 'summer-sale', source: c });
-    const text = bindFlag({
-      key: 'banner-text',
+    const sale = c.bindFlag('summer-sale');
+    const text = c.bindFlag('banner-text', {
       type: 'string',
-      source: c,
     });
-    const items = bindFlag({
-      key: 'max-items',
+    const items = c.bindFlag('max-items', {
       type: 'number',
-      source: c,
     });
 
     const values = await evaluate([sale, text, items]);
@@ -168,12 +159,10 @@ describe('flag value types', () => {
 
   describe('options', () => {
     it('makes the type the union of the options and of other strings', async () => {
-      const flag = bindFlag({
-        key: 'checkout',
+      const flag = source().bindFlag('checkout', {
         type: 'string',
         options: ['control', 'express', 'one-click'],
         defaultValue: 'control',
-        source: source(),
       });
 
       await expect(flag()).resolves.toBe('express');
@@ -184,14 +173,12 @@ describe('flag value types', () => {
     });
 
     it('accepts options with labels, and keeps them on the flag', () => {
-      const flag = bindFlag({
-        key: 'checkout',
+      const flag = source().bindFlag('checkout', {
         type: 'string',
         options: [
           { value: 'control', label: 'Control' },
           { value: 'express', label: 'Express checkout' },
         ],
-        source: source(),
       });
 
       expect(flag.options).toEqual([
@@ -204,10 +191,8 @@ describe('flag value types', () => {
     });
 
     it('gives options of plain values as objects with a value', () => {
-      const flag = bindFlag({
-        key: 'summer-sale',
+      const flag = source().bindFlag('summer-sale', {
         options: [true, false],
-        source: source(),
       });
 
       expect(flag.options).toEqual([{ value: true }, { value: false }]);
@@ -215,12 +200,10 @@ describe('flag value types', () => {
 
     it('returns a value which is not one of the options', async () => {
       // e.g. a variant which the system added after the deployment
-      const flag = bindFlag({
-        key: 'unknown-checkout',
+      const flag = source().bindFlag('unknown-checkout', {
         type: 'string',
         options: ['control', 'express'],
         defaultValue: 'control',
-        source: source(),
       });
 
       await expect(flag()).resolves.toBe('future-variant');
@@ -228,11 +211,9 @@ describe('flag value types', () => {
     });
 
     it('compares object options by their content', async () => {
-      const flag = bindFlag({
-        key: 'theme',
+      const flag = source().bindFlag('theme', {
         type: 'object',
         options: [{ value: { color: 'blue' } }, { value: { color: 'red' } }],
-        source: source(),
       });
 
       await expect(flag()).resolves.toEqual({ color: 'red' });
@@ -240,12 +221,10 @@ describe('flag value types', () => {
 
     it('requires objects with a value for object flags', () => {
       expect(() =>
-        bindFlag({
-          key: 'theme',
+        source().bindFlag('theme', {
           type: 'object',
           // @ts-expect-error an object flag needs { value }
           options: [{ color: 'blue' }],
-          source: source(),
         }),
       ).toThrow(
         'flags: The options of flag "theme" must be objects with a value, e.g. { value: { color: \'blue\' } }, because the flag has the type object.',
@@ -263,14 +242,12 @@ describe('flag value types', () => {
           value: 'many' as unknown as number,
         }),
       };
-      const flag = bindFlag({
-        key: 'max-items',
+      const flag = defineSource({
+        provider,
+        project: { system: 'in-memory' },
+      }).bindFlag('max-items', {
         type: 'number',
         defaultValue: 0,
-        source: defineSource({
-          provider,
-          project: { system: 'in-memory' },
-        }),
       });
 
       await expect(flag()).resolves.toBe(0);
@@ -281,10 +258,8 @@ describe('flag value types', () => {
 
     it('uses the error code when the error of the provider has no message', async () => {
       // TypedInMemoryProvider examines the type itself, without a message
-      const flag = bindFlag({
-        key: 'banner-text',
+      const flag = source().bindFlag('banner-text', {
         type: 'number',
-        source: source(),
       });
 
       await expect(flag()).rejects.toMatchObject({
@@ -298,13 +273,11 @@ describe('flag value types', () => {
         metadata: { name: 'only-boolean' },
         resolveBooleanEvaluation: async () => ({ value: true }),
       };
-      const flag = bindFlag({
-        key: 'a',
+      const flag = defineSource({
+        provider: onlyBoolean,
+        project: { system: 'in-memory' },
+      }).bindFlag('a', {
         type: 'string',
-        source: defineSource({
-          provider: onlyBoolean,
-          project: { system: 'in-memory' },
-        }),
       });
 
       await expect(flag()).rejects.toMatchObject({
@@ -315,11 +288,9 @@ describe('flag value types', () => {
 
     it('throws for a type which does not exist', () => {
       expect(() =>
-        bindFlag({
-          key: 'a',
+        source().bindFlag('a', {
           // @ts-expect-error not a type
           type: 'date',
-          source: source(),
         }),
       ).toThrow(
         'flags: The type of flag "a" must be boolean, string, number or object.',
@@ -342,13 +313,11 @@ describe('flag value types', () => {
         resolveNumberEvaluation: resolve as never,
         resolveObjectEvaluation: resolve as never,
       };
-      await bindFlag({
-        key: 'a',
+      await defineSource({
+        provider,
+        project: { system: 'in-memory' },
+      }).bindFlag('a', {
         type,
-        source: defineSource({
-          provider,
-          project: { system: 'in-memory' },
-        }),
       })();
 
       expect((resolve.mock.calls[0] as unknown[])[1]).toEqual(placeholder);
@@ -357,11 +326,9 @@ describe('flag value types', () => {
 
   describe('without a type', () => {
     it('warns about a defaultValue which is not a boolean', () => {
-      bindFlag({
-        key: 'banner-text',
+      source().bindFlag('banner-text', {
         // @ts-expect-error a flag without a type is a boolean
         defaultValue: 'Welcome',
-        source: source(),
       });
 
       expect(warnings).toEqual([
@@ -370,11 +337,9 @@ describe('flag value types', () => {
     });
 
     it('warns about options which are not booleans', () => {
-      bindFlag({
-        key: 'checkout',
+      source().bindFlag('checkout', {
         // @ts-expect-error a flag without a type is a boolean
         options: ['control', 'express'],
-        source: source(),
       });
 
       expect(warnings).toEqual([
@@ -387,20 +352,18 @@ describe('flag value types', () => {
     it('requires a defaultValue of the type', () => {
       void (() => {
         // @ts-expect-error a number flag needs a number
-        bindFlag({ key: 'a', type: 'number', defaultValue: 'x' });
+        source().bindFlag('a', { type: 'number', defaultValue: 'x' });
         // @ts-expect-error the options must have the type of the flag
-        bindFlag({ key: 'a', type: 'number', options: ['a'] });
+        source().bindFlag('a', { type: 'number', options: ['a'] });
       });
     });
 
     it('warns at runtime about a defaultValue which is not an option', () => {
       // A provider can return other values, so this is no type error
-      bindFlag({
-        key: 'a',
+      source().bindFlag('a', {
         type: 'string',
         options: ['a', 'b'],
         defaultValue: 'c',
-        source: source(),
       });
 
       expect(warnings).toEqual([
@@ -427,10 +390,8 @@ describe('flag value types', () => {
     }
 
     it('accepts an override of the type', async () => {
-      const flag = bindFlag({
-        key: 'banner-text',
+      const flag = source().bindFlag('banner-text', {
         type: 'string',
-        source: source(),
       });
 
       await expect(
@@ -439,10 +400,8 @@ describe('flag value types', () => {
     });
 
     it('ignores an override of a different type', async () => {
-      const flag = bindFlag({
-        key: 'max-items',
+      const flag = source().bindFlag('max-items', {
         type: 'number',
-        source: source(),
       });
 
       await expect(
@@ -454,11 +413,9 @@ describe('flag value types', () => {
     });
 
     it('accepts an override which is not one of the options', async () => {
-      const flag = bindFlag({
-        key: 'checkout',
+      const flag = source().bindFlag('checkout', {
         type: 'string',
         options: ['control', 'express', 'one-click'],
-        source: source(),
       });
 
       await expect(

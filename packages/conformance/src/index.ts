@@ -23,7 +23,7 @@
  * ```
  */
 import { readFile } from 'node:fs/promises';
-import { bindFlag, defineSource, encryptOverrides, evaluate } from 'flags';
+import { defineSource, encryptOverrides, evaluate } from 'flags';
 import { validateFlagsManifest } from 'flags/manifest';
 
 interface ConformanceState {
@@ -78,17 +78,19 @@ export const conformanceSource = defineSource({
   },
 });
 
-export const conformanceContext = bindFlag({
-  key: 'conformance-context',
-  source: conformanceSource,
-  type: 'string',
-  defaultValue: '',
-});
-export const conformanceEnabled = bindFlag({
-  key: 'conformance-enabled',
-  source: conformanceSource,
-  defaultValue: false,
-});
+export const conformanceContext = conformanceSource.bindFlag(
+  'conformance-context',
+  {
+    type: 'string',
+    defaultValue: '',
+  },
+);
+export const conformanceEnabled = conformanceSource.bindFlag(
+  'conformance-enabled',
+  {
+    defaultValue: false,
+  },
+);
 
 /**
  * What the route `GET /conformance` returns.

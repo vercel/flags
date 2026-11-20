@@ -3,7 +3,6 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import {
-  bindFlag,
   defineSource,
   evaluate,
   type FlagsRequestInit,
@@ -60,17 +59,13 @@ const source = defineSource({
   },
 });
 
-const newCheckout = bindFlag({
-  key: 'new-checkout',
+const newCheckout = source.bindFlag('new-checkout', {
   defaultValue: false,
-  source,
 });
 
 // The middle step: converts the slug of the URL to a team id
-const teamInsights = bindFlag({
-  key: 'team-insights',
+const teamInsights = source.bindFlag('team-insights', {
   defaultValue: false,
-  source,
   getEvaluationContext: (_request, context: { slug: string }) => ({
     teamId: context.slug,
   }),

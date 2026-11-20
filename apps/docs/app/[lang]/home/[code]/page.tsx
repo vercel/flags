@@ -65,9 +65,7 @@ const contextCode = `export default (request) => ({
 
 const generatedCode = `const source = defineSource({ provider, getEvaluationContext });
 
-export const enableSale = bindFlag({
-  key: 'enableSale',
-  source,
+export const enableSale = source.bindFlag('enableSale', {
   options: [false, true],
 });`;
 
@@ -154,7 +152,7 @@ const FEATURES: { icon: ReactNode; title: string; description: string }[] = [
     icon: <Layers size={20} />,
     title: 'Inline and provider flags',
     description:
-      'Decide a flag in code with defineFlag, or bind it to a provider with bindFlag. Both work the same way.',
+      'Decide a flag in code with defineFlag, or bind it to the provider of a source with source.bindFlag. Both work the same way.',
   },
   {
     icon: <FileCode2 size={20} />,

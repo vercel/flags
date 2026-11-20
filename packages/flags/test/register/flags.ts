@@ -1,4 +1,4 @@
-import { bindFlag, defineSource, evaluate, runtime } from 'flags';
+import { defineSource, evaluate, runtime } from 'flags';
 import hooks from './flags/hooks';
 
 runtime.configure({ hooks });
@@ -15,7 +15,7 @@ const source = defineSource({
 });
 
 // A flag has the types of its source
-const teamFlag = bindFlag({ key: 'team-flag', source });
+const teamFlag = source.bindFlag('team-flag');
 
 teamFlag({ evaluationContext: { teamId: 't1' } });
 // @ts-expect-error the source needs a teamId
@@ -26,6 +26,3 @@ teamFlag({ evaluationContext: { teamId: 1 } });
 evaluate([teamFlag], { evaluationContext: { teamId: 't1' } });
 // @ts-expect-error the source needs a teamId
 evaluate([teamFlag]);
-
-// @ts-expect-error a flag of a provider needs its source
-bindFlag({ key: 'no-source' });

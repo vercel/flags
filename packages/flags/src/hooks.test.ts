@@ -2,7 +2,7 @@ import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FlagEvaluationError } from './errors';
 import { evaluate } from './evaluate';
-import { bindFlag } from './flag';
+
 import { OVERRIDE_REASON } from './hooks';
 import { encryptOverrides } from './overrides';
 import { runtime } from './runtime';
@@ -63,7 +63,7 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
       hooks: [recorder('source', steps)],
     });
-    const flag = bindFlag({ key: 'summer-sale', source });
+    const flag = source.bindFlag('summer-sale');
 
     await flag({ hooks: [recorder('call', steps)] });
     expect(steps).toEqual([
@@ -88,9 +88,7 @@ describe('hooks', () => {
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const flag = bindFlag({
-      key: 'summer-sale',
-      source,
+    const flag = source.bindFlag('summer-sale', {
       defaultValue: false,
     });
 
@@ -125,7 +123,7 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
     });
     const input = { user: 'bob' };
-    const flag = bindFlag({ key: 'summer-sale', source });
+    const flag = source.bindFlag('summer-sale');
 
     const value = await flag({
       evaluationContext: input,
@@ -160,7 +158,7 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
     });
 
-    await bindFlag({ key: 'summer-sale', source })({
+    await source.bindFlag('summer-sale')({
       hooks: [timer, other],
     });
     expect(durations).toEqual([undefined, 1]);
@@ -175,7 +173,7 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
       hooks: [recorder('source', steps), { error, finally: final }],
     });
-    const flag = bindFlag({ key: 'missing', source, defaultValue: true });
+    const flag = source.bindFlag('missing', { defaultValue: true });
 
     await expect(flag()).resolves.toBe(true);
     expect(steps).toEqual([
@@ -197,7 +195,7 @@ describe('hooks', () => {
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const flag = bindFlag({ key: 'summer-sale', source });
+    const flag = source.bindFlag('summer-sale');
     const provider = vi.spyOn(source.provider, 'resolveBooleanEvaluation');
 
     await expect(
@@ -233,7 +231,7 @@ describe('hooks', () => {
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const flag = bindFlag({ key: 'summer-sale', source });
+    const flag = source.bindFlag('summer-sale');
 
     const value = await flag({
       hooks: [
@@ -257,8 +255,8 @@ describe('hooks', () => {
       provider: inMemory(),
       project: { system: 'in-memory' },
     });
-    const a = bindFlag({ key: 'summer-sale', source });
-    const b = bindFlag({ key: 'missing', source, defaultValue: false });
+    const a = source.bindFlag('summer-sale');
+    const b = source.bindFlag('missing', { defaultValue: false });
 
     await evaluate([a, b], {
       hooks: [
@@ -279,10 +277,8 @@ describe('hooks', () => {
       project: { system: 'in-memory' },
       hooks: [{ before }],
     });
-    const flag = bindFlag({
-      key: 'banner',
+    const flag = source.bindFlag('banner', {
       type: 'string',
-      source,
       defaultValue: 'Welcome',
     });
 
@@ -319,7 +315,7 @@ describe('hooks', () => {
         project: { system: 'in-memory' },
       });
       runtime.configure({ hooks: [{ after }] });
-      const flag = bindFlag({ key: 'summer-sale', source });
+      const flag = source.bindFlag('summer-sale');
 
       const value = await runtime.onInvoke(await requestWithOverride(), () =>
         flag({ evaluationContext: { user: 'bob' } }),
@@ -345,7 +341,7 @@ describe('hooks', () => {
         project: { system: 'in-memory' },
         getEvaluationContext,
       });
-      const flag = bindFlag({ key: 'summer-sale', source });
+      const flag = source.bindFlag('summer-sale');
 
       await expect(
         runtime.onInvoke(await requestWithOverride(), () => flag()),

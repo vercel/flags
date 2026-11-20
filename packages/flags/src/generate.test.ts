@@ -85,7 +85,9 @@ describe('generateFlags', () => {
 
     await generateFlags(directory);
 
-    expect(await read(directory, 'site.ts')).toContain('key: "fromImport"');
+    expect(await read(directory, 'site.ts')).toContain(
+      'source.bindFlag("fromImport"',
+    );
   });
 
   it('writes one module for each source, from its catalog only', async () => {
@@ -104,7 +106,7 @@ describe('generateFlags', () => {
     expect(await read(directory, '.gitignore')).toBe('*\n');
     const site = await read(directory, 'site.ts');
     expect(site).toContain("'use flags';");
-    expect(site).toContain('key: "enabled"');
+    expect(site).toContain('source.bindFlag("enabled"');
     expect(site).toContain('A demo flag');
   });
 
@@ -229,7 +231,9 @@ describe('watchFlags', () => {
     await generateFlags(directory);
 
     expect(site.state.closed).toBe(true);
-    expect(await read(directory, 'site.ts')).toContain('key: "enabled"');
+    expect(await read(directory, 'site.ts')).toContain(
+      'source.bindFlag("enabled"',
+    );
   });
 
   it('writes the modules again after each change of a catalog', async () => {
@@ -253,9 +257,11 @@ describe('watchFlags', () => {
       () => site.state.delivered === 1 && billing.state.delivered === 1,
     );
     const module = await read(directory, 'site.ts');
-    expect(module).not.toContain('key: "enabled"');
+    expect(module).not.toContain('source.bindFlag("enabled"');
     expect(module).toContain('options: ["small","large"] as const');
-    expect(await read(directory, 'billing.ts')).toContain('key: "price"');
+    expect(await read(directory, 'billing.ts')).toContain(
+      'source.bindFlag("price"',
+    );
     expect(JSON.parse(await read(directory, 'catalog.json'))).toEqual({
       billing: { revision: 2, flags: 1 },
       site: { revision: 2, flags: 1 },
@@ -325,7 +331,9 @@ describe('flags sync', () => {
     await expect(runCommand(['sync', directory])).resolves.toBe(
       'flags: Wrote the modules of flags:site.',
     );
-    expect(await read(directory, 'site.ts')).toContain('key: "from-env"');
+    expect(await read(directory, 'site.ts')).toContain(
+      'source.bindFlag("from-env"',
+    );
   });
 });
 
@@ -383,7 +391,7 @@ describe('the default source self', () => {
       "import { VercelProvider } from '@vercel/flags-core/openfeature';",
     );
     expect(self).toContain('const provider = new VercelProvider();');
-    expect(self).toContain('key: "enableSale"');
+    expect(self).toContain('source.bindFlag("enableSale"');
     expect(self).not.toContain('context.ts');
     const declarations = await readFile(
       path.join(directory, 'flags/generated.d.ts'),
@@ -481,7 +489,7 @@ describe('the default source self', () => {
       "import getEvaluationContext from '../flags/sources/self/context.ts';",
     );
     expect(module).toContain('const provider = new VercelProvider();');
-    expect(module).toContain('key: "enableSale"');
+    expect(module).toContain('source.bindFlag("enableSale"');
   });
 
   it('uses provider.ts and catalog.ts of flags/sources/self if they exist', async () => {
@@ -495,7 +503,7 @@ describe('the default source self', () => {
       "import provider from '../flags/sources/self/provider.ts';",
     );
     expect(module).not.toContain('VercelProvider');
-    expect(module).toContain('key: "enabled"');
+    expect(module).toContain('source.bindFlag("enabled"');
   });
 
   it.each([

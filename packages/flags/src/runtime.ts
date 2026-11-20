@@ -762,7 +762,7 @@ class RuntimeImpl {
     const { source } = flag;
     if (source === undefined) {
       throw new Error(
-        `flags: Flag "${key}" has no source. Give it a source, e.g. with bindFlag({ key, source }).`,
+        `flags: Flag "${key}" has no source. Declare it with source.bindFlag(key).`,
       );
     }
     if (!isSource(source)) {

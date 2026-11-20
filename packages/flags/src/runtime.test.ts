@@ -7,7 +7,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import { bindFlag } from './flag';
+
 import { logger } from './logger';
 import { registerSources } from './register';
 import { type FlagDefinition, runtime } from './runtime';
@@ -58,7 +58,7 @@ describe('runtime', () => {
 
     it('initializes the providers of defined flags', async () => {
       const source = createSource();
-      bindFlag({ key: 'a', source });
+      source.bindFlag('a');
 
       await runtime.onInit();
       expect(source.provider.initialize).toHaveBeenCalledTimes(1);
@@ -96,7 +96,7 @@ describe('runtime', () => {
 
     it('does not initialize again for evaluations', async () => {
       const source = createSource();
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await runtime.onInit();
       await flag();
@@ -121,7 +121,7 @@ describe('runtime', () => {
     it('lets the next evaluation retry a failed initialization', async () => {
       const source = createSource();
       source.provider.initialize.mockRejectedValueOnce(new Error('Oops'));
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await runtime.onInit();
       await expect(flag()).resolves.toBe(true);
@@ -154,8 +154,8 @@ describe('runtime', () => {
       const slowInit = deferred();
       slow.provider.initialize.mockReturnValue(slowInit.promise);
       const fast = createSource('fast');
-      const slowFlag = bindFlag({ key: 'a', source: slow });
-      const fastFlag = bindFlag({ key: 'b', source: fast });
+      const slowFlag = slow.bindFlag('a');
+      const fastFlag = fast.bindFlag('b');
 
       await runtime.onInvoke({ headers }, async () => {
         await expect(fastFlag()).resolves.toBe(true);
@@ -171,7 +171,7 @@ describe('runtime', () => {
       const source = createSource();
       const init = deferred();
       source.provider.initialize.mockReturnValue(init.promise);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       void runtime.onInvoke({ headers }, () => {});
       const pending = flag();
@@ -269,7 +269,7 @@ describe('runtime', () => {
 
     it('closes providers which were initialized by an evaluation', async () => {
       const source = createSource();
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await flag();
       await runtime.onShutdown();
@@ -332,7 +332,7 @@ describe('runtime', () => {
 
     it('initializes providers again when used after a shutdown', async () => {
       const source = createSource();
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await runtime.onInit();
       await runtime.onShutdown();
@@ -344,7 +344,7 @@ describe('runtime', () => {
   describe('evaluate', () => {
     it('evaluates a flag returned by bindFlag', async () => {
       const source = createSource();
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await expect(runtime.evaluate(flag)).resolves.toBe(true);
       expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
@@ -437,7 +437,7 @@ describe('runtime', () => {
       await expect(
         runtime.evaluate({ key: 'a', defaultValue: false }),
       ).rejects.toThrow(
-        'flags: Flag "a" has no source. Give it a source, e.g. with bindFlag({ key, source }).',
+        'flags: Flag "a" has no source. Declare it with source.bindFlag(key).',
       );
     });
 
@@ -465,10 +465,8 @@ describe('runtime', () => {
       runtime.setGetRequest(() => {
         throw signal;
       });
-      const flag = bindFlag({
-        key: 'a',
+      const flag = createSource().bindFlag('a', {
         defaultValue: false,
-        source: createSource(),
       });
 
       await expect(flag()).rejects.toBe(signal);
@@ -486,7 +484,7 @@ describe('runtime', () => {
       });
 
       await expect(
-        bindFlag({ key: 'a', defaultValue: false, source })(),
+        source.bindFlag('a', { defaultValue: false })(),
       ).rejects.toBe(signal);
     });
 
@@ -497,10 +495,8 @@ describe('runtime', () => {
       });
 
       await expect(
-        bindFlag({
-          key: 'a',
+        createSource().bindFlag('a', {
           defaultValue: false,
-          source: createSource(),
         })(),
       ).resolves.toBe(false);
     });
@@ -549,9 +545,7 @@ describe('runtime', () => {
       const seen: string[] = [];
       runtime.setLoadConfig(() => configNamed('config', seen));
 
-      await expect(
-        bindFlag({ key: 'a', source: sourceWith(true) })(),
-      ).resolves.toBe(true);
+      await expect(sourceWith(true).bindFlag('a')()).resolves.toBe(true);
       expect(seen).toEqual(['config']);
     });
 
@@ -560,7 +554,7 @@ describe('runtime', () => {
       const seen: string[] = [];
       let config = configNamed('first', seen);
       runtime.setLoadConfig(() => config);
-      const flag = bindFlag({ key: 'a', source: sourceWith(true) });
+      const flag = sourceWith(true).bindFlag('a');
 
       await flag();
       config = configNamed('second', seen);
@@ -573,7 +567,7 @@ describe('runtime', () => {
       vi.stubEnv('NODE_ENV', 'production');
       const loadConfig = vi.fn(() => configNamed('config', []));
       runtime.setLoadConfig(loadConfig);
-      const flag = bindFlag({ key: 'a', source: sourceWith(true) });
+      const flag = sourceWith(true).bindFlag('a');
 
       await flag();
       await flag();
@@ -586,9 +580,9 @@ describe('runtime', () => {
         throw new Error('flags/config.ts has an error');
       });
 
-      await expect(
-        bindFlag({ key: 'a', source: sourceWith(true) })(),
-      ).rejects.toThrow('flags/config.ts has an error');
+      await expect(sourceWith(true).bindFlag('a')()).rejects.toThrow(
+        'flags/config.ts has an error',
+      );
     });
   });
 
@@ -600,7 +594,7 @@ describe('runtime', () => {
       },
       project: { system: 'in-memory' },
     });
-    const flag = bindFlag({ key: 'a', source });
+    const flag = source.bindFlag('a');
 
     await runtime.onInit();
     await runtime.onInvoke({ headers }, () => {});

@@ -314,7 +314,7 @@ describe('code generation of flags:<source>', () => {
       'flags/framework': '@flags-sdk/next/binding',
     });
     expect(readFileSync(join(dir, '.flags/shop.ts'), 'utf8')).toContain(
-      'key: "summer-sale"',
+      'source.bindFlag("summer-sale"',
     );
     // The types of flags:shop, without paths in tsconfig.json
     expect(readFileSync(join(dir, 'flags/generated.d.ts'), 'utf8')).toContain(

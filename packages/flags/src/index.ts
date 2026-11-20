@@ -15,7 +15,7 @@ export {
   type FlagValueOfFlag,
 } from './evaluate';
 export {
-  bindFlag,
+  type BindFlagOptions,
   defineFlag,
   type EvaluationArgs,
   type EvaluationOptions,
@@ -54,6 +54,7 @@ export {
 } from './runtime';
 export type { Settings } from './settings';
 export {
+  type BindableSource,
   type DefaultSourceInput,
   defineSource,
   type FlagManagementSystem,

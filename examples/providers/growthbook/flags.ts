@@ -1,7 +1,7 @@
 'use flags';
 
 import { GrowthbookProvider } from '@openfeature/growthbook-provider';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
 const growthbook = defineSource({
   // The OpenFeature provider of GrowthBook. It loads the features before the
@@ -18,15 +18,11 @@ const growthbook = defineSource({
   getEvaluationContext: () => ({ id: 'demo-user' }),
 });
 
-export const welcomeMessage = bindFlag({
-  key: 'welcome_message',
-  source: growthbook,
+export const welcomeMessage = growthbook.bindFlag('welcome_message', {
   type: 'string',
   defaultValue: 'Welcome to the GrowthBook example',
 });
 
-export const showBanner = bindFlag({
-  key: 'show_banner',
-  source: growthbook,
+export const showBanner = growthbook.bindFlag('show_banner', {
   defaultValue: false,
 });

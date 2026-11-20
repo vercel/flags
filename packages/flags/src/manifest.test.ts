@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bindFlag } from './flag';
+
 import { createManifest, validateFlagsManifest } from './manifest';
 import { registerFlags } from './register';
 import { runtime } from './runtime';
@@ -49,10 +49,8 @@ describe('createManifest', () => {
       {
         id: 'flags.ts',
         exports: {
-          summerSale: bindFlag({ key: 'summer-sale', source: vercelSource() }),
-          checkout: bindFlag({
-            key: 'checkout',
-            source: vercelSource(),
+          summerSale: vercelSource().bindFlag('summer-sale'),
+          checkout: vercelSource().bindFlag('checkout', {
             type: 'string',
             options: ['control', { value: 'express', label: 'Express' }],
             defaultValue: 'control',
@@ -123,10 +121,10 @@ describe('createManifest', () => {
       {
         id: 'flags.ts',
         exports: {
-          a: bindFlag({ key: 'a', source: launchdarkly('shop') }),
-          b: bindFlag({ key: 'b', source: launchdarkly('shop') }),
-          c: bindFlag({ key: 'c', source: launchdarkly('blog') }),
-          d: bindFlag({ key: 'd', source: source() }),
+          a: launchdarkly('shop').bindFlag('a'),
+          b: launchdarkly('shop').bindFlag('b'),
+          c: launchdarkly('blog').bindFlag('c'),
+          d: source().bindFlag('d'),
         },
       },
     ]);
@@ -169,7 +167,7 @@ describe('createManifest', () => {
     });
 
     const manifest = createManifest([
-      { id: 'flags.ts', exports: { a: bindFlag({ key: 'a', source: other }) } },
+      { id: 'flags.ts', exports: { a: other.bindFlag('a') } },
     ]);
     expect(manifest.sources['vercel-flags']).toEqual({
       ...vercel,
@@ -194,7 +192,7 @@ describe('createManifest', () => {
     });
 
     const manifest = createManifest([
-      { id: 'flags.ts', exports: { a: bindFlag({ key: 'a', source: own }) } },
+      { id: 'flags.ts', exports: { a: own.bindFlag('a') } },
     ]);
     expect(manifest.sources['in-memory']).toEqual({
       system: 'in-memory',
@@ -204,10 +202,8 @@ describe('createManifest', () => {
   });
 
   it('keeps all declarations of a flag which two modules export', () => {
-    const flag = bindFlag({
-      key: 'summer-sale',
+    const flag = source().bindFlag('summer-sale', {
       defaultValue: false,
-      source: source(),
     });
     const manifest = createManifest([
       { id: 'a.ts', exports: { summerSale: flag } },
@@ -226,13 +222,13 @@ describe('createManifest', () => {
         {
           id: 'a.ts',
           exports: {
-            a: bindFlag({ key: 'sale', defaultValue: false, source: source() }),
+            a: source().bindFlag('sale', { defaultValue: false }),
           },
         },
         {
           id: 'b.ts',
           exports: {
-            b: bindFlag({ key: 'sale', defaultValue: true, source: source() }),
+            b: source().bindFlag('sale', { defaultValue: true }),
           },
         },
       ]),
@@ -272,11 +268,9 @@ describe('createManifest', () => {
       {
         id: 'flags.ts',
         exports: {
-          a: bindFlag({
-            key: 'a',
+          a: source().bindFlag('a', {
             type: 'object',
             defaultValue: { color: 'blue' },
-            source: source(),
           }),
         },
       },
@@ -311,14 +305,12 @@ describe('validateFlagsManifest', () => {
       {
         id: 'flags.ts',
         exports: {
-          a: bindFlag({ key: 'a', defaultValue: false, source: source() }),
-          b: bindFlag({
-            key: 'b',
+          a: source().bindFlag('a', { defaultValue: false }),
+          b: source().bindFlag('b', {
             type: 'string',
             options: ['x', 'y'],
-            source: source(),
           }),
-          c: bindFlag({ key: 'c', source: source() }),
+          c: source().bindFlag('c'),
         },
       },
     ]);

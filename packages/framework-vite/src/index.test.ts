@@ -61,7 +61,7 @@ describe('code generation of flags:<source>', () => {
       { find: 'flags:self', replacement: join(dir, '.flags/self.ts') },
     ]);
     expect(readFileSync(join(dir, '.flags/self.ts'), 'utf8')).toContain(
-      'key: "enableSale"',
+      'source.bindFlag("enableSale"',
     );
     expect(readFileSync(join(dir, 'flags/generated.d.ts'), 'utf8')).toContain(
       "declare module 'flags:self'",

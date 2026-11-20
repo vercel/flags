@@ -21,7 +21,7 @@ const catalog: Catalog = {
 };
 
 describe('renderSourceModule', () => {
-  it('writes a use flags module with defineSource and bindFlag', () => {
+  it('writes a use flags module with defineSource and source.bindFlag', () => {
     const code = renderSourceModule('site', catalog);
 
     expect(hasUseFlagsDirective(code)).toBe(true);
@@ -83,7 +83,7 @@ describe('renderSourceModule', () => {
     expect(code).toContain(
       'type: "object",\n  options: [{"value":{"a":1}},{"value":null},{"value":"text"},{"value":1},{"value":[1]}],',
     );
-    expect(code).toContain('key: "empty",\n  source,\n  type: "object",');
+    expect(code).toContain('source.bindFlag("empty", {\n  type: "object",');
   });
 
   it('writes a source without a context, without context.ts', () => {

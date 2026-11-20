@@ -1,7 +1,7 @@
 'use flags';
 
 import { InMemoryProvider } from '@openfeature/server-sdk';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
 // Replace InMemoryProvider with your OpenFeature provider for production.
 // The SDK calls the provider directly and initializes it before the first
@@ -24,17 +24,13 @@ const openFeature = defineSource({
   getEvaluationContext: () => ({ targetingKey: 'demo-user' }),
 });
 
-export const welcomeMessage = bindFlag({
-  key: 'welcome_message',
-  source: openFeature,
+export const welcomeMessage = openFeature.bindFlag('welcome_message', {
   type: 'string',
   description: 'The welcome message shown on the home page.',
   defaultValue: 'Welcome to the OpenFeature example',
 });
 
-export const showBanner = bindFlag({
-  key: 'show_banner',
-  source: openFeature,
+export const showBanner = openFeature.bindFlag('show_banner', {
   description: 'Show the promotional banner on the home page.',
   defaultValue: false,
 });

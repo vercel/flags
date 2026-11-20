@@ -188,12 +188,11 @@ describe('defineSource', () => {
 
 describe('a source without a project', () => {
   it('evaluates its flags, and the manifest names no source', async () => {
-    const { bindFlag } = await import('./flag');
     const { createManifest } = await import('./manifest');
     const source = defineSource({
       provider: new TypedInMemoryProvider(myFlags),
     });
-    const flag = bindFlag({ key: 'v2_enabled', source });
+    const flag = source.bindFlag('v2_enabled');
 
     expect(source.project).toBeUndefined();
     await expect(flag()).resolves.toBe(true);

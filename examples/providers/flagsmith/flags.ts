@@ -1,17 +1,12 @@
 'use flags';
 
-import { bindFlag } from 'flags';
 import { flagsmith } from './flags/flagsmith';
 
-export const welcomeMessage = bindFlag({
-  key: 'welcome_message',
-  source: flagsmith,
+export const welcomeMessage = flagsmith.bindFlag('welcome_message', {
   type: 'string',
   defaultValue: 'Welcome to the Flagsmith example',
 });
 
-export const showBanner = bindFlag({
-  key: 'show_banner',
-  source: flagsmith,
+export const showBanner = flagsmith.bindFlag('show_banner', {
   defaultValue: false,
 });
