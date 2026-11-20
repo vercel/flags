@@ -37,6 +37,22 @@ if (result.created) {
 
 At runtime, `@vercel/flags-core` imports this module as a fallback when streaming or polling is unavailable.
 
+### Snapshots
+
+Pass `snapshotsDir` to also write each datafile as a JSON file into that directory:
+
+```ts
+await prepareFlagsDefinitions({
+  cwd: process.cwd(),
+  env: process.env,
+  snapshotsDir: '.vercel/output/snapshots/vercel-flags',
+});
+```
+
+Files are named `<key>.json`, where the key is the project ID or the SHA-256 hash of the SDK key, matching the keys of the generated module. Build tools can embed these files into the deployment's functions without depending on `node_modules`.
+
+The datafiles contain your flag configuration, so `snapshotsDir` must be a directory owned by the build that other users cannot read or modify, including its parent directories. A directory inside the project, like `.vercel/output/snapshots/vercel-flags`, meets this. Files are created with mode `0600`, but on Windows they inherit the directory's access control list.
+
 ## Documentation
 
 - [Embedded Definitions](https://vercel.com/docs/flags/vercel-flags/sdks/core#embedded-definitions)
