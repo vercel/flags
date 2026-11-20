@@ -19,4 +19,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withVercelToolbar()(withFlags(nextConfig));
+// withFlags is the outer plugin: it returns a function of the phase, and it
+// takes the configuration of the other plugins
+export default withFlags(withVercelToolbar()(nextConfig));

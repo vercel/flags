@@ -112,6 +112,32 @@ export default withFlags((phase) => ({
 
 `@flags-sdk/next/plugin` exports the type `NextConfigFunction<T>`.
 
+### With other plugins
+
+By default, `withFlags` returns a function of the phase, not an object. It
+needs the phase to know the command: `next dev` watches the catalogs,
+`next build` generates once, and `next start` does nothing. Next.js gives the
+phase only to a configuration function, and only a function can wait for the
+code generation.
+
+Most other plugins of Next.js take an object and return an object. So
+`withFlags` must be the outer plugin. Give it the result of the other plugins:
+
+```ts title="next.config.ts"
+import { withFlags } from '@flags-sdk/next/plugin';
+import withVercelToolbar from '@vercel/toolbar/plugins/next';
+
+// Correct: withFlags is the outer plugin
+export default withFlags(withVercelToolbar()({}));
+
+// Wrong: withVercelToolbar gets a function, not an object
+// export default withVercelToolbar()(withFlags({}));
+```
+
+If a plugin must be the outer plugin, set `disableCodeGeneration: true`.
+`withFlags` then returns an object. Generate the modules before Next.js
+starts, e.g. with `flags sync && next build`.
+
 To turn off the code generation, e.g. if you write your sources by hand:
 
 ```ts title="next.config.ts"

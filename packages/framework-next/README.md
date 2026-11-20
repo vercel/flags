@@ -65,6 +65,23 @@ The configuration can also be a function of the phase. Pass the function to
 returns a function of the phase itself. The type of the function is
 `NextConfigFunction<T>`, an export of `@flags-sdk/next/plugin`.
 
+`withFlags` must be the outer plugin. It needs the phase to know the
+command (`next dev` watches the catalogs, `next build` generates once,
+`next start` does nothing), and only a configuration function gets the
+phase and can wait for the code generation. Most other plugins take an
+object, so give `withFlags` their result:
+
+```ts
+// Correct
+export default withFlags(withVercelToolbar()({}));
+// Wrong: withVercelToolbar gets a function
+export default withVercelToolbar()(withFlags({}));
+```
+
+If another plugin must be the outer plugin, use
+`withFlags(config, { disableCodeGeneration: true })`, which returns an
+object, and run `flags sync` before `next build`.
+
 ### 2️⃣ Give the flags a source
 
 Each flag of a provider names its source:

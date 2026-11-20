@@ -188,7 +188,11 @@ async function importModule(specifier: string): Promise<unknown> {
       (error as { code?: unknown } | null)?.code ===
       'ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING'
     ) {
-      return import(specifier);
+      // A bundler of a build tool, e.g. Turbopack for its loaders, must not
+      // try to resolve the catalog of the application
+      return import(
+        /* webpackIgnore: true */ /* turbopackIgnore: true */ /* @vite-ignore */ specifier
+      );
     }
     throw error;
   }

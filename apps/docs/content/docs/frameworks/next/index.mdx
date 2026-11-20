@@ -33,6 +33,12 @@ export default withFlags({
 
 `withFlags` keeps your configuration, including your Turbopack aliases and rules. There is no middleware to add and no code to put in your pages. By default, `withFlags` writes the modules of `flags:<source>` from the folders of `flags/sources`. If your configuration is a function of the phase, pass the function: `withFlags((phase) => ({ ... }))`.
 
+<Callout>
+  `withFlags` returns a function of the phase, so it must be the outer plugin:
+  `withFlags(withVercelToolbar()({}))`, not `withVercelToolbar()(withFlags({}))`.
+  See [With other plugins](/docs/api-reference/next#with-other-plugins).
+</Callout>
+
 If `flags/config.ts` is not in the app directory or in its `src` folder, pass the directory: `withFlags({}, { dir: '/path/to/the/app' })`.
 
 ### 3. Create the source `self`
