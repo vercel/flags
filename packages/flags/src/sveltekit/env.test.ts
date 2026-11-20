@@ -150,15 +150,15 @@ describe('SvelteKit precompute with variables which are only in $env', () => {
   const secretA = 'a'.repeat(43);
   const secretB = 'b'.repeat(43);
 
-  async function precomputeWith(staticEnv: {
-    FLAGS_SECRET?: string;
-    FLAGS_PRECOMPUTE_SECRET?: string;
-  }): Promise<string> {
+  async function precomputeWith(
+    staticEnv: { FLAGS_SECRET?: string; FLAGS_PRECOMPUTE_SECRET?: string },
+    dynamicEnv: Record<string, string> = {},
+  ): Promise<string> {
     vi.doMock('$env/static/private', () => ({
       FLAGS_SECRET: staticEnv.FLAGS_SECRET,
       FLAGS_PRECOMPUTE_SECRET: staticEnv.FLAGS_PRECOMPUTE_SECRET,
     }));
-    vi.doMock('$env/dynamic/private', () => ({ env: {} }));
+    vi.doMock('$env/dynamic/private', () => ({ env: dynamicEnv }));
     vi.resetModules();
     const { flag, precompute } = await import('.');
     return precompute(
@@ -180,5 +180,18 @@ describe('SvelteKit precompute with variables which are only in $env', () => {
     await expect(
       compactVerify(one, base64url.decode(secretB)),
     ).resolves.toBeDefined();
+  });
+
+  it('signs with the key of the deployment of process.env, not of the dynamic environment', async () => {
+    // The key only exists on Vercel, where it is in `process.env`
+    await expect(
+      precomputeWith({}, { VERCEL_DEPLOYMENT_KEY: 'key-of-deployment-a' }),
+    ).rejects.toThrow();
+
+    vi.stubEnv('VERCEL_DEPLOYMENT_KEY', 'key-of-deployment-a');
+    const code = await precomputeWith({});
+    await expect(
+      precomputeWith({}, { VERCEL_DEPLOYMENT_KEY: 'key-of-deployment-b' }),
+    ).resolves.toBe(code);
   });
 });
