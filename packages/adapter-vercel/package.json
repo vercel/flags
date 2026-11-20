@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/vercel",
-  "version": "1.6.0",
+  "version": "1.6.1-standard.0",
   "description": "A Flags SDK adapter for Vercel Flags",
   "keywords": [
     "vercel",
@@ -58,7 +58,7 @@
     "vitest": "4.1.12"
   },
   "peerDependencies": {
-    "flags": "*"
+    "flags": "4.4.0-standard.0"
   },
   "publishConfig": {
     "access": "public"

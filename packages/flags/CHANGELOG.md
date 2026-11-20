@@ -1,5 +1,19 @@
 # @vercel/flags
 
+## 4.4.0-standard.0
+
+### Minor Changes
+
+- [#613](https://github.com/vercel/flags/pull/613) [`1207e22`](https://github.com/vercel/flags/commit/1207e2253e355c6c503896cf66857856c706caab) Thanks [@dferber90](https://github.com/dferber90)! - Signed overrides follow the current protocol of the Vercel Toolbar: the scope lists `projectIds` (e.g. all projects of a microfrontends group), and a token can live up to 7 days. On Vercel, the SDK accepts signed overrides also when `FLAGS_SECRET` is set, and reads the OIDC token of the request first. New: `signOverrides(overrides, { ttl })` asks Vercel to sign overrides, e.g. for end-to-end tests without a `FLAGS_SECRET`.
+
+### Patch Changes
+
+- [#575](https://github.com/vercel/flags/pull/575) [`2921a96`](https://github.com/vercel/flags/commit/2921a96e8711c9bd738a4e0338908381ddf41927) Thanks [@luismeyer](https://github.com/luismeyer)! - Align platform-encrypted flag values with Vercel's decryption API by putting the allowed project IDs in the protected header and using the platform JWKS.
+
+- [#614](https://github.com/vercel/flags/pull/614) [`9d1888d`](https://github.com/vercel/flags/commit/9d1888d77e82cdce570ddb035cfb08d4b86f3472) Thanks [@dferber90](https://github.com/dferber90)! - `teamId` is optional in the `project` of a `launchdarkly` source: the links to the dashboard of LaunchDarkly use only `projectId` and `environment`.
+
+- [#614](https://github.com/vercel/flags/pull/614) [`9d1888d`](https://github.com/vercel/flags/commit/9d1888d77e82cdce570ddb035cfb08d4b86f3472) Thanks [@dferber90](https://github.com/dferber90)! - Accept a `FLAGS_SECRET` and a `FLAGS_PRECOMPUTE_SECRET` in standard base64 (with `+`, `/` and `=`), as v4 did. jose 6 decodes only base64url, so v5 rejected these secrets, and a page with `FlagValues` failed to build. The bytes stay the same, so the override tokens and precompute codes of v4 stay valid.
+
 ## 4.4.0
 
 ### Minor Changes

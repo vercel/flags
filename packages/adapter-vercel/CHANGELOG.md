@@ -1,5 +1,14 @@
 # @flags-sdk/vercel
 
+## 1.6.1-standard.0
+
+### Patch Changes
+
+- [#612](https://github.com/vercel/flags/pull/612) [`c491455`](https://github.com/vercel/flags/commit/c4914553614063355e10ff54df06430fa5235a5f) Thanks [@dferber90](https://github.com/dferber90)! - `getProviderData` works before Vercel Flags is activated for a project in local development. When the project has no datafile yet, flags that use OIDC take the project from the `project_id` claim of the `VERCEL_OIDC_TOKEN` of `vercel env pull`, so Flags Explorer no longer fails until the first flag is created. Flags with an SDK key still throw.
+- Updated dependencies [[`2921a96`](https://github.com/vercel/flags/commit/2921a96e8711c9bd738a4e0338908381ddf41927), [`c491455`](https://github.com/vercel/flags/commit/c4914553614063355e10ff54df06430fa5235a5f), [`ee725aa`](https://github.com/vercel/flags/commit/ee725aa3107bd35dd2aa8366a6fa80aeae966c92), [`397ca22`](https://github.com/vercel/flags/commit/397ca2240adc68ccc10f2b83caed57dc6b86dadd), [`9d1888d`](https://github.com/vercel/flags/commit/9d1888d77e82cdce570ddb035cfb08d4b86f3472), [`c491455`](https://github.com/vercel/flags/commit/c4914553614063355e10ff54df06430fa5235a5f), [`9d1888d`](https://github.com/vercel/flags/commit/9d1888d77e82cdce570ddb035cfb08d4b86f3472), [`1207e22`](https://github.com/vercel/flags/commit/1207e2253e355c6c503896cf66857856c706caab)]:
+  - flags@4.4.0-standard.0
+  - @vercel/flags-core@1.12.0-standard.0
+
 ## 1.6.0
 
 ### Minor Changes
