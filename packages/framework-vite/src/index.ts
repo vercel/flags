@@ -10,8 +10,8 @@
  * - The manifest of the flags, e.g. for Flags Explorer: in development at
  *   `/.well-known/flags/manifest.json`, and after a build as
  *   `flags-manifest.json` in the directory of the server output.
- * - With `codeGeneration`, the modules of `flags:<source>`, generated from
- *   the catalogs of `flags/sources`.
+ * - The modules of `flags:<source>`, generated from the catalogs of
+ *   `flags/sources`, unless `disableCodeGeneration` is set.
  *
  * It is also a Rollup plugin, e.g. for the server build of Nitro.
  */
@@ -77,12 +77,13 @@ export interface FlagsVitePluginOptions {
    */
   readonly projectModules?: Readonly<Record<string, readonly string[]>>;
   /**
-   * Generates the modules of `flags:<source>` from the catalogs of
+   * Turns off the code generation of `flags:<source>`. By default, the
+   * plugin generates the modules from the catalogs of
    * `flags/sources/<source>`: one time for a build, and again after each
-   * change of a catalog for the dev server. The aliases `flags:<source>`
-   * point to the modules.
+   * change of a catalog for the dev server, and points the aliases
+   * `flags:<source>` to them. Without `flags/sources`, it writes nothing.
    */
-  readonly codeGeneration?: boolean;
+  readonly disableCodeGeneration?: boolean;
 }
 
 /**
@@ -182,7 +183,9 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
     async config(config, env) {
       const dir = resolve(options.root ?? config.root ?? process.cwd());
       let aliases: Record<string, string> = {};
-      if (options.codeGeneration) {
+      // As a plain Rollup plugin, e.g. in Nitro, there is no config hook, so
+      // a framework module generates the code itself
+      if (!options.disableCodeGeneration) {
         generation = startCodeGeneration(dir, env.command === 'serve');
         aliases = resolveAliases(dir, await generation.ready);
       }

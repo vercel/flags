@@ -12,6 +12,8 @@ export { hasUseFlagsDirective } from './directive';
 export { findFlagsModules } from './find-flags-modules';
 export {
   type FlagsAliases,
+  findFlagsDirectory,
+  GENERATED_DECLARATIONS,
   GENERATED_DIRECTORY,
   generateFlags,
   type WatchResult,

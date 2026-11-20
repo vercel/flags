@@ -1,8 +1,6 @@
 {
   "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
-    "strict": true,
-    "allowImportingTsExtensions": true
-  },
-  "include": ["src", "flags", ".flags"]
+    "strict": true
+  }
 }

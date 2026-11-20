@@ -22,6 +22,7 @@ describe('flags', () => {
     const plugin = flags({
       binding: '@flags-sdk/example/binding',
       bundle: ['@flags-sdk/example'],
+      disableCodeGeneration: true,
     });
     const config = await configOf(plugin)(
       { root: '/app' },
@@ -32,7 +33,7 @@ describe('flags', () => {
   });
 
   it('changes nothing without a binding and without code generation', async () => {
-    const plugin = flags();
+    const plugin = flags({ disableCodeGeneration: true });
 
     expect(
       await configOf(plugin)({ root: '/app' }, { command: 'build' }),
@@ -53,7 +54,7 @@ describe('code generation of flags:<source>', () => {
     writeFileSync(join(source, 'provider.ts'), "throw new Error('no');");
     writeFileSync(join(source, 'context.ts'), "throw new Error('no');");
 
-    const plugin = flags({ codeGeneration: true });
+    const plugin = flags();
     const config = await configOf(plugin)({ root: dir }, { command: 'build' });
 
     expect(config?.resolve?.alias).toEqual([
@@ -62,5 +63,36 @@ describe('code generation of flags:<source>', () => {
     expect(readFileSync(join(dir, '.flags/self.ts'), 'utf8')).toContain(
       'key: "enableSale"',
     );
+    expect(readFileSync(join(dir, 'flags/generated.d.ts'), 'utf8')).toContain(
+      "declare module 'flags:self'",
+    );
+  });
+});
+
+describe('code generation by default', () => {
+  it('finds flags/sources in src, and writes nothing without sources', async () => {
+    const empty = mkdtempSync(join(tmpdir(), 'flags-vite-'));
+    expect(await configOf(flags())({ root: empty }, { command: 'build' })).toBe(
+      undefined,
+    );
+
+    const dir = mkdtempSync(join(tmpdir(), 'flags-vite-'));
+    const source = join(dir, 'src/flags/sources/self');
+    mkdirSync(source, { recursive: true });
+    writeFileSync(
+      join(source, 'catalog.ts'),
+      'export default () => ({ flags: { enableSale: { variants: [false, true] } } });',
+    );
+    writeFileSync(join(source, 'provider.ts'), "throw new Error('no');");
+    writeFileSync(join(source, 'context.ts'), "throw new Error('no');");
+
+    await configOf(flags())({ root: dir }, { command: 'build' });
+
+    expect(readFileSync(join(dir, '.flags/self.ts'), 'utf8')).toContain(
+      "from '../src/flags/sources/self/provider.ts'",
+    );
+    expect(
+      readFileSync(join(dir, 'src/flags/generated.d.ts'), 'utf8'),
+    ).toContain("declare module 'flags:self'");
   });
 });

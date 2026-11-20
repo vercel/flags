@@ -20,8 +20,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      "flags:*": ["./.flags/*"]
+      "@/*": ["./*"]
     }
   },
   "include": [
@@ -30,8 +29,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    ".flags/**/*.ts"
+    "**/*.mts"
   ],
   "exclude": ["node_modules"]
 }

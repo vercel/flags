@@ -52,6 +52,28 @@ const read = (directory: string, file: string) =>
   readFile(path.join(directory, '.flags', file), 'utf8');
 
 describe('generateFlags', () => {
+  it('loads a catalog with relative imports without an extension', async () => {
+    const directory = await app();
+    const source = await addSource(directory, 'site');
+    await mkdir(path.join(source, 'lib'));
+    await writeFile(
+      path.join(source, 'lib/index.ts'),
+      "export { flags } from '../definitions';",
+    );
+    await writeFile(
+      path.join(source, 'definitions.ts'),
+      "export const flags = { fromImport: { variants: ['a', 'b'] } };",
+    );
+    await writeFile(
+      path.join(source, 'catalog.ts'),
+      "import { flags } from './lib';\nexport default () => ({ flags });",
+    );
+
+    await generateFlags(directory);
+
+    expect(await read(directory, 'site.ts')).toContain('key: "fromImport"');
+  });
+
   it('writes one module for each source, from its catalog only', async () => {
     const directory = await app();
     await addSource(directory, 'site');
@@ -64,6 +86,8 @@ describe('generateFlags', () => {
       'flags:site': './.flags/site.ts',
     });
     expect(JSON.parse(await read(directory, 'aliases.json'))).toEqual(aliases);
+    // Git ignores the folder without a setup step
+    expect(await read(directory, '.gitignore')).toBe('*\n');
     const site = await read(directory, 'site.ts');
     expect(site).toContain("'use flags';");
     expect(site).toContain('key: "enabled"');

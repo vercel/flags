@@ -4,7 +4,5 @@ import adapter from '@sveltejs/adapter-node';
 export default {
   kit: {
     adapter: adapter({ out: 'build' }),
-    // The types of the generated modules of flags:<source>
-    alias: { 'flags:self': '.flags/self.ts' },
   },
 };

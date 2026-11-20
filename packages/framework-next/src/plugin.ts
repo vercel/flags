@@ -31,15 +31,17 @@ export interface FlagsPluginOptions {
    */
   readonly dir?: string;
   /**
-   * Generates the modules of `flags:<source>` from the catalogs of
+   * Turns off the code generation of `flags:<source>`. By default,
+   * `withFlags` generates the modules from the catalogs of
    * `flags/sources/<source>`: one time for `next build`, and again after
-   * each change of a catalog for `next dev`. Then `withFlags` returns a
-   * function of the phase, which Next.js calls.
+   * each change of a catalog for `next dev`. Without `flags/sources`, it
+   * writes nothing.
    *
-   * Without it, `withFlags` still gives Turbopack the aliases of
+   * With it, `withFlags` returns the configuration itself, not a function
+   * of the phase, and still gives Turbopack the aliases of
    * `.flags/aliases.json`, e.g. from `flags sync` or `flags watch`.
    */
-  readonly codeGeneration?: boolean;
+  readonly disableCodeGeneration?: boolean;
 }
 
 // The phases of Next.js, as in next/constants
@@ -186,6 +188,15 @@ function turbopackRules(
 }
 
 /**
+ * The configuration of Next.js as a function of the phase. Next.js passes
+ * a second argument with the default configuration.
+ */
+export type NextConfigFunction<T extends object> = (
+  phase: string,
+  context?: unknown,
+) => T | Promise<T>;
+
+/**
  * Adds the Flags SDK to the configuration of Next.js:
  *
  * - The alias `flags/framework` points to `@flags-sdk/next/binding`, which
@@ -200,41 +211,53 @@ function turbopackRules(
  *   that `@flags-sdk/next/precompute` needs no `FLAGS_PRECOMPUTE_SECRET`.
  * - With Cache Components, `FlagValues` encrypts in `'use cache'`, so that
  *   a static page can have encrypted flag values.
- * - The aliases `flags:<source>` point to the generated modules in
- *   `.flags`. With `codeGeneration`, it also generates them.
+ * - It generates the modules of `flags:<source>` from `flags/sources`, and
+ *   points the aliases `flags:<source>` to them in `.flags`.
  *
  * It supports only Turbopack, and keeps the aliases and the rules of the
- * configuration. A build with webpack throws.
+ * configuration. A build with webpack throws. The configuration can also be
+ * a function of the phase, as in `next.config.ts`.
  */
 export function withFlags<T extends object>(
-  config?: T,
-  options?: FlagsPluginOptions & { readonly codeGeneration?: false },
-): T;
+  config?: T | NextConfigFunction<T>,
+  options?: FlagsPluginOptions & { readonly disableCodeGeneration?: false },
+): NextConfigFunction<T>;
 /**
- * Adds the Flags SDK to the configuration of Next.js, and generates the
- * modules of `flags:<source>` from the catalogs of `flags/sources`. Returns
- * a function of the phase, which Next.js calls.
+ * Adds the Flags SDK to the configuration of Next.js, without the code
+ * generation of `flags:<source>`. Returns the configuration itself.
  */
 export function withFlags<T extends object>(
   config: T,
-  options: FlagsPluginOptions & { readonly codeGeneration: true },
-): (phase: string) => Promise<T>;
+  options: FlagsPluginOptions & { readonly disableCodeGeneration: true },
+): T;
+/**
+ * Adds the Flags SDK to a configuration function of Next.js, without the
+ * code generation of `flags:<source>`.
+ */
 export function withFlags<T extends object>(
-  config: T = {} as T,
+  config: NextConfigFunction<T>,
+  options: FlagsPluginOptions & { readonly disableCodeGeneration: true },
+): NextConfigFunction<T>;
+export function withFlags<T extends object>(
+  config: T | NextConfigFunction<T> = {} as T,
   options: FlagsPluginOptions = {},
-): T | ((phase: string) => Promise<T>) {
+): T | NextConfigFunction<T> {
   const dir = options.dir ?? process.cwd();
-  if (!options.codeGeneration) {
+  if (options.disableCodeGeneration && typeof config !== 'function') {
     return addFlags(config, dir);
   }
-  return async (phase) => {
+  return async (phase, context) => {
     // `next start` and the other phases do no catalog work
-    if (phase === PHASE_DEVELOPMENT_SERVER) {
-      await prepareCodeGeneration(dir, true);
-    } else if (phase === PHASE_PRODUCTION_BUILD) {
-      await prepareCodeGeneration(dir, false);
+    if (!options.disableCodeGeneration) {
+      if (phase === PHASE_DEVELOPMENT_SERVER) {
+        await prepareCodeGeneration(dir, true);
+      } else if (phase === PHASE_PRODUCTION_BUILD) {
+        await prepareCodeGeneration(dir, false);
+      }
     }
-    return addFlags(config, dir);
+    const resolved =
+      typeof config === 'function' ? await config(phase, context) : config;
+    return addFlags(resolved, dir);
   };
 }
 

@@ -10,7 +10,7 @@
     "lint": "eslint",
     "flags:sync": "flags sync",
     "flags:watch": "flags watch",
-    "type-check": "tsc --noEmit",
+    "type-check": "flags sync && tsc --noEmit",
     "test": "node --test utils/*.test.ts"
   },
   "dependencies": {

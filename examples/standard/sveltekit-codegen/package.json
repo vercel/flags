@@ -8,13 +8,14 @@
     "dev": "svelte-kit sync && vite dev",
     "build": "svelte-kit sync && vite build",
     "prepare": "svelte-kit sync || echo ''",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "flags sync && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "pnpm build && node --test test/*.test.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.4.0",
     "@sveltejs/kit": "^2.70.2",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
+    "@types/node": "22.14.0",
     "svelte": "^5.57.1",
     "svelte-check": "^4.6.0",
     "typescript": "^6.0.3",

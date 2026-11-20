@@ -10,12 +10,12 @@ import { checkout, 'summer-sale' as summerSale } from 'flags:shop';
 - `flags/sources/<source>/catalog.ts`: the flags, for the code generation
   only. It runs at build time and in development.
 - `flags/sources/<source>/provider.ts`: the OpenFeature provider.
-- `flags/sources/<source>/context.ts`: `getEvaluationContext(input, request)`.
+- `flags/sources/<source>/context.ts`: `getEvaluationContext(request, input)`.
 
-`withFlags({}, { codeGeneration: true })` in `next.config.ts` writes
-`.flags/<source>.ts` (one `defineSource` and one `bindFlag` for each flag) and
-points `flags:<source>` to it. `tsconfig.json` has
-`"paths": { "flags:*": ["./.flags/*"] }` for the types. The manifest
+`withFlags({})` in `next.config.ts` writes `.flags/<source>.ts` (one
+`defineSource` and one `bindFlag` for each flag) and points `flags:<source>`
+to it. It also writes `flags/generated.d.ts`, the types of `flags:<source>`,
+so `tsconfig.json` needs no change. The manifest
 of the flags for Flags Explorer is the route
 `app/.well-known/flags/manifest.json/route.ts` in development, and
 `.next/flags-manifest.json` after `next build`.

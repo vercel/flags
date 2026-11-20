@@ -4,7 +4,7 @@ import path from 'node:path';
 import ts from 'typescript';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Catalog } from './catalog';
-import { renderSourceModule } from './codegen';
+import { renderDeclarations, renderSourceModule } from './codegen';
 import { hasUseFlagsDirective } from './directive';
 
 const catalog: Catalog = {
@@ -96,44 +96,75 @@ describe('the types of a generated module', () => {
       path.join(directory, '.flags/site.ts'),
       renderSourceModule('site', catalog),
     );
+    // A source whose context has only the request, the usual case
+    const self = path.join(directory, 'flags/sources/self');
+    await mkdir(self, { recursive: true });
+    await writeFile(
+      path.join(self, 'provider.ts'),
+      `import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+      export default new TypedInMemoryProvider({});`,
+    );
+    await writeFile(
+      path.join(self, 'context.ts'),
+      `import type { FlagsRequest } from 'flags';
+      export default function getEvaluationContext(request: FlagsRequest | undefined) {
+        return { user: request?.cookies?.get('user')?.value ?? null };
+      }`,
+    );
+    await writeFile(
+      path.join(directory, 'flags/generated.d.ts'),
+      renderDeclarations([
+        ['site', catalog],
+        ['self', { flags: { enableSale: { variants: [false, true] } } }],
+      ]),
+    );
   });
 
   afterAll(async () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  function check(code: string): string[] {
-    const file = path.join(directory, 'consumer.ts');
-    const root = path.resolve(__dirname, '..');
+  const root = path.resolve(__dirname, '..');
+  const consumer = () => path.join(directory, 'consumer.ts');
+
+  // A usual configuration: no paths for flags:<source>, and no
+  // allowImportingTsExtensions. The program includes the folder flags.
+  function compilerOptions(): ts.CompilerOptions {
     const config = ts.readConfigFile(
       path.join(root, 'tsconfig.json'),
       ts.sys.readFile,
     );
     const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root);
-    const options: ts.CompilerOptions = {
+    return {
       ...parsed.options,
       noEmit: true,
       incremental: false,
       moduleResolution: ts.ModuleResolutionKind.Bundler,
       module: ts.ModuleKind.ESNext,
-      allowImportingTsExtensions: true,
       baseUrl: root,
       paths: {
         ...parsed.options.paths,
         flags: [path.join(root, 'src/index.ts')],
-        'flags:*': [path.join(directory, '.flags/*')],
         '@openfeature/server-sdk': [
           path.join(root, 'node_modules/@openfeature/server-sdk'),
         ],
       },
     };
+  }
+
+  function check(code: string, options = compilerOptions()): string[] {
+    const file = consumer();
     const host = ts.createCompilerHost(options);
     const getSourceFile = host.getSourceFile;
     host.getSourceFile = (name, version) =>
       name === file
         ? ts.createSourceFile(name, code, version)
         : getSourceFile(name, version);
-    const program = ts.createProgram([file], options, host);
+    const program = ts.createProgram(
+      [file, path.join(directory, 'flags/generated.d.ts')],
+      options,
+      host,
+    );
     return ts
       .getPreEmitDiagnostics(program)
       .map((diagnostic) =>
@@ -141,7 +172,7 @@ describe('the types of a generated module', () => {
       );
   }
 
-  it('gives each flag its type and its context', () => {
+  it('gives each flag its type and its context, without tsconfig paths', () => {
     expect(
       check(`
         import { checkout, 'max-items' as maxItems, mixed, 'summer-sale' as summerSale, theme } from 'flags:site';
@@ -157,6 +188,16 @@ describe('the types of a generated module', () => {
     ).toEqual([]);
   });
 
+  it('needs no context for a source whose context has only the request', () => {
+    expect(
+      check(`
+        import { enableSale } from 'flags:self';
+        const sale: Promise<boolean> = enableSale();
+        void sale;
+      `),
+    ).toEqual([]);
+  });
+
   it('rejects an unknown flag and a missing context', () => {
     const errors = check(`
       import { missing, checkout } from 'flags:site';
@@ -165,5 +206,47 @@ describe('the types of a generated module', () => {
 
     expect(errors.some((e) => e.includes('no exported member'))).toBe(true);
     expect(errors.some((e) => e.includes('Expected 1 arguments'))).toBe(true);
+  });
+
+  it('shows a short type in the editor, with the name of the source', () => {
+    const file = consumer();
+    const code = `import { checkout } from 'flags:site';\ncheckout;\n`;
+    const options = compilerOptions();
+    const files = [file, path.join(directory, 'flags/generated.d.ts')];
+    const service = ts.createLanguageService({
+      getScriptFileNames: () => files,
+      getScriptVersion: () => '1',
+      getScriptSnapshot: (name) => {
+        if (name === file) {
+          return ts.ScriptSnapshot.fromString(code);
+        }
+        const text = ts.sys.readFile(name);
+        return text === undefined
+          ? undefined
+          : ts.ScriptSnapshot.fromString(text);
+      },
+      getCurrentDirectory: () => directory,
+      getCompilationSettings: () => options,
+      getDefaultLibFileName: (settings) => ts.getDefaultLibFilePath(settings),
+      fileExists: ts.sys.fileExists,
+      readFile: ts.sys.readFile,
+    });
+    const info = service.getQuickInfoAtPosition(
+      file,
+      code.indexOf('checkout;'),
+    );
+    const shown = ts.displayPartsToString(info?.displayParts);
+
+    expect(shown).toContain('Flag<SiteSource, "checkout"');
+    expect(shown.length).toBeLessThan(200);
+  });
+
+  it('writes a module which compiles', () => {
+    expect(
+      check(`import { checkout } from './.flags/site.ts';\nvoid checkout;`, {
+        ...compilerOptions(),
+        allowImportingTsExtensions: true,
+      }),
+    ).toEqual([]);
   });
 });

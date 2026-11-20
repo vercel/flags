@@ -18,15 +18,21 @@
  *   with `useEvent()`, and `flags/config.ts`. The module sets
  *   `experimental.asyncContext` of Nitro for it.
  * - A Nitro plugin calls `runtime.onInit` and `runtime.onShutdown`.
- * - With `codeGeneration`, the modules of `flags:<source>`, generated from
- *   the catalogs of `flags/sources`, for Vite and Nitro.
+ * - The modules of `flags:<source>`, generated from the catalogs of
+ *   `flags/sources`, for Vite and Nitro, unless `disableCodeGeneration` is
+ *   set.
  *
  * It is a plain function and uses only hooks of Nuxt, so that the SDK does
  * not depend on `@nuxt/kit`.
  */
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { flags, resolveAliases, startCodeGeneration } from '@flags-sdk/vite';
-import { findConfigFile } from 'flags/tooling';
+import {
+  findConfigFile,
+  findFlagsDirectory,
+  GENERATED_DECLARATIONS,
+} from 'flags/tooling';
 
 type Plugins = unknown[] | unknown;
 
@@ -47,24 +53,29 @@ interface Nuxt {
   readonly options: {
     readonly rootDir: string;
     readonly dev: boolean;
-    alias?: Record<string, string>;
   };
   hook(name: 'vite:extendConfig', callback: (config: ViteConfig) => void): void;
   hook(name: 'nitro:config', callback: (config: NitroConfig) => void): void;
   hook(name: 'close', callback: () => void): void;
+  hook(
+    name: 'prepare:types',
+    callback: (options: { references: { path?: string }[] }) => void,
+  ): void;
 }
 
 export interface FlagsNuxtOptions {
   /**
-   * Generates the modules of `flags:<source>` from the catalogs of
+   * Turns off the code generation of `flags:<source>`. By default, the
+   * module generates the modules from the catalogs of
    * `flags/sources/<source>`: one time for a build, and again after each
-   * change of a catalog for `nuxt dev`.
+   * change of a catalog for `nuxt dev`. Without `flags/sources`, it writes
+   * nothing.
    *
    * ```ts
-   * modules: [['@flags-sdk/nuxt', { codeGeneration: true }]]
+   * modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]
    * ```
    */
-  readonly codeGeneration?: boolean;
+  readonly disableCodeGeneration?: boolean;
 }
 
 /**
@@ -106,19 +117,27 @@ export default async function flagsNuxtModule(
 ): Promise<void> {
   const root = nuxt.options.rootDir;
   let aliases: Record<string, string> = {};
-  if (options?.codeGeneration) {
+  if (!options?.disableCodeGeneration) {
     const generation = startCodeGeneration(root, nuxt.options.dev);
     nuxt.hook('close', () => generation.stop());
     aliases = resolveAliases(root, await generation.ready);
-    // Also for the types: Nuxt writes its aliases into its tsconfig
-    nuxt.options.alias = { ...nuxt.options.alias, ...aliases };
+    // The types of flags:<source>: the declarations in the folder flags,
+    // as a reference of the types of Nuxt. Not an alias of Nuxt, which
+    // would point TypeScript to the generated module instead.
+    const flagsDirectory = await findFlagsDirectory(root);
+    if (flagsDirectory) {
+      const declarations = join(flagsDirectory, GENERATED_DECLARATIONS);
+      nuxt.hook('prepare:types', ({ references }) => {
+        references.push({ path: declarations });
+      });
+    }
   }
 
   nuxt.hook('vite:extendConfig', (config) => {
     config.plugins = [
       ...(config.plugins ?? []),
       // Nitro bundles the server code again, with the binding
-      flags({ root, manifest: false }),
+      flags({ root, manifest: false, disableCodeGeneration: true }),
     ];
     config.resolve = {
       ...config.resolve,
@@ -145,7 +164,11 @@ export default async function flagsNuxtModule(
     config.rollupConfig.plugins = [
       ...asArray(config.rollupConfig.plugins),
       // In development, Nitro also builds, but without a manifest
-      flags({ root, manifest: !nuxt.options.dev }),
+      flags({
+        root,
+        manifest: !nuxt.options.dev,
+        disableCodeGeneration: true,
+      }),
     ];
   });
 }

@@ -19,10 +19,10 @@ import type { Plugin } from 'vite';
 
 export interface FlagsTanStackStartOptions {
   /**
-   * Generates the modules of `flags:<source>` from the catalogs of
-   * `flags/sources/<source>`. See `@flags-sdk/vite`.
+   * Turns off the code generation of `flags:<source>` from the catalogs of
+   * `flags/sources/<source>`, which is on by default. See `@flags-sdk/vite`.
    */
-  readonly codeGeneration?: boolean;
+  readonly disableCodeGeneration?: boolean;
 }
 
 export function flags(options: FlagsTanStackStartOptions = {}): Plugin {

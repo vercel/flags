@@ -1,5 +1,5 @@
 import type { CatalogLoader } from 'flags';
-import { shopFlags } from './definitions.ts';
+import { shopFlags } from './definitions';
 
 // The catalog: the flags of the source, for the code generation. It runs at
 // build time and in development, not in the application.
