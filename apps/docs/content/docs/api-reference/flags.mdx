@@ -291,7 +291,7 @@ import { runtime } from 'flags';
 runtime.configure(config: Config): void;
 ```
 
-Sets the configuration, usually the `config` export of `flags.config.ts`.
+Sets the configuration, usually the `config` export of `flags/config.ts`.
 A new call replaces the configuration. A replaced default source is closed if
 no other source uses its provider. Throws before it changes anything if the
 configuration is not valid, e.g. a `defaultSource` not returned by
@@ -345,7 +345,7 @@ runtime.prepare(): Promise<void>;
 
 Sets up the framework binding and loads the configuration, without
 initializing providers. For tools, e.g. before `createManifest`, so that flags
-without a source get the default source of `flags.config.ts`.
+without a source get the default source of `flags/config.ts`.
 
 ### `runtime.addHandler` and `runtime.removeHandler`
 
@@ -387,7 +387,7 @@ A framework binding calls these in its `setupFramework` function. See
 | Method                            | Description                                                                                                                                                                              |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `runtime.setGetRequest(fn)`       | `fn: GetRequest \| undefined`. Returns the current request as `FlagsRequestInit`, or `undefined` outside of a request. For frameworks without a wrapping middleware. The `headers` object must stay the same during one request, because the SDK identifies the request by it. Inside `onInvoke`, it is not called. |
-| `runtime.setLoadConfig(fn)`       | `fn: LoadConfig \| undefined`. Returns the configuration. Called once in production, and before each evaluation in development, so changes of `flags.config.ts` apply without a restart. |
+| `runtime.setLoadConfig(fn)`       | `fn: LoadConfig \| undefined`. Returns the configuration. Called once in production, and before each evaluation in development, so changes of `flags/config.ts` apply without a restart. |
 | `runtime.setRethrow(fn)`          | `fn: ((error: unknown) => void) \| undefined`. Throws an error again if the framework must receive it, e.g. a redirect. The runtime calls it before it uses a `defaultValue`.          |
 
 Related types:
@@ -407,7 +407,7 @@ Related types:
 ### `defineConfig`
 
 Returns the configuration as it is, with its exact type. Export it as `config`
-from `flags.config.ts`. Framework plugins load it. See
+from the optional `flags/config.ts`. Framework plugins load it. See
 [Configuration](/docs/flags/configuration).
 
 ```ts
@@ -424,10 +424,10 @@ function defineConfig<const C extends Config>(config: C): C;
   Without a `defaultSource`, flags without a source use the built-in default
   source. For now, the built-in default source throws on each evaluation. On
   Vercel, a deployment adapter can replace it with a fast provider for
-  builds. Set a `defaultSource`, or give each flag a `source`.
+  builds. Give each flag a `source`, or set a `defaultSource`.
 </Callout>
 
-```ts title="flags.config.ts"
+```ts title="flags/config.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 import { defineConfig, defineSource } from 'flags';
 
@@ -668,7 +668,7 @@ The reasons that hooks see in `EvaluationDetails`:
 - `DECIDE_REASON` (`'DECIDE'`): the value of an inline flag, from `decide`.
 - `OVERRIDE_REASON` (`'OVERRIDE'`): the value of an override.
 
-```ts title="flags.config.ts"
+```ts title="flags/config.ts"
 import { defineConfig, OVERRIDE_REASON } from 'flags';
 
 export const config = defineConfig({

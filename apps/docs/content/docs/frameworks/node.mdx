@@ -143,19 +143,21 @@ export default {
 
 The SDK identifies a request by its `headers` object, so pass the same object for the whole request.
 
-## Configuration
+## Optional: `flags/config.ts`
 
-Without a framework plugin, nothing loads `flags.config.ts`. Call `runtime.configure` at startup, before the first evaluation:
+You do not need a configuration file. Your flags name their source, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
+
+Add `flags/config.ts` when you want settings for all flags: OpenFeature hooks for every flag, the options of overrides, or a default source for flags without a `source`. Without a framework plugin, nothing loads the file. Call `runtime.configure` at startup, before the first evaluation:
 
 ```ts title="src/server.ts"
 import { runtime } from 'flags';
-import { config } from './flags.config.ts';
+import { config } from './flags/config.ts';
 
 runtime.configure(config);
 await runtime.onInit();
 ```
 
-`flags.config.ts` looks the same as in every framework: `export const config = defineConfig({ defaultSource, hooks, overrides })`. Flags without a `source` use its default source. For now, the built-in default source throws, so set a `defaultSource` if you use flags without a source. See [Configuration](/docs/flags/configuration).
+`flags/config.ts` looks the same as in every framework: `export const config = defineConfig({ hooks, overrides, defaultSource })`. See [Configuration](/docs/flags/configuration).
 
 ## Scripts and background jobs
 

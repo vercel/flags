@@ -3,7 +3,7 @@ title: TanStack Start
 description: Set up the Flags SDK in TanStack Start with one Vite plugin.
 ---
 
-`@flags-sdk/tanstack-start` connects the Flags SDK to TanStack Start. It gives each flag the current request through `getRequest()`, loads `flags.config.ts`, lets `redirect()` and `notFound()` pass through, registers your flags for Flags Explorer, and uses the fast provider of Vercel Flags in builds on Vercel. It works with the React and the Solid version of TanStack Start. Your code imports only `flags`.
+`@flags-sdk/tanstack-start` connects the Flags SDK to TanStack Start. It gives each flag the current request through `getRequest()`, loads `flags/config.ts`, lets `redirect()` and `notFound()` pass through, registers your flags for Flags Explorer, and uses the fast provider of Vercel Flags in builds on Vercel. It works with the React and the Solid version of TanStack Start. Your code imports only `flags`.
 
 **Requirements:** TanStack Start 1 with Vite 6 or newer.
 
@@ -147,58 +147,46 @@ export const Route = createFileRoute('/api/flags')({
 
 The binding reads the request with `getRequest()`, so flags work in server functions, server routes, and the server rendering of pages. Each flag is evaluated one time for each request.
 
-## `flags.config.ts`
+## Optional: `flags/config.ts`
 
-Flags without a `source` use the default source of `flags.config.ts`. For now, without `flags.config.ts`, the built-in default source throws in development. Put the file in the project directory or in `src`:
+You do not need a configuration file. Your flags name their source, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
 
-```sh title="Terminal"
-npm install @vercel/flags-core @openfeature/server-sdk
-```
+Add `flags/config.ts`, next to `flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, the options of overrides, or a default source for flags without a `source`. The Vite plugin loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
 
-```ts title="src/flags.config.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
+```ts title="flags/config.ts"
+import { defineConfig } from 'flags';
 
 export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
-  }),
+  hooks: [
+    {
+      after: (context, details) => {
+        console.log(`${context.flagKey} = ${JSON.stringify(details.value)}`);
+      },
+    },
+  ],
 });
-
-// Gives flags without a source the types of this source
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
 ```
 
-The file must export `config`. See [Configuration](/docs/flags/configuration).
+See [Configuration](/docs/flags/configuration) for all options.
 
 ## Signals
 
 `redirect()` and `notFound()` of TanStack Router reach TanStack Start unchanged, also when you throw them from `getEvaluationContext`:
 
-```ts title="src/flags.config.ts"
+```ts title="src/sources.ts"
 import { redirect } from '@tanstack/react-router';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => {
-      if (request?.cookies?.get('blocked')) {
-        throw redirect({ to: '/blocked' });
-      }
-      return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
-    },
-  }),
+export const vercel = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (_context, request) => {
+    if (request?.cookies?.get('blocked')) {
+      throw redirect({ to: '/blocked' });
+    }
+    return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+  },
 });
 ```
 
@@ -212,7 +200,7 @@ To show the values of a request in Flags Explorer, write the flag values element
 
 ## Deployment
 
-On Vercel, the plugin uses `@vercel/flags-core/default-provider` for flags without a source, if the project has `@vercel/flags-core`. `flags({ defaultProvider: './src/provider.ts' })` sets another module. A `defaultSource` in `flags.config.ts` always wins.
+On Vercel, the plugin uses `@vercel/flags-core/default-provider` for flags without a source, if the project has `@vercel/flags-core`. `flags({ defaultProvider: './src/provider.ts' })` sets another module. A `defaultSource` in the optional `flags/config.ts` always wins.
 
 ## How it works
 

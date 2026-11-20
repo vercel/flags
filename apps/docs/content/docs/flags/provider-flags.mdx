@@ -140,40 +140,19 @@ checkout.options; // [{ value: 'control' }, { value: 'express' }]
 
 ## The default source
 
-A flag without `source` uses the default source. You set it once, in [`flags.config.ts`](/docs/flags/configuration):
-
-```ts title="flags.config.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
-
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
-  }),
-});
-
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
-```
+Name the source of each flag, as above, or let [code generation](/docs/flags/code-generation) do it for you. As an option, a flag without `source` uses the default source, which you can set as `defaultSource` in the optional [`flags/config.ts`](/docs/flags/configuration#defaultsource):
 
 ```ts title="flags.ts"
 import { bindFlag } from 'flags';
 
-// No source: the default source of flags.config.ts
+// No source: the default source of flags/config.ts
 export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });
 ```
 
 The source is resolved at the evaluation, not at the definition. Thus, a flag that a module defines before the configuration loads still uses the configured source.
 
 <Callout type="warning">
-  Without a `defaultSource`, a flag without a source fails for now: "Pass a source to bindFlag, or set defaultSource in flags.config.ts." With a `defaultValue`, it returns that value and logs the error. A deployment platform can provide a default provider, see [Configuration](/docs/flags/configuration#the-built-in-default-source).
+  Without a `defaultSource`, a flag without a source fails for now: "Pass a source to bindFlag, or set defaultSource in flags/config.ts." With a `defaultValue`, it returns that value and logs the error. See [Configuration](/docs/flags/configuration#the-built-in-default-source).
 </Callout>
 
 ## More than one flag management system
@@ -194,10 +173,14 @@ const blog = defineSource({
   },
 });
 
-export const newSearch = bindFlag({ key: 'new-search', source: blog });
+// The flags of the Vercel project of this deployment
+const shop = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+});
 
-// The default source of flags.config.ts
-export const summerSale = bindFlag({ key: 'summer-sale' });
+export const newSearch = bindFlag({ key: 'new-search', source: blog });
+export const summerSale = bindFlag({ key: 'summer-sale', source: shop });
 ```
 
 With `projectId` and `teamId`, the SDK key of the provider must belong to the same project.

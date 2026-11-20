@@ -120,7 +120,7 @@ For the module above, with `shop` an in-memory source, the manifest is:
 - **`definitions`** has one entry for each flag, sorted by key, so the file is stable between builds.
 - **`sources`** has the flag projects of the sources, by an ID which the definitions use in `source`. The `variables` are the fields of the `project` of the source, e.g. `projectId`, never credentials.
 - An inline flag has no `source`, because no flag management system decides its value. A source without a `project` also gives its flags no `source`.
-- A provider flag without its own source gets the default source of `flags.config.ts`. Thus, the plugins load your configuration before they create the manifest.
+- A provider flag without its own source gets the default source of `flags/config.ts`. Thus, the plugins load your configuration before they create the manifest.
 
 For a Vercel Flags source, the variables come from the environment of the build, e.g. the project ID of the deployment, unless the `project` of the source sets them. The format is defined by a JSON Schema; see [The flags manifest format](/docs/standard/flags-manifest-format).
 

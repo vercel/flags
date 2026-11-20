@@ -97,16 +97,9 @@ do not need a `dedupe` helper.
 
 **Types connect the steps.** The type of the `context` parameter of each step
 defines what the step before must give. If `teamInsights` needs a
-`teamSlug`, calling it without one is a type error. Flags without a source use
-the types of the default source, once you register the configuration:
-
-```ts title="flags.config.ts"
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
-```
+`teamSlug`, calling it without one is a type error. If you set an optional
+default source, flags without a source use its types once you register the
+configuration (see [Configuration](/docs/flags/configuration#types)).
 
 **The request is the same in every framework.** Each step receives a
 `FlagsRequest` with `headers`, `cookies` and `url`. The framework package

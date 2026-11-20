@@ -1,6 +1,6 @@
 ---
 title: Framework bindings
-description: The contract between a framework and the Flags SDK - the request, the replaceable modules, signals, caches, flags.config.ts and the lifecycle.
+description: The contract between a framework and the Flags SDK - the request, the replaceable modules, signals, caches, flags/config.ts and the lifecycle.
 ---
 
 A **framework binding** connects the Flags SDK to one framework. It tells the runtime of `flags` three things which only the framework knows: the current request, the configuration of the application, and which thrown values belong to the framework. With a bundler, a **build plugin** sets this up and discovers the flags of the application.
@@ -66,7 +66,7 @@ The runtime imports three modules through the name of its own package. A build p
 | Module | Default | Replaced by |
 | --- | --- | --- |
 | `flags/framework` | No binding | The framework binding |
-| `flags/config` | No configuration | `flags.config.ts` of the application |
+| `flags/config` | No configuration | `flags/config.ts` of the application |
 | `flags/default-provider` | The provider of the built-in default source | The provider of a platform |
 
 ### Replacement
@@ -189,7 +189,7 @@ Some frameworks control the flow of a request with thrown values, e.g. `redirect
 
 A framework with a bundler MUST call `runtime.setLoadConfig(source)`, where `source` returns the export `config` of `flags/config`.
 
-- In development, the runtime calls the source before each evaluation, and applies a new configuration. A change of `flags.config.ts` applies without a restart.
+- In development, the runtime calls the source before each evaluation, and applies a new configuration. A change of `flags/config.ts` applies without a restart.
 - In production, it calls the source once.
 
 ### Rendering and caches
@@ -200,11 +200,11 @@ A flag value can change at any time, and depends on the request. Thus, an evalua
 - A precomputed value does not use the request. It MAY be prerendered.
 - A binding MUST NOT let an evaluation run in a cache scope of the framework, e.g. `'use cache'` of Next.js, if it can recognize one. The request source MUST throw an error there, and `rethrow` MUST throw it again, so that the flag does not silently return its default value. The application evaluates the flag outside, and passes the value into the cache scope.
 
-## `flags.config.ts`
+## `flags/config.ts`
 
-The configuration of the application (default source, overrides, hooks) is in one file, which the binding loads:
+The configuration of the application (default source, overrides, hooks) is in one optional file, which the binding loads if it exists:
 
-- The file MUST be named `flags.config.ts`, `flags.config.mts`, `flags.config.js` or `flags.config.mjs`, in the directory of the application or in its `src` directory. `findConfigFile` of `flags/tooling` finds it.
+- The file MUST be named `flags/config.ts`, `flags/config.mts`, `flags/config.js` or `flags/config.mjs`, in the directory of the application or in its `src` directory. `findConfigFile` of `flags/tooling` finds it.
 - The configuration MUST be the named export `config`. A default export MUST NOT be read.
 - A framework without a bundler MUST let the application give the configuration, e.g. as an option of a middleware, and give it to `runtime.configure(config)`.
 
@@ -225,7 +225,7 @@ A build plugin which supports discovery finds the `'use flags'` modules of the p
 ## Deployment platforms
 
 - A platform MAY replace `flags/default-provider` with its own provider, for its builds. It MUST NOT replace it for development.
-- A `defaultSource` of `flags.config.ts` MUST win over the provider of the platform. The runtime does this.
+- A `defaultSource` of `flags/config.ts` MUST win over the provider of the platform. The runtime does this.
 - A platform SHOULD put `flags-manifest.json` of the build into its build output, so that tools can read it.
 - A platform which signs override tokens MUST follow section 10 of STANDARD.md (see [Overrides](/docs/tooling/overrides)).
 
@@ -238,7 +238,7 @@ Functions for bindings and build plugins:
 | Function | Purpose |
 | --- | --- |
 | `registerFramework` | Registers a binding without the alias |
-| `findConfigFile` | Finds `flags.config.ts` in a directory or its `src` |
+| `findConfigFile` | Finds `flags/config.ts` in a directory or its `src` |
 | `hasUseFlagsDirective` | Finds the `'use flags'` directive in the directive prologue |
 | `addSelfRegistration` | Appends the registration to a `'use flags'` module |
 | `findFlagsModules` | Finds the `'use flags'` modules of a project |

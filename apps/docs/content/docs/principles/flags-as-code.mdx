@@ -97,25 +97,17 @@ the same page.
 The Flags SDK moves this work out of the call site. A source creates the
 evaluation context once, from the current request, for all of its flags:
 
-```ts title="flags.config.ts"
+```ts title="sources.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
+export const vercel = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (_context, request) => ({
+    user: request?.cookies?.get('user')?.value ?? 'anonymous',
   }),
 });
-
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
 ```
 
 The call site only passes what it alone knows, for example a team from the
@@ -133,16 +125,14 @@ The Flags SDK is built on [OpenFeature](https://openfeature.dev). A source
 takes any OpenFeature server provider as it is, without a wrapper or an
 adapter. To switch providers, change the provider of the source:
 
-```ts title="flags.config.ts"
-import { defineConfig, defineSource } from 'flags';
+```ts title="sources.ts"
+import { defineSource } from 'flags';
 import { provider } from './provider';
 
-export const config = defineConfig({
-  defaultSource: defineSource({
-    // Any OpenFeature server provider, e.g. of Vercel Flags,
-    // LaunchDarkly, GrowthBook or flagd
-    provider,
-  }),
+export const shop = defineSource({
+  // Any OpenFeature server provider, e.g. of Vercel Flags,
+  // LaunchDarkly, GrowthBook or flagd
+  provider,
 });
 ```
 
@@ -154,7 +144,7 @@ Your flag declarations and call sites stay the same. See
 Your application code imports only `flags`. The framework package
 (`@flags-sdk/next`, `@flags-sdk/sveltekit`, `@flags-sdk/nuxt`,
 `@flags-sdk/tanstack-start`, `@flags-sdk/hono` or `@flags-sdk/express`) gives
-the SDK the current request, loads `flags.config.ts`, and lets the signals of
+the SDK the current request, loads the optional `flags/config.ts`, and lets the signals of
 the framework through. The same flag module works in Next.js, in SvelteKit, in
 a Hono server, or in a plain Node.js script, because the
 [standard](/docs/standard) defines the contract between frameworks and the

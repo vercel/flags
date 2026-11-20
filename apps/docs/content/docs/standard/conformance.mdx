@@ -194,6 +194,6 @@ Each application in [`tests/standard`](https://github.com/vercel/flags/tree/main
 | Hono | `tests/standard/hono` | `new HTTPException(307)` |
 | Express | `tests/standard/express` | None |
 
-Beyond the suite, each application also tests `flags.config.ts` without code in the application, a signal from `getEvaluationContext`, the registration of `'use flags'` modules, and, for platforms, a build with the default provider of a platform. Use them as a template for the tests of a new binding.
+Beyond the suite, each application also tests `flags/config.ts` without code in the application, a signal from `getEvaluationContext`, the registration of `'use flags'` modules, and, for platforms, a build with the default provider of a platform. Use them as a template for the tests of a new binding.
 
-The suite does not check everything yet, e.g. `runtime.onInit()` and `runtime.onShutdown()`, the reload of `flags.config.ts` in development, and the default provider of a platform. A binding which passes the suite should still follow the whole of STANDARD.md.
+The suite does not check everything yet, e.g. `runtime.onInit()` and `runtime.onShutdown()`, the reload of `flags/config.ts` in development, and the default provider of a platform. A binding which passes the suite should still follow the whole of STANDARD.md.

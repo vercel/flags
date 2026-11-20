@@ -3,7 +3,7 @@ title: SvelteKit
 description: Set up the Flags SDK in SvelteKit with one Vite plugin.
 ---
 
-`@flags-sdk/sveltekit` connects the Flags SDK to SvelteKit. It gives each flag the current request through `getRequestEvent()`, loads `flags.config.ts`, lets `redirect()` and `error()` pass through, registers your flags for Flags Explorer, and uses the fast provider of Vercel Flags in builds on Vercel. There is no `handle` hook to write. Your code imports only `flags`.
+`@flags-sdk/sveltekit` connects the Flags SDK to SvelteKit. It gives each flag the current request through `getRequestEvent()`, loads `flags/config.ts`, lets `redirect()` and `error()` pass through, registers your flags for Flags Explorer, and uses the fast provider of Vercel Flags in builds on Vercel. There is no `handle` hook to write. Your code imports only `flags`.
 
 **Requirements:** SvelteKit 2.20 or newer and Vite 6 or newer.
 
@@ -138,58 +138,46 @@ export async function GET() {
 
 Each flag is evaluated one time for each request. A layout and a page that both call `summerSale()` get the same value. Do not import `flags` in universal `+page.ts` files or in components; they also run in the browser.
 
-## `flags.config.ts`
+## Optional: `flags/config.ts`
 
-Flags without a `source` use the default source of `flags.config.ts`. For now, without `flags.config.ts`, the built-in default source throws in development. Put the file in the project directory or in `src`:
+You do not need a configuration file. Your flags name their source, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
 
-```sh title="Terminal"
-npm install @vercel/flags-core @openfeature/server-sdk
-```
+Add `flags/config.ts`, next to `flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, the options of overrides, or a default source for flags without a `source`. The Vite plugin loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
 
-```ts title="src/flags.config.ts"
-import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
+```ts title="flags/config.ts"
+import { defineConfig } from 'flags';
 
 export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => ({
-      user: request?.cookies?.get('user')?.value ?? 'anonymous',
-    }),
-  }),
+  hooks: [
+    {
+      after: (context, details) => {
+        console.log(`${context.flagKey} = ${JSON.stringify(details.value)}`);
+      },
+    },
+  ],
 });
-
-// Gives flags without a source the types of this source
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
 ```
 
-The file must export `config`; a default export is not read. In `vite dev`, the SDK loads it again before each evaluation, so a change applies without a restart. See [Configuration](/docs/flags/configuration).
+See [Configuration](/docs/flags/configuration) for all options.
 
 ## Signals
 
 `redirect()` and `error()` of SvelteKit reach SvelteKit unchanged, also when you throw them from `getEvaluationContext`. For example, a source can redirect blocked users:
 
-```ts title="src/flags.config.ts"
+```ts title="src/lib/sources.ts"
 import { redirect } from '@sveltejs/kit';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    project: { system: 'vercel-flags' },
-    getEvaluationContext: (_context, request) => {
-      if (request?.cookies?.get('blocked')) {
-        redirect(307, '/blocked');
-      }
-      return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
-    },
-  }),
+export const vercel = defineSource({
+  provider: new VercelProvider(),
+  project: { system: 'vercel-flags' },
+  getEvaluationContext: (_context, request) => {
+    if (request?.cookies?.get('blocked')) {
+      redirect(307, '/blocked');
+    }
+    return { user: request?.cookies?.get('user')?.value ?? 'anonymous' };
+  },
 });
 ```
 
@@ -218,8 +206,8 @@ To show the values of a request in Flags Explorer, write the flag values element
 
 ## Deployment
 
-- On Vercel, a build sets `VERCEL`. If the project has `@vercel/flags-core`, the plugin replaces `flags/default-provider` with `@vercel/flags-core/default-provider`, so flags without a source use the fast provider of Vercel Flags. Development uses `flags.config.ts`.
-- A `defaultSource` in `flags.config.ts` always wins.
+- On Vercel, a build sets `VERCEL`. If the project has `@vercel/flags-core`, the plugin replaces `flags/default-provider` with `@vercel/flags-core/default-provider`, so flags without a source use the fast provider of Vercel Flags. Development does not replace it.
+- A `defaultSource` in the optional `flags/config.ts` always wins.
 - On another platform, pass the module of its provider: `flags({ defaultProvider: './src/provider.ts' })`. The module exports `createDefaultProvider()`, which returns an OpenFeature provider.
 
 ## Limits
@@ -229,4 +217,4 @@ To show the values of a request in Flags Explorer, write the flag values element
 
 ## How it works
 
-`flags()` points the alias `flags/framework` to `@flags-sdk/sveltekit/binding`, and `flags/config` to your `flags.config.ts`. It bundles `flags` and `@flags-sdk/sveltekit` into the server code (`ssr.noExternal`), because an alias only reaches the SDK when the bundler processes it. The binding gets the request with `getRequestEvent()` and recognizes signals with `isRedirect()` and `isHttpError()`. The plugin deduplicates `@sveltejs/kit`, so that the binding and your code use one copy. The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).
+`flags()` points the alias `flags/framework` to `@flags-sdk/sveltekit/binding`, and `flags/config` to your `flags/config.ts`. It bundles `flags` and `@flags-sdk/sveltekit` into the server code (`ssr.noExternal`), because an alias only reaches the SDK when the bundler processes it. The binding gets the request with `getRequestEvent()` and recognizes signals with `isRedirect()` and `isHttpError()`. The plugin deduplicates `@sveltejs/kit`, so that the binding and your code use one copy. The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).

@@ -63,7 +63,34 @@ To test real evaluations, give the flags a provider with fixed rules. The in-mem
 npm install --save-dev @openfeature/server-sdk
 ```
 
-Flags without a source use the default source, so a test can replace it with `runtime.configure`. Unless your test runner uses the plugin of your framework, `flags.config.ts` is not loaded in tests anyway:
+If your flags name their source, e.g. `bindFlag({ key, source: vercel })` with `vercel` from `./sources`, mock the module of the source, so that it uses an in-memory provider:
+
+```ts title="flags.test.ts"
+import { expect, it, vi } from 'vitest';
+import { newDashboard } from './flags';
+
+vi.mock('./sources', async () => {
+  const { TypedInMemoryProvider } = await import('@openfeature/server-sdk');
+  const { defineSource } = await import('flags');
+  return {
+    vercel: defineSource({
+      provider: new TypedInMemoryProvider({
+        'new-dashboard': {
+          variants: { on: true, off: false },
+          defaultVariant: 'on',
+          disabled: false,
+        },
+      } as const),
+    }),
+  };
+});
+
+it('evaluates the in-memory flag', async () => {
+  expect(await newDashboard()).toBe(true);
+});
+```
+
+Another option is the default source: flags without a `source` use it, so a test setup can set it with `runtime.configure`. Unless your test runner uses the plugin of your framework, `flags/config.ts` is not loaded in tests anyway:
 
 ```ts title="test/setup.ts"
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
@@ -101,7 +128,7 @@ export default defineConfig({
 });
 ```
 
-A new call of `runtime.configure` replaces the configuration, so a test can also set a different default source for itself. For a flag with its own `source`, define the source in a module that your test can mock, or test the flag through overrides (see below).
+A new call of `runtime.configure` replaces the configuration, so a test can also set a different default source for itself. You can also test a flag through overrides (see below).
 
 ## Simulate a request
 

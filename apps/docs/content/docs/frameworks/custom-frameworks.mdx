@@ -15,7 +15,7 @@ import { runtime } from 'flags';
 app.use((request, next) => runtime.onInvoke(request, next));
 ```
 
-Write a full binding when the framework can give the current request at any time but has no middleware around the render (like `headers()` in Next.js or `getRequestEvent()` in SvelteKit), when it uses thrown errors as signals, or when you want `flags.config.ts`, `'use flags'` registration and the manifest to work without code in the application.
+Write a full binding when the framework can give the current request at any time but has no middleware around the render (like `headers()` in Next.js or `getRequestEvent()` in SvelteKit), when it uses thrown errors as signals, or when you want `flags/config.ts`, `'use flags'` registration and the manifest to work without code in the application.
 
 ## What a framework provides
 
@@ -42,7 +42,7 @@ The runtime calls `setupFramework` one time, before the first evaluation.
 
 - **`setGetRequest`** sets the request source. It returns the current request as a `FlagsRequestInit` (`headers`, `cookies` and `url`, each optional), or `undefined` outside of a request. The SDK identifies a request by its `headers` object, so return the same object during one request.
 - **`setRethrow`** sets a function that throws an error again if the framework must receive it, for example a redirect. The runtime calls it before it uses the default value of a flag. Use the check functions of the framework, such as `isRedirect()`.
-- **`setLoadConfig`** loads `flags.config.ts` through the alias `flags/config`. In development, the runtime calls it before each evaluation, so a change applies without a restart.
+- **`setLoadConfig`** loads `flags/config.ts` through the alias `flags/config`. In development, the runtime calls it before each evaluation, so a change applies without a restart.
 - **No static import of `flags`.** `flags` imports the binding, so the binding imports only types from `flags`. It gets the runtime as an argument.
 
 ### Rendering and caches
@@ -56,7 +56,7 @@ The runtime imports three modules through its own package name. A bundler alias 
 | Module | Default | Replaced by |
 | --- | --- | --- |
 | `flags/framework` | no binding | the framework binding |
-| `flags/config` | no configuration | `flags.config.ts` of the application |
+| `flags/config` | no configuration | `flags/config.ts` of the application |
 | `flags/default-provider` | the built-in default provider | the provider of a platform, for its builds |
 
 - **Bundle the SDK.** An alias only reaches the SDK when the bundler bundles `flags`, so bundle it into the server code (for example `ssr.noExternal` of Vite, or `externals.inline` of Nitro).
@@ -118,12 +118,12 @@ A module that starts with the `'use flags'` directive exports only flags, and im
    - in development, serve it at `/.well-known/flags/manifest.json` with `cache-control: no-store`, and only in development;
    - after a build, write it as `flags-manifest.json` (`MANIFEST_FILE`) into the server output. `writeManifestFromBuild` imports the built modules in a child process.
 
-Call `runtime.prepare()` before `createManifest`, so that flags without a source get the default source of `flags.config.ts`. See [Flags manifest](/docs/tooling/flags-manifest) and the [manifest format](/docs/standard/flags-manifest-format).
+Call `runtime.prepare()` before `createManifest`, so that flags without a source get the default source of `flags/config.ts`. See [Flags manifest](/docs/tooling/flags-manifest) and the [manifest format](/docs/standard/flags-manifest-format).
 
 | Function of `flags/tooling` | Purpose |
 | --- | --- |
 | `registerFramework` | Registers a binding without the alias |
-| `findConfigFile` | Finds `flags.config.ts` in a directory or its `src` |
+| `findConfigFile` | Finds `flags/config.ts` in a directory or its `src` |
 | `hasUseFlagsDirective` | Finds the `'use flags'` directive in the directive prologue |
 | `addSelfRegistration` | Appends the registration to a `'use flags'` module |
 | `findFlagsModules` | Finds the `'use flags'` modules of a project |
@@ -133,7 +133,7 @@ Call `runtime.prepare()` before `createManifest`, so that flags without a source
 ## For deployment platforms
 
 - Set the alias of `flags/default-provider` for your builds, not for development. The module exports `createDefaultProvider()`, which returns an OpenFeature provider. The runtime calls it one time for each process.
-- A `defaultSource` in `flags.config.ts` always wins over your provider.
+- A `defaultSource` in `flags/config.ts` always wins over your provider.
 - Put `flags-manifest.json` of the build into your build output, so that tools can read it.
 - For Next.js, use the Adapter API: `modifyConfig` for the alias, and `onBuildComplete` for the manifest. Vite frameworks have no such step after the build, so their plugin sets the alias, for example on Vercel when `VERCEL` is set.
 

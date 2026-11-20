@@ -10,7 +10,7 @@ The Flags SDK does not depend on a framework. You define flags with the `flags` 
 A framework package is a thin layer between the SDK and the framework. It does five things for you, so that you do not write glue code in your pages:
 
 - **Request scope.** It gives the SDK the current request (headers, cookies, URL). Each `getEvaluationContext` and each inline `decide` function receives this request. The SDK evaluates each flag one time for each request, so all parts of a page see the same value.
-- **Config loading.** It loads `flags.config.ts` (the default source, hooks, and override options). See [Configuration](/docs/flags/configuration).
+- **Config loading.** It loads your optional `flags/config.ts` (hooks, override options, and a default source). See [Configuration](/docs/flags/configuration).
 - **Signals.** Some frameworks use thrown errors as signals, for example `redirect()` or `notFound()`. The package makes sure that such errors reach the framework unchanged, also when you throw them from `getEvaluationContext`.
 - **`'use flags'` registration.** A module that starts with the `'use flags'` directive exports only flags. The build plugin registers these flags, so that the SDK knows all flags and sources.
 - **Manifest.** The plugin serves the [flags manifest](/docs/tooling/flags-manifest) at `/.well-known/flags/manifest.json` in development and writes `flags-manifest.json` during the build. [Flags Explorer](/docs/tooling/flags-explorer) reads this manifest.
@@ -23,8 +23,8 @@ A framework package is a thin layer between the SDK and the framework. It does f
 | [SvelteKit](/docs/frameworks/sveltekit) | `@flags-sdk/sveltekit` | `plugins: [sveltekit(), flags()]` in `vite.config.ts` |
 | [Nuxt](/docs/frameworks/nuxt) | `@flags-sdk/nuxt` | `modules: ['@flags-sdk/nuxt']` in `nuxt.config.ts` |
 | [TanStack Start](/docs/frameworks/tanstack-start) | `@flags-sdk/tanstack-start` | `plugins: [nitro(), tanstackStart(), viteReact(), flags()]` in `vite.config.ts` |
-| [Hono](/docs/frameworks/hono) | `@flags-sdk/hono` | `app.use(flags({ config }))` |
-| [Express](/docs/frameworks/express) | `@flags-sdk/express` | `app.use(flags({ config }))` |
+| [Hono](/docs/frameworks/hono) | `@flags-sdk/hono` | `app.use(flags())` |
+| [Express](/docs/frameworks/express) | `@flags-sdk/express` | `app.use(flags())` |
 | [No framework](/docs/frameworks/node) | none | `runtime.onInvoke(request, next)` for each request |
 
 Your framework is not in the list? You can [write a binding for it](/docs/frameworks/custom-frameworks).

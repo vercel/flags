@@ -7,8 +7,8 @@ description: Use Vercel Flags with the Flags SDK through VercelProvider, the Ope
 
 The Flags SDK uses Vercel Flags through `VercelProvider`, the OpenFeature server provider of `@vercel/flags-core`. There is no separate adapter: `VercelProvider` is a regular OpenFeature provider, so everything on this page works the same way as with any other [provider](/docs/providers).
 
-<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, then create `flags.config.ts` with `defineConfig({ defaultSource: defineSource({ provider: new VercelProvider(), project: { system: 'vercel-flags' }, getEvaluationContext }) })` where `VercelProvider` comes from `@vercel/flags-core/openfeature`. Add the `Register` declaration for `typeof config`. Declare my flags with `bindFlag` from `flags` in a `'use flags'` module, and run the type check when finished.">
-  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, then create `flags.config.ts` with `defineConfig({ defaultSource: defineSource({ provider: new VercelProvider(), project: { system: 'vercel-flags' }, getEvaluationContext }) })` where `VercelProvider` comes from `@vercel/flags-core/openfeature`. Add the `Register` declaration for `typeof config`. Declare my flags with `bindFlag` from `flags` in a `'use flags'` module, and run the type check when finished.
+<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, then create a source module `sources.ts` that exports `const vercel = defineSource({ provider: new VercelProvider(), project: { system: 'vercel-flags' }, getEvaluationContext })` where `VercelProvider` comes from `@vercel/flags-core/openfeature`. Declare my flags with `bindFlag({ key, source: vercel })` from `flags` in a `'use flags'` module, and run the type check when finished.">
+  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, then create a source module `sources.ts` that exports `const vercel = defineSource({ provider: new VercelProvider(), project: { system: 'vercel-flags' }, getEvaluationContext })` where `VercelProvider` comes from `@vercel/flags-core/openfeature`. Declare my flags with `bindFlag({ key, source: vercel })` from `flags` in a `'use flags'` module, and run the type check when finished.
 </CopyPrompt>
 
 <LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags" target="_blank">
@@ -44,30 +44,23 @@ vercel link
 vercel env pull
 ```
 
-### 4. Make Vercel Flags the default source
+### 4. Define a source
 
-```ts title="flags.config.ts"
+A source connects your flags to Vercel Flags:
+
+```ts title="sources.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { defineConfig, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new VercelProvider(),
-    // The flags of the Vercel project of this deployment
-    project: { system: 'vercel-flags' },
-    // The entities which your targeting rules use, once per request
-    getEvaluationContext: (_input, request) => ({
-      user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
-    }),
+export const vercel = defineSource({
+  provider: new VercelProvider(),
+  // The flags of the Vercel project of this deployment
+  project: { system: 'vercel-flags' },
+  // The entities which your targeting rules use, once per request
+  getEvaluationContext: (_input, request) => ({
+    user: { id: request?.cookies?.get('user-id')?.value ?? 'anonymous' },
   }),
 });
-
-// Gives flags without a source the types of this source
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
 ```
 
 ### 5. Declare and evaluate the flag
@@ -76,9 +69,11 @@ declare module 'flags' {
 'use flags';
 
 import { bindFlag } from 'flags';
+import { vercel } from './sources';
 
 export const summerSale = bindFlag({
   key: 'summer-sale',
+  source: vercel,
   defaultValue: false,
   description: 'Shows the summer sale banner',
 });
@@ -99,7 +94,7 @@ Toggle the flag for the development environment in the dashboard, and reload the
 
 `VercelProvider` evaluates your targeting rules against the evaluation context which `getEvaluationContext` returns. Return the entities which your rules use, e.g. the user and the team:
 
-```ts title="flags.config.ts"
+```ts title="sources.ts"
 getEvaluationContext: async (_input, request) => {
   const session = await getSession(request?.cookies);
   return {
@@ -268,13 +263,13 @@ See [Code generation](/docs/flags/code-generation) for the `tsconfig.json` paths
 
 ## The default provider of a deployment
 
-The SDK resolves flags without a source through the module `flags/default-provider`. A deployment platform can replace this module at build time with a bundler alias, so that flags without a source use a fast provider of the platform without any configuration.
+The SDK resolves flags without a source through the module `flags/default-provider`. A deployment platform can replace this module at build time with a bundler alias, so that flags without a source use a fast provider of the platform. It applies only to flags without a source, and only to builds on that platform.
 
 `@vercel/flags-core/default-provider` is this module for Vercel. It exports `createDefaultProvider()`, which returns a `VercelProvider` with the default client. A deployment adapter, e.g. of Next.js on Vercel, can point `flags/default-provider` to it for production builds.
 
-- A `defaultSource` in `flags.config.ts` always wins over the provider of the platform.
+- A `defaultSource` in the optional [`flags/config.ts`](/docs/flags/configuration#defaultsource) always wins over the provider of the platform.
 - The platform replaces the module only for builds, not for development.
-- Until your platform does this, set a `defaultSource` in `flags.config.ts`, as in the [quickstart](#4-make-vercel-flags-the-default-source).
+- Until your platform does this, give each flag a `source`, as in the [quickstart](#4-define-a-source), or use [code generation](#code-generation).
 
 See [Framework bindings](/docs/standard/framework-bindings#the-replaceable-modules) for the contract.
 

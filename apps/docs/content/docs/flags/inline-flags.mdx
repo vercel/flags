@@ -135,8 +135,12 @@ export const betaBanner = defineFlag({
   decide: (_context, request) => request?.cookies?.get('beta')?.value === '1',
 });
 
-// After: the provider of the default source decides
-export const betaBanner = bindFlag({ key: 'beta-banner', defaultValue: false });
+// After: the provider of the source decides
+export const betaBanner = bindFlag({
+  key: 'beta-banner',
+  source: vercel,
+  defaultValue: false,
+});
 ```
 
-The code that calls `betaBanner()` does not change. A flag without `source` uses the default source of [`flags.config.ts`](/docs/flags/configuration). See [Flags of a source](/docs/flags/provider-flags).
+The code that calls `betaBanner()` does not change. `vercel` is a source of `defineSource`, see [Flags of a source](/docs/flags/provider-flags).

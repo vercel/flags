@@ -46,25 +46,12 @@ export const summerSale = bindFlag({
 });
 ```
 
-Most applications have one main source. Make it the default source in `flags.config.ts`, and flags without a `source` use it:
+Instead of writing the sources and flags by hand, you can also generate them from your flag management system with [code generation](/docs/flags/code-generation): put the provider in `flags/sources/<source>/provider.ts`, and import the flags with `import { summerSale } from 'flags:<source>'`.
 
-```ts title="flags.config.ts"
-import { defineConfig } from 'flags';
-import { vercel } from './sources';
+See [Provider flags](/docs/flags/provider-flags) for all options of `defineSource` and `bindFlag`.
 
-export const config = defineConfig({ defaultSource: vercel });
-
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
-```
-
-See [Provider flags](/docs/flags/provider-flags) for all options of `defineSource` and `bindFlag`, and [Configuration](/docs/flags/configuration) for `flags.config.ts`.
-
-<Callout title="Set a default source">
-For now, flags without a source and without a `defaultSource` in `flags.config.ts` fail to evaluate: they return their `defaultValue`, or throw a `FlagEvaluationError`. The built-in default source of Vercel Flags is not available yet.
+<Callout title="Name the source of each flag">
+For now, a flag without a source fails to evaluate: it returns its `defaultValue`, or throws a `FlagEvaluationError`. The built-in default source of Vercel Flags is not available yet. Give each flag a `source`, or use code generation, which does this for you. (A `defaultSource` in the optional [`flags/config.ts`](/docs/flags/configuration#defaultsource) is also possible.)
 </Callout>
 
 ## The parts of a source

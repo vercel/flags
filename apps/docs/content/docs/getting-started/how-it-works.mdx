@@ -46,7 +46,7 @@ const vercel = defineSource({
 });
 ```
 
-Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Flags without a source use the default source of [`flags.config.ts`](/docs/flags/configuration).
+Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Each flag names its source: `bindFlag({ key, source: vercel })`.
 
 You can write sources and flags by hand, or [generate them](/docs/flags/code-generation) from the catalog of your provider. The generated code is the same code you would write.
 
@@ -69,7 +69,7 @@ There is one runtime for each process, shared by all copies of the `flags` packa
 The runtime needs the current request: its headers, cookies and URL. Each framework gives it in a different way. A framework binding connects the two:
 
 - It gives the runtime the current request, either with a middleware (`runtime.onInvoke(request, next)`) or with a function that reads the request at any time.
-- It loads `flags.config.ts`.
+- It loads the optional [`flags/config.ts`](/docs/flags/configuration).
 - It lets the signals of the framework through, e.g. `redirect()` and `notFound()` in Next.js.
 - It registers the modules with the `'use flags'` directive, and writes the [flags manifest](/docs/tooling/flags-manifest) for tools.
 

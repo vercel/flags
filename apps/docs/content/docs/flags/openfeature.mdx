@@ -45,7 +45,7 @@ Without an OpenFeature client, the SDK takes over the client's part of the contr
 | `provider.initialize()` | Called once before the first evaluation, or by `runtime.onInit()`. Shared by all sources of the provider. Retried after a failure. |
 | `provider.onClose()` | Called by `runtime.onShutdown()`. The next use initializes the provider again. |
 | `client.getBooleanValue(key, default, context)` | `await flag()`. The `type` of the flag selects `resolveBooleanEvaluation`, `resolveStringEvaluation`, `resolveNumberEvaluation` or `resolveObjectEvaluation`. |
-| API, client and invocation hooks | Hooks of `flags.config.ts`, of the source and of the call |
+| API, client and invocation hooks | Hooks of `flags/config.ts`, of the source and of the call |
 | Provider hooks (`provider.hooks`) | Run as in OpenFeature |
 | `OpenFeature.addHandler(event, handler)` | `runtime.addHandler(event, handler)` |
 | `client.track(name, context, details)` | `track(name, options)` or `track(source, name, options)` |
@@ -59,12 +59,12 @@ Hooks come from four places, and run in the order of OpenFeature:
 
 | OpenFeature | Flags SDK | Where |
 | --- | --- | --- |
-| API | `hooks` of the configuration | `defineConfig({ hooks })` in `flags.config.ts` |
+| API | `hooks` of the configuration | `defineConfig({ hooks })` in `flags/config.ts` |
 | Client | `hooks` of the source | `defineSource({ hooks })` |
 | Invocation | `hooks` of the call | `flag({ hooks, hookHints })`, `evaluate(flags, { hooks })` |
 | Provider | `provider.hooks` | the provider |
 
-```ts title="flags.config.ts"
+```ts title="flags/config.ts"
 import { defineConfig, type Hook } from 'flags';
 
 const timing: Hook = {
@@ -92,7 +92,7 @@ export const config = defineConfig({ hooks: [timing] });
 
 An override from Flags Explorer does not call the provider, but all hooks run, also the hooks of the provider. The evaluation details have the reason `OVERRIDE`. Thus, a hook can leave overrides out of the exposures of an experiment, or report them:
 
-```ts title="flags.config.ts"
+```ts title="flags/config.ts"
 import { defineConfig, OVERRIDE_REASON } from 'flags';
 
 export const config = defineConfig({
@@ -149,14 +149,14 @@ runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', (details) => {
 import { track } from 'flags';
 import { shop } from './sources';
 
-// The provider of the default source
-await track('purchase', { details: { value: 99 } });
-
-// The provider of a specific source, with an evaluation context
+// The provider of a source, with an evaluation context
 await track(shop, 'purchase', {
   evaluationContext: { userId: 'alice' },
   details: { value: 99 },
 });
+
+// Without a source: the provider of the default source
+await track('purchase', { details: { value: 99 } });
 ```
 
 - The provider receives the evaluation context of the source, as for a flag: `evaluationContext` goes to the `getEvaluationContext` of the source. During a request, the source also reads the request, once per request.

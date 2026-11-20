@@ -29,7 +29,7 @@ A **flags module** starts with the directive `'use flags'` in its directive prol
 A build plugin which supports discovery:
 
 - MUST find all flags modules of the project, also of routes which are not loaded, and import them with the bundler of the framework, so that path aliases and TypeScript work (`findFlagsModules` of `flags/tooling`);
-- MUST create the manifest with `createManifest` of `flags/manifest`, after `runtime.prepare()`, so that flags without a source get the default source of `flags.config.ts`;
+- MUST create the manifest with `createManifest` of `flags/manifest`, after `runtime.prepare()`, so that flags without a source get the default source of `flags/config.ts`;
 - in development, MUST serve it at `/.well-known/flags/manifest.json`, with `content-type: application/json` and `cache-control: no-store`;
 - MUST NOT serve it in production;
 - after a build, MUST write it as `flags-manifest.json` into the directory of the server output;

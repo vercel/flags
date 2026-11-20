@@ -56,22 +56,7 @@ export const flagd = defineSource({
 
 ### 4. Use it for your flags
 
-Make it the default source:
-
-```ts title="flags.config.ts"
-import { defineConfig } from 'flags';
-import { flagd } from './sources';
-
-export const config = defineConfig({ defaultSource: flagd });
-
-declare module 'flags' {
-  interface Register {
-    config: typeof config;
-  }
-}
-```
-
-Or name it in a flag:
+Name the source in each flag:
 
 ```ts title="flags.ts"
 'use flags';
@@ -88,10 +73,12 @@ export const checkout = bindFlag({
 });
 ```
 
+With [code generation](/docs/flags/code-generation), you do not write the flags: put the provider in `flags/sources/flagd/provider.ts` and the context in `flags/sources/flagd/context.ts`, and import the generated flags with `import { checkout } from 'flags:flagd'`.
+
 Do not call `OpenFeature.setProvider()`: the SDK calls the provider directly, and initializes it before the first evaluation. See [Providers](/docs/providers) for the lifecycle, and [OpenFeature compatibility](/docs/flags/openfeature) for hooks, events and tracking.
 
 <Callout title="Providers which connect when you create them">
-Tools import your `'use flags'` modules to read your flags, so creating a source must not open network connections. Most providers connect in `initialize()`. If a provider connects in its constructor or factory (below: CloudBees and Split), create the source in `flags.config.ts` as the `defaultSource`, or check the documentation of the provider for a lazy option.
+Tools import your `'use flags'` modules to read your flags, so creating a source must not open network connections. Most providers connect in `initialize()`. If a provider connects in its constructor or factory (below: CloudBees and Split), it also connects when a tool imports your flags, e.g. when a build writes the flags manifest. Create such a provider once, in a module of its own like `sources.ts`, and check the documentation of the provider for a lazy option.
 </Callout>
 
 ## Providers of the OpenFeature project
@@ -233,17 +220,15 @@ export const abTasty = defineSource({
 npm install flags @openfeature/server-sdk cloudbees-openfeature-provider-node
 ```
 
-```ts title="flags.config.ts"
+```ts title="sources.ts"
 import { CloudbeesProvider } from 'cloudbees-openfeature-provider-node';
-import { defineConfig, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { getEvaluationContext } from './context';
 
-export const config = defineConfig({
-  defaultSource: defineSource({
-    // build() connects to CloudBees, so the source is in flags.config.ts
-    provider: await CloudbeesProvider.build('<app-key>'),
-    getEvaluationContext,
-  }),
+export const cloudbees = defineSource({
+  // build() connects to CloudBees when this module is imported
+  provider: await CloudbeesProvider.build('<app-key>'),
+  getEvaluationContext,
 });
 ```
 
@@ -364,23 +349,21 @@ export const kameleoon = defineSource({
 npm install flags @openfeature/server-sdk @splitsoftware/splitio @splitsoftware/openfeature-js-split-provider
 ```
 
-```ts title="flags.config.ts"
+```ts title="sources.ts"
 import { OpenFeatureSplitProvider } from '@splitsoftware/openfeature-js-split-provider';
 import { SplitFactory } from '@splitsoftware/splitio';
-import { defineConfig, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { getEvaluationContext } from './context';
 
-// The Split client connects when it is created, so the source is in
-// flags.config.ts
+// The Split client connects when it is created, i.e. when this module is
+// imported
 const splitClient = SplitFactory({
   core: { authorizationKey: process.env.SPLIT_SDK_KEY! },
 }).client();
 
-export const config = defineConfig({
-  defaultSource: defineSource({
-    provider: new OpenFeatureSplitProvider({ splitClient }),
-    getEvaluationContext,
-  }),
+export const split = defineSource({
+  provider: new OpenFeatureSplitProvider({ splitClient }),
+  getEvaluationContext,
 });
 ```
 

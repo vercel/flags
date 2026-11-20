@@ -25,7 +25,7 @@ Overrides work the same for [inline flags](/docs/flags/inline-flags) and for [pr
 
 React to overrides with a hook, e.g. to report them:
 
-```ts title="flags.config.ts"
+```ts title="flags/config.ts"
 import { defineConfig, OVERRIDE_REASON } from 'flags';
 
 export const config = defineConfig({
@@ -102,9 +102,9 @@ Anyone with the secret can create overrides. Use a different secret for each app
 
 ## Configuration
 
-The `overrides` option of `flags.config.ts` changes the defaults:
+The `overrides` option of the optional [`flags/config.ts`](/docs/flags/configuration) changes the defaults. Without the file, overrides work with `FLAGS_SECRET` or on Vercel.
 
-```ts title="flags.config.ts"
+```ts title="flags/config.ts"
 import { defineConfig } from 'flags';
 
 export const config = defineConfig({

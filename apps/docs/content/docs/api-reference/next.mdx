@@ -51,7 +51,7 @@ adds:
   SDK the current request (`headers()`, `cookies()`, and `connection()`),
   passes the signals of Next.js through `unstable_rethrow`, and loads the
   configuration.
-- The alias `flags/config` to `flags.config.ts`, if it exists.
+- The alias `flags/config` to `flags/config.ts`, if it exists.
 - The self-registration of each `'use flags'` module.
 - The modules of the route `@flags-sdk/next/manifest`, and
   `flags-manifest.json` in `distDir` after `next build`.
@@ -65,7 +65,7 @@ It supports only Turbopack. A build with webpack throws.
 
 | Option           | Type      | Description                                                                                                                                                                                            |
 | ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `dir`            | `string`  | The directory of the application, where the plugin looks for `flags.config.ts` and `flags/sources`. The default is the current directory.                                                              |
+| `dir`            | `string`  | The directory of the application, where the plugin looks for `flags/config.ts` and `flags/sources`. The default is the current directory.                                                              |
 | `codeGeneration` | `boolean` | Generates the modules of `flags:<source>` from the catalogs of `flags/sources/<source>`: once for `next build`, and again after each change of a catalog for `next dev`. `next start` does no catalog work. `withFlags` then returns a function of the phase. |
 
 ```ts title="next.config.ts"
@@ -322,7 +322,7 @@ The framework binding of Next.js, of type `SetupFramework`. `withFlags` points
    turn into the default value.
 2. Sets `runtime.setRethrow` to `unstable_rethrow` of Next.js, so `redirect()`,
    `notFound()` and "Dynamic server usage" reach Next.js.
-3. Sets `runtime.setLoadConfig` to load `flags.config.ts`.
+3. Sets `runtime.setLoadConfig` to load `flags/config.ts`.
 
 Server components only have `headers()` and `cookies()`, so `request.url` is
 `undefined` in the evaluation context chain.
