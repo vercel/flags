@@ -7,6 +7,7 @@ import {
   type JsonValue,
   ParseError,
   type Provider,
+  ProviderFatalError,
   ProviderNotReadyError,
   type ResolutionDetails,
   type ResolutionReason,
@@ -120,6 +121,14 @@ function parseKey(flagKey: string): ParsedKey {
     );
   }
   return { kind, name, param };
+}
+
+/**
+ * Whether Statsig rejected the key. The SDK reports the HTTP status in the
+ * message of the error, e.g. `status(401)`.
+ */
+function isRejectedKey(error: string | null | undefined): boolean {
+  return typeof error === 'string' && /status\((401|403)\)/.test(error);
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -332,14 +341,23 @@ export class StatsigProvider implements Provider {
    * Initializes the Statsig instance. It fetches the rules from Statsig.
    * The provider also calls this for an instance which it did not create.
    * Statsig accepts a second call.
+   *
+   * A key which Statsig rejects (401 or 403) is a fatal error: the key does
+   * not become valid by itself, so the SDK does not try again. Other
+   * errors, e.g. of the network, are tried again on the next use.
    */
   async initialize(): Promise<void> {
     const result = await this.statsig.initialize();
-    if (!result.isSuccess) {
-      throw new GeneralError(
-        `Statsig could not initialize: ${result.error ?? 'unknown error'}`,
+    if (result.isSuccess) {
+      return;
+    }
+    const message = `Statsig could not initialize: ${result.error ?? 'unknown error'}`;
+    if (isRejectedKey(result.error)) {
+      throw new ProviderFatalError(
+        `${message}. Check the Statsig server secret key.`,
       );
     }
+    throw new GeneralError(message);
   }
 
   /**
