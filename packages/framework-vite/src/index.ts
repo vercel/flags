@@ -22,7 +22,7 @@ import { runtime } from 'flags';
 import { createManifest } from 'flags/manifest';
 import {
   addSelfRegistration,
-  findConfigFile,
+  findConfigModules,
   findFlagsModules,
   hasUseFlagsDirective,
   MANIFEST_FILE,
@@ -84,13 +84,6 @@ export interface FlagsVitePluginOptions {
    * `flags:<source>` to them. Without `flags/sources`, it writes nothing.
    */
   readonly disableCodeGeneration?: boolean;
-  /**
-   * Turns off the default source `self`. By default, an application which
-   * depends on `@vercel/flags-core` has the source `self` with the flags of
-   * its Vercel project, also without `flags/sources/self/`. The code
-   * generation then loads these flags from Vercel Flags.
-   */
-  readonly disableSelfSource?: boolean;
 }
 
 /**
@@ -193,13 +186,11 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       // As a plain Rollup plugin, e.g. in Nitro, there is no config hook, so
       // a framework module generates the code itself
       if (!options.disableCodeGeneration) {
-        generation = startCodeGeneration(dir, env.command === 'serve', {
-          disableSelfSource: options.disableSelfSource,
-        });
+        generation = startCodeGeneration(dir, env.command === 'serve');
         aliases = resolveAliases(dir, await generation.ready);
       }
       if (!options.binding && Object.keys(aliases).length === 0) return;
-      const configFile = options.binding ? findConfigFile(dir) : undefined;
+      const configModules = options.binding ? findConfigModules(dir) : {};
       // The modules behind the aliases only reach the SDK when it is bundled
       // into the server code, not when Node.js loads it from node_modules.
       // The optimizer of dependencies must not bundle these packages in
@@ -209,9 +200,11 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       return {
         resolve: {
           alias: [
-            ...(configFile
-              ? [{ find: /^flags\/config$/, replacement: configFile }]
-              : []),
+            // flags/hooks.ts, flags/overrides.ts and flags/config.json
+            ...Object.entries(configModules).map(([module, file]) => ({
+              find: new RegExp(`^${module}$`),
+              replacement: file,
+            })),
             ...Object.entries(aliases).map(([find, replacement]) => ({
               find,
               replacement,

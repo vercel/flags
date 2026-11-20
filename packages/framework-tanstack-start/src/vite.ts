@@ -23,12 +23,6 @@ export interface FlagsTanStackStartOptions {
    * `flags/sources/<source>`, which is on by default. See `@flags-sdk/vite`.
    */
   readonly disableCodeGeneration?: boolean;
-  /**
-   * Turns off the default source `self`, the flags of the Vercel project of
-   * an application which depends on `@vercel/flags-core`. See
-   * `@flags-sdk/vite`.
-   */
-  readonly disableSelfSource?: boolean;
 }
 
 export function flags(options: FlagsTanStackStartOptions = {}): Plugin {

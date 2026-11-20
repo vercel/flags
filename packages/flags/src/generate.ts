@@ -31,6 +31,7 @@ import {
   renderSourceModule,
   type SourceFiles,
 } from './codegen';
+import { readSettings } from './config-file';
 import { GENERATED_DIRECTORY } from './generated-directory';
 
 export { GENERATED_DIRECTORY };
@@ -46,6 +47,7 @@ export type FlagsAliases = Record<string, string>;
 const CATALOG_FILE = 'catalog.ts';
 const PROVIDER_FILE = 'provider.ts';
 const CONTEXT_FILE = 'context.ts';
+const HOOKS_FILE = 'hooks.ts';
 
 /**
  * The default source, and the package which gives its provider and catalog.
@@ -53,20 +55,6 @@ const CONTEXT_FILE = 'context.ts';
 const SELF_SOURCE = 'self';
 const VERCEL_FLAGS_PACKAGE = '@vercel/flags-core';
 const VERCEL_CATALOG_MODULE = '@vercel/flags-core/catalog';
-
-/**
- * The options of the code generation.
- */
-export interface GenerateOptions {
-  /**
-   * Turns off the default source `self`. Without this option, an
-   * application which depends on `@vercel/flags-core` has the source `self`
-   * with the flags of its Vercel project, also without
-   * `flags/sources/self/`. The code generation then loads these flags from
-   * Vercel Flags.
-   */
-  readonly disableSelfSource?: boolean;
-}
 
 /**
  * A source, and where each of its parts comes from.
@@ -379,7 +367,7 @@ async function importVercelCatalogLoader(
     file = require.resolve(VERCEL_CATALOG_MODULE);
   } catch (cause) {
     throw new Error(
-      `flags: The default source "self" needs ${VERCEL_CATALOG_MODULE}. Install @vercel/flags-core, or set disableSelfSource.`,
+      `flags: The default source "self" needs ${VERCEL_CATALOG_MODULE}. Install @vercel/flags-core, or set \`"selfSource": false\` in flags/config.json.`,
       { cause },
     );
   }
@@ -414,7 +402,7 @@ function tolerantCatalogLoader(loadCatalog: CatalogLoader): CatalogLoader {
       }
       const reason = error instanceof Error ? error.message : String(error);
       console.warn(
-        `flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: ${reason} Run \`vercel link\` and \`vercel env pull\`, or set disableSelfSource.`,
+        `flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: ${reason} Run \`vercel link\` and \`vercel env pull\`, or set \`"selfSource": false\` in flags/config.json.`,
       );
       yield { project: { system: 'vercel-flags' }, flags: {} };
     }
@@ -478,6 +466,9 @@ async function writeModules(
           path.join(flagsDirectory, 'sources', name, CONTEXT_FILE),
         ),
         provider: providers.get(name) ?? 'file',
+        hooks: await isFile(
+          path.join(flagsDirectory, 'sources', name, HOOKS_FILE),
+        ),
       };
       return {
         name,
@@ -564,7 +555,6 @@ async function start(
   directory: string,
   watch: boolean,
   signal: AbortSignal | undefined,
-  options: GenerateOptions,
 ): Promise<WatchResult> {
   const root = path.resolve(directory);
   const controller = new AbortController();
@@ -584,8 +574,10 @@ async function start(
 
   try {
     controller.signal.throwIfAborted();
+    // The opt-in is the dependency, the opt-out is flags/config.json
     const selfSource =
-      !options.disableSelfSource && (await dependsOnVercelFlags(root));
+      readSettings(root).selfSource !== false &&
+      (await dependsOnVercelFlags(root));
     const found = await findFlagsDirectory(root);
     // Without flags/sources and without the default source there is nothing
     // to generate, and no file is written
@@ -672,9 +664,8 @@ async function start(
  */
 export async function generateFlags(
   directory: string = process.cwd(),
-  options: GenerateOptions = {},
 ): Promise<FlagsAliases> {
-  const { aliases } = await start(directory, false, undefined, options);
+  const { aliases } = await start(directory, false, undefined);
   return aliases;
 }
 
@@ -687,7 +678,7 @@ export async function generateFlags(
  */
 export function watchFlags(
   directory: string,
-  options: GenerateOptions & { readonly signal: AbortSignal },
+  options: { readonly signal: AbortSignal },
 ): Promise<WatchResult> {
-  return start(directory, true, options.signal, options);
+  return start(directory, true, options.signal);
 }

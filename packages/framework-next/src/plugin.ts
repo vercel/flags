@@ -18,9 +18,9 @@ import { join, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
 import type { NextConfig } from 'next';
 
-export { findConfigFile };
+export { findConfigModules };
 
-import { findConfigFile, MANIFEST_FILE } from 'flags/tooling';
+import { findConfigModules, MANIFEST_FILE } from 'flags/tooling';
 import { prepareCodeGeneration, readAliases } from './code-generation';
 
 export interface FlagsPluginOptions {
@@ -42,13 +42,6 @@ export interface FlagsPluginOptions {
    * `.flags/aliases.json`, e.g. from `flags sync` or `flags watch`.
    */
   readonly disableCodeGeneration?: boolean;
-  /**
-   * Turns off the default source `self`. By default, an application which
-   * depends on `@vercel/flags-core` has the source `self` with the flags of
-   * its Vercel project, also without `flags/sources/self/`. The code
-   * generation then loads these flags from Vercel Flags.
-   */
-  readonly disableSelfSource?: boolean;
 }
 
 // The phases of Next.js, as in next/constants
@@ -260,14 +253,13 @@ export function withFlags<T extends object>(
   if (options.disableCodeGeneration && typeof config !== 'function') {
     return addFlags(config, dir);
   }
-  const generateOptions = { disableSelfSource: options.disableSelfSource };
   return async (phase, context) => {
     // `next start` and the other phases do no catalog work
     if (!options.disableCodeGeneration) {
       if (phase === PHASE_DEVELOPMENT_SERVER) {
-        await prepareCodeGeneration(dir, true, generateOptions);
+        await prepareCodeGeneration(dir, true);
       } else if (phase === PHASE_PRODUCTION_BUILD) {
-        await prepareCodeGeneration(dir, false, generateOptions);
+        await prepareCodeGeneration(dir, false);
       }
     }
     const resolved =
@@ -279,7 +271,7 @@ export function withFlags<T extends object>(
 function addFlags<T extends object>(config: T, dir: string): T {
   // Typed loosely, so a `next` version other than ours does not clash.
   const nextConfig: NextConfig = config;
-  const configFile = findConfigFile(dir);
+  const configModules = findConfigModules(dir);
 
   const turbopackAliases: Record<string, string> = {
     // The generated modules of flags:<source>, relative to the project
@@ -296,10 +288,11 @@ function addFlags<T extends object>(config: T, dir: string): T {
     turbopackAliases['@flags-sdk/next/verify-code'] =
       '@flags-sdk/next/verify-code-cached';
   }
-  if (configFile) {
-    // Turbopack resolves a relative path from the directory of the project
-    turbopackAliases['flags/config'] =
-      `./${relative(dir, configFile).split(sep).join('/')}`;
+  // flags/hooks.ts, flags/overrides.ts and flags/config.json, for the
+  // binding. Turbopack resolves a relative path from the directory of the
+  // project.
+  for (const [module, file] of Object.entries(configModules)) {
+    turbopackAliases[module] = `./${relative(dir, file).split(sep).join('/')}`;
   }
 
   const result: NextConfig = {

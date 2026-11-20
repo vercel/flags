@@ -1,10 +1,17 @@
 import type { OverridesOptions } from './overrides/reader';
+import type { Settings } from './settings';
 import type { Hook } from './types';
 
 /**
- * The configuration of the SDK: settings for all flags. It is optional. By
- * convention, it is the export `config` of `flags/config.ts`, and the
- * framework binding gives it to `runtime.configure`.
+ * The configuration of the SDK, for all flags. Each part is optional. With
+ * the file system API, each part has its own file in the folder `flags`, and
+ * the framework binding gives them to `runtime.configure`:
+ *
+ * - `hooks`: the default export of `flags/hooks.ts`
+ * - `overrides`: the default export of `flags/overrides.ts`
+ * - `settings`: `flags/config.json`
+ *
+ * Without a framework plugin, call `runtime.configure` yourself.
  */
 export interface Config {
   /**
@@ -17,19 +24,9 @@ export interface Config {
    * overrides, with the reason `OVERRIDE`.
    */
   readonly hooks?: readonly Hook[];
-}
-
-/**
- * Returns the configuration as it is, with its exact type.
- *
- * @example
- * ```ts
- * // flags/config.ts
- * export const config = defineConfig({
- *   hooks: [loggingHook],
- * });
- * ```
- */
-export function defineConfig<const C extends Config>(config: C): C {
-  return config;
+  /**
+   * The static settings of `flags/config.json`, which the plugins and the
+   * CLI also read. See `Settings`.
+   */
+  readonly settings?: Settings;
 }

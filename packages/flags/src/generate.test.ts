@@ -498,13 +498,50 @@ describe('the default source self', () => {
     expect(module).toContain('key: "enabled"');
   });
 
-  it('has no default source with disableSelfSource', async () => {
+  it.each([
+    'flags',
+    'src/flags',
+  ])('has no default source with "selfSource": false in %s/config.json', async (folder) => {
     const directory = await vercelApp();
+    await mkdir(path.join(directory, folder), { recursive: true });
+    await writeFile(
+      path.join(directory, folder, 'config.json'),
+      JSON.stringify({ selfSource: false }),
+    );
 
-    await expect(
-      generateFlags(directory, { disableSelfSource: true }),
-    ).resolves.toEqual({});
+    await expect(generateFlags(directory)).resolves.toEqual({});
     await expect(stat(path.join(directory, '.flags'))).rejects.toThrow();
+  });
+
+  it('fails for an unknown setting in flags/config.json', async () => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, 'flags'));
+    await writeFile(
+      path.join(directory, 'flags/config.json'),
+      JSON.stringify({ selfsource: false }),
+    );
+
+    await expect(generateFlags(directory)).rejects.toThrow(
+      'has the unknown setting "selfsource"',
+    );
+  });
+
+  it('passes flags/sources/<source>/hooks.ts to the source', async () => {
+    const directory = await vercelApp();
+    const self = path.join(directory, 'flags/sources/self');
+    await mkdir(self, { recursive: true });
+    await writeFile(
+      path.join(self, 'hooks.ts'),
+      "throw new Error('hooks.ts must only run in the application');",
+    );
+
+    await generateFlags(directory);
+
+    const module = await read(directory, 'self.ts');
+    expect(module).toContain(
+      "import hooks from '../flags/sources/self/hooks.ts';",
+    );
+    expect(module).toContain('  hooks,');
   });
 
   it('has no default source without the dependency on @vercel/flags-core', async () => {

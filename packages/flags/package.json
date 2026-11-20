@@ -38,6 +38,18 @@
       "import": "./dist/config-module.js",
       "require": "./dist/config-module.cjs"
     },
+    "./hooks": {
+      "import": "./dist/hooks-module.js",
+      "require": "./dist/hooks-module.cjs"
+    },
+    "./overrides": {
+      "import": "./dist/overrides-module.js",
+      "require": "./dist/overrides-module.cjs"
+    },
+    "./settings": {
+      "import": "./dist/settings-module.js",
+      "require": "./dist/settings-module.cjs"
+    },
     "./manifest": {
       "import": "./dist/manifest.js",
       "require": "./dist/manifest.cjs"
@@ -56,6 +68,18 @@
       "config": [
         "dist/config-module.d.ts",
         "dist/config-module.d.cts"
+      ],
+      "hooks": [
+        "dist/hooks-module.d.ts",
+        "dist/hooks-module.d.cts"
+      ],
+      "overrides": [
+        "dist/overrides-module.d.ts",
+        "dist/overrides-module.d.cts"
+      ],
+      "settings": [
+        "dist/settings-module.d.ts",
+        "dist/settings-module.d.cts"
       ],
       "*": [
         "dist/*.d.ts",

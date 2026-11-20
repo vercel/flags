@@ -3,9 +3,9 @@
  *
  * ```ts
  * import { flags } from '@flags-sdk/hono';
- * import { config } from './flags/config';
+ * import hooks from './flags/hooks';
  *
- * app.use(flags({ config }));
+ * app.use(flags({ config: { hooks } }));
  * ```
  *
  * Each request runs in `runtime.onInvoke`, so the flags get the request.
@@ -18,8 +18,9 @@ import { HTTPException } from 'hono/http-exception';
 
 export interface FlagsMiddlewareOptions {
   /**
-   * The configuration, e.g. the export `config` of `flags/config.ts`. The
-   * middleware gives it to `runtime.configure` one time.
+   * The configuration, e.g. `{ hooks }` with the default export of
+   * `flags/hooks.ts`. The middleware gives it to `runtime.configure` one
+   * time.
    */
   readonly config?: Config;
 }

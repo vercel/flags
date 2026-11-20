@@ -3,8 +3,8 @@
  *
  * ```sh
  * flags manifest [dir] [--out <file>]
- * flags sync [dir] [--production] [--disable-self-source]
- * flags watch [dir] [--production] [--disable-self-source] [-- command ...args]
+ * flags sync [dir] [--production]
+ * flags watch [dir] [--production] [-- command ...args]
  * ```
  *
  * `flags sync` writes the modules of `flags:<source>` from the catalogs of
@@ -28,22 +28,17 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { MANIFEST_FILE } from './build-manifest';
 import type { Config } from './config';
-import { findConfigFile } from './config-file';
+import { findConfigModules, readSettings } from './config-file';
 import { loadEnvFiles } from './env-files';
 import { findFlagsModules } from './find-flags-modules';
-import {
-  type FlagsAliases,
-  type GenerateOptions,
-  generateFlags,
-  watchFlags,
-} from './generate';
+import { type FlagsAliases, generateFlags, watchFlags } from './generate';
 import { createManifest } from './manifest';
 import { runtime } from './runtime';
 
 const usage = [
   'Usage: flags manifest [dir] [--out <file>]',
-  '       flags sync [dir] [--production] [--disable-self-source]',
-  '       flags watch [dir] [--production] [--disable-self-source] [-- command ...args]',
+  '       flags sync [dir] [--production]',
+  '       flags watch [dir] [--production] [-- command ...args]',
 ].join('\n');
 
 /**
@@ -68,13 +63,7 @@ export async function manifest(args: string[]): Promise<string> {
     modules.push({ id, exports: { ...exports } });
   }
   // The configuration of the project, if it has one
-  const configFile = findConfigFile(root) ?? findConfigFile(process.cwd());
-  if (configFile) {
-    const { config } = (await import(pathToFileURL(configFile).href)) as {
-      config?: Config;
-    };
-    if (config) runtime.configure(config);
-  }
+  runtime.configure(await importConfig(root));
   const result = createManifest(modules);
   writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`);
   return `flags: Wrote ${output} with ${Object.keys(result.definitions).length} flags from ${modules.length} modules.`;
@@ -102,12 +91,11 @@ export function runCommand(argv: string[]): Promise<string> {
 interface GenerateArgs {
   readonly root: string;
   readonly command: readonly string[];
-  readonly options: GenerateOptions;
 }
 
 /**
- * Reads `[dir] [--production] [--disable-self-source] [-- command ...args]`,
- * and loads the `.env` files of the directory.
+ * Reads `[dir] [--production] [-- command ...args]`, and loads the `.env`
+ * files of the directory.
  */
 function prepareGenerate(args: string[], allowCommand: boolean): GenerateArgs {
   const separator = args.indexOf('--');
@@ -118,12 +106,9 @@ function prepareGenerate(args: string[], allowCommand: boolean): GenerateArgs {
   }
   let dir: string | undefined;
   let production = process.env.NODE_ENV === 'production';
-  let disableSelfSource = false;
   for (const option of options) {
     if (option === '--production') {
       production = true;
-    } else if (option === '--disable-self-source') {
-      disableSelfSource = true;
     } else if (option.startsWith('-') || dir !== undefined) {
       throw new Error(usage);
     } else {
@@ -132,7 +117,7 @@ function prepareGenerate(args: string[], allowCommand: boolean): GenerateArgs {
   }
   const root = resolve(dir ?? '.');
   loadEnvFiles(root, production ? 'production' : 'development');
-  return { root, command, options: { disableSelfSource } };
+  return { root, command };
 }
 
 function describeAliases(aliases: FlagsAliases): string {
@@ -149,8 +134,8 @@ function describeAliases(aliases: FlagsAliases): string {
  * @internal
  */
 export async function sync(args: string[]): Promise<string> {
-  const { root, options } = prepareGenerate(args, false);
-  return describeAliases(await generateFlags(root, options));
+  const { root } = prepareGenerate(args, false);
+  return describeAliases(await generateFlags(root));
 }
 
 /**
@@ -160,7 +145,7 @@ export async function sync(args: string[]): Promise<string> {
  * @internal
  */
 export async function watch(args: string[]): Promise<string> {
-  const { root, command, options } = prepareGenerate(args, true);
+  const { root, command } = prepareGenerate(args, true);
   const controller = new AbortController();
   let child: ChildProcess | undefined;
   let childExit: Promise<number> | undefined;
@@ -176,10 +161,7 @@ export async function watch(args: string[]): Promise<string> {
   process.once('SIGTERM', terminate);
 
   try {
-    const result = await watchFlags(root, {
-      ...options,
-      signal: controller.signal,
-    });
+    const result = await watchFlags(root, { signal: controller.signal });
     done = result.done;
     console.log(`${describeAliases(result.aliases)} Watching the catalogs.`);
     if (command.length === 0) {
@@ -225,4 +207,26 @@ export async function watch(args: string[]): Promise<string> {
     process.removeListener('SIGINT', interrupt);
     process.removeListener('SIGTERM', terminate);
   }
+}
+
+/**
+ * Imports the files of the configuration of the application, as the
+ * framework bindings do with `flags/config`.
+ */
+async function importConfig(root: string): Promise<Config> {
+  const files = findConfigModules(root);
+  const load = async (file: string | undefined) =>
+    file === undefined
+      ? undefined
+      : ((await import(pathToFileURL(file).href)) as { default?: unknown })
+          .default;
+  const hooks = (await load(files['flags/hooks'])) as Config['hooks'];
+  const overrides = (await load(files['flags/overrides'])) as
+    | Config['overrides']
+    | undefined;
+  return {
+    ...(hooks ? { hooks } : {}),
+    ...(overrides ? { overrides } : {}),
+    settings: readSettings(root),
+  };
 }

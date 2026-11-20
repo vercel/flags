@@ -5,7 +5,10 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "paths": {
       "flags/framework": ["./src/framework.ts"],
-      "flags/config": ["./src/config-module.ts"]
+      "flags/config": ["./src/config-module.ts"],
+      "flags/hooks": ["./src/hooks-module.ts"],
+      "flags/overrides": ["./src/overrides-module.ts"],
+      "flags/settings": ["./src/settings-module.ts"]
     },
     "resolveJsonModule": true,
     "stripInternal": true,

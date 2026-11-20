@@ -100,6 +100,11 @@ export interface SourceFiles {
    * (`'vercel'`), for the default source `self`.
    */
   readonly provider?: 'file' | 'vercel';
+  /**
+   * Whether the source has `hooks.ts`, whose default export are the
+   * OpenFeature hooks of the source. The default is `false`.
+   */
+  readonly hooks?: boolean;
 }
 
 /**
@@ -139,6 +144,9 @@ export function renderSourceModule(
           `import getEvaluationContext from '${sourcesPath}/${name}/context.ts';`,
         ]
       : []),
+    ...(options.hooks
+      ? [`import hooks from '${sourcesPath}/${name}/hooks.ts';`]
+      : []),
     ...providerImport(name, sourcesPath, options.provider ?? 'file'),
     '',
     'const source = defineSource({',
@@ -147,6 +155,7 @@ export function renderSourceModule(
       ? [`  project: ${JSON.stringify(catalog.project)},`]
       : []),
     ...(context ? ['  getEvaluationContext,'] : []),
+    ...(options.hooks ? ['  hooks,'] : []),
     '});',
     '',
   ];

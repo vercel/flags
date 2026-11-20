@@ -12,6 +12,7 @@ import {
 } from './overrides/reader';
 import type { JsonValue } from './overrides/types';
 import { createFlagsRequest } from './request';
+import { parseSettings } from './settings';
 import { sharedState } from './shared-state';
 import { isSource, type Source } from './source';
 import type {
@@ -438,13 +439,14 @@ class RuntimeImpl {
   }
 
   /**
-   * Sets a function which returns the configuration, e.g. the export
-   * `config` of `flags/config.ts`. The framework binding sets it.
+   * Sets a function which returns the configuration, e.g. `loadConfig` of
+   * `flags/config`, which loads the files of the folder `flags`. The
+   * framework binding sets it.
    *
    * In production, the runtime calls it one time. In development, the
    * runtime calls it before each evaluation, and configures again when it
-   * returns a different object, so that a change of `flags/config.ts`
-   * applies without a restart.
+   * returns a different object, so that a change of `flags/hooks.ts`,
+   * `flags/overrides.ts` or `flags/config.json` applies without a restart.
    */
   setLoadConfig(loadConfig: LoadConfig | undefined): void {
     this.#configLoader = loadConfig;
@@ -452,9 +454,9 @@ class RuntimeImpl {
   }
 
   /**
-   * Configures the SDK. By convention, the framework binding calls it
-   * with the export `config` of `flags/config.ts`. Without a framework, call
-   * it at startup.
+   * Configures the SDK. A framework binding calls it with the files of the
+   * folder `flags`: `hooks.ts`, `overrides.ts` and `config.json` (see
+   * `Config`). Without a framework, call it at startup.
    *
    * A new call replaces the configuration, e.g. after a reload in
    * development. Validates the configuration at once, and throws before it
@@ -462,9 +464,9 @@ class RuntimeImpl {
    *
    * @example
    * ```ts
-   * import { config } from './flags/config';
+   * import hooks from './flags/hooks';
    *
-   * runtime.configure(config);
+   * runtime.configure({ hooks });
    * ```
    */
   configure(config: Config): void {
@@ -477,6 +479,9 @@ class RuntimeImpl {
       throw new Error(
         'flags: The hooks of the configuration must be an array.',
       );
+    }
+    if (config.settings !== undefined) {
+      parseSettings(config.settings);
     }
     const readOverrides = createOverridesReader(config.overrides);
 

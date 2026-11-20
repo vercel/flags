@@ -27,7 +27,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import { flags, resolveAliases, startCodeGeneration } from '@flags-sdk/vite';
-import { findConfigFile, findGeneratedDeclarations } from 'flags/tooling';
+import { findConfigModules, findGeneratedDeclarations } from 'flags/tooling';
 
 type Plugins = unknown[] | unknown;
 
@@ -71,13 +71,6 @@ export interface FlagsNuxtOptions {
    * ```
    */
   readonly disableCodeGeneration?: boolean;
-  /**
-   * Turns off the default source `self`. By default, an application which
-   * depends on `@vercel/flags-core` has the source `self` with the flags of
-   * its Vercel project, also without `flags/sources/self/`. The code
-   * generation then loads these flags from Vercel Flags.
-   */
-  readonly disableSelfSource?: boolean;
 }
 
 /**
@@ -120,9 +113,7 @@ export default async function flagsNuxtModule(
   const root = nuxt.options.rootDir;
   let aliases: Record<string, string> = {};
   if (!options?.disableCodeGeneration) {
-    const generation = startCodeGeneration(root, nuxt.options.dev, {
-      disableSelfSource: options?.disableSelfSource,
-    });
+    const generation = startCodeGeneration(root, nuxt.options.dev);
     nuxt.hook('close', () => generation.stop());
     aliases = resolveAliases(root, await generation.ready);
     // The types of flags:<source>: the declarations in the folder flags,
@@ -147,7 +138,8 @@ export default async function flagsNuxtModule(
       alias: withAliases(config.resolve?.alias, aliases),
     };
   });
-  const configFile = findConfigFile(root);
+  // flags/hooks.ts, flags/overrides.ts and flags/config.json, for the binding
+  const configModules = findConfigModules(root);
   nuxt.hook('nitro:config', (config) => {
     // useEvent() of the binding needs the async context of Nitro
     config.experimental = { ...config.experimental, asyncContext: true };
@@ -159,7 +151,7 @@ export default async function flagsNuxtModule(
     config.alias = {
       ...config.alias,
       'flags/framework': ownModule('binding'),
-      ...(configFile ? { 'flags/config': configFile } : {}),
+      ...configModules,
       ...aliases,
     };
     config.plugins = [...(config.plugins ?? []), ownModule('plugin')];

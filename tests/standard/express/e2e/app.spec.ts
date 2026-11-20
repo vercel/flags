@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { encryptOverrides } from 'flags';
 import { FLAGS_SECRET } from '../playwright.config';
 
-test('uses flags/config.ts with the middleware', async ({ request }) => {
+test('evaluates the flags with the middleware', async ({ request }) => {
   const [anonymous, alice] = await Promise.all([
     request.get('/'),
     request.get('/', { headers: { cookie: 'user=alice' } }),

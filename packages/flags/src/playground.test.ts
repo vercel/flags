@@ -14,8 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateFlags } from './generate';
 import {
   bindFlag,
+  type Config,
   decryptOverrides,
-  defineConfig,
   defineFlag,
   defineSource,
   encryptOverrides,
@@ -599,15 +599,15 @@ describe('9. Overrides', () => {
   });
 
   it('accepts longer lifetimes of signed cookies when configured', () => {
-    // flags/config.ts. The default is 24 hours.
-    const config = defineConfig({
+    // flags/overrides.ts. The default is 7 days.
+    const config: Config = {
       overrides: {
         vercel: {
           project: { projectId: 'prj_shop', environment: 'preview' },
-          maxLifetimeSeconds: 7 * 24 * 60 * 60,
+          maxLifetimeSeconds: 30 * 24 * 60 * 60,
         },
       },
-    });
+    };
 
     expect(() => runtime.configure(config)).not.toThrow();
   });
@@ -745,9 +745,9 @@ describe('10. Explicit sources and the optional flags/config.ts', () => {
     const newCheckout = bindFlag({ key: 'new-checkout', source: shop });
     const summerSale = bindFlag({ key: 'summer-sale', source: shop });
 
-    // flags/config.ts: a hook which logs each evaluation
+    // flags/hooks.ts: a hook which logs each evaluation
     const evaluated: string[] = [];
-    const config = defineConfig({
+    const config: Config = {
       hooks: [
         {
           after: (hookContext, details) => {
@@ -755,7 +755,7 @@ describe('10. Explicit sources and the optional flags/config.ts', () => {
           },
         },
       ],
-    });
+    };
     // The framework binding does this
     runtime.configure(config);
 
@@ -890,10 +890,10 @@ describe('12. What a framework binding does', () => {
 
     // Next.js: headers() and cookies() of the current request
     runtime.setGetRequest(async () => ({ headers }));
-    // flags/config.ts. In development, the runtime loads it again.
+    // flags/hooks.ts. In development, the runtime loads it again.
     const evaluated: string[] = [];
-    runtime.setLoadConfig(() =>
-      defineConfig({
+    runtime.setLoadConfig(
+      (): Config => ({
         hooks: [
           {
             after: (hookContext) => {
@@ -936,9 +936,9 @@ describe('13. Hooks, events and tracking', () => {
         );
       },
     };
-    // flags/config.ts: hooks for all flags. A source and the call side
+    // flags/hooks.ts: hooks for all flags. A source and the call side
     // can add more.
-    runtime.configure(defineConfig({ hooks: [logEvaluations] }));
+    runtime.configure({ hooks: [logEvaluations] });
     const newCheckout = bindFlag({
       key: 'new-checkout',
       source: defineSource({

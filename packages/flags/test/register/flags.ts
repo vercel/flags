@@ -1,7 +1,7 @@
 import { bindFlag, defineSource, evaluate, runtime } from 'flags';
-import { config } from './flags/config';
+import hooks from './flags/hooks';
 
-runtime.configure(config);
+runtime.configure({ hooks });
 
 const source = defineSource({
   provider: {

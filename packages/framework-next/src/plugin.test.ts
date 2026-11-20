@@ -7,7 +7,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findConfigFile } from 'flags/tooling';
+import { findConfigModules } from 'flags/tooling';
 import type { NextConfig } from 'next';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { withFlags, writeManifest } from './plugin';
@@ -35,27 +35,35 @@ describe('withFlags', () => {
     });
   });
 
-  it('points flags/config to flags/config.ts', () => {
-    const dir = projectWith('flags/config.ts');
+  it('points flags/hooks, flags/overrides and flags/settings to the files', () => {
+    const dir = projectWith('flags/hooks.ts');
+    writeFileSync(join(dir, 'flags/overrides.ts'), 'export default {};');
+    writeFileSync(join(dir, 'flags/config.json'), '{}');
     const config = withFlags<NextConfig>(
       {},
       { dir, disableCodeGeneration: true },
     );
 
     expect(config.turbopack?.resolveAlias).toMatchObject({
-      'flags/config': './flags/config.ts',
+      'flags/hooks': './flags/hooks.ts',
+      'flags/overrides': './flags/overrides.ts',
+      'flags/settings': './flags/config.json',
     });
+    // flags/config is the loader of the SDK, not a file of the app
+    expect(config.turbopack?.resolveAlias).not.toHaveProperty('flags/config');
   });
 
-  it('finds flags/config.ts in src', () => {
-    const dir = projectWith('src/flags/config.ts');
+  it('finds the files in src/flags', () => {
+    const dir = projectWith('src/flags/hooks.ts');
 
-    expect(findConfigFile(dir)).toBe(join(dir, 'src', 'flags/config.ts'));
+    expect(findConfigModules(dir)).toEqual({
+      'flags/hooks': join(dir, 'src', 'flags/hooks.ts'),
+    });
     expect(
       withFlags<NextConfig>({}, { dir, disableCodeGeneration: true }).turbopack
         ?.resolveAlias,
     ).toMatchObject({
-      'flags/config': './src/flags/config.ts',
+      'flags/hooks': './src/flags/hooks.ts',
     });
   });
 
@@ -270,13 +278,12 @@ describe('code generation of flags:<source>', () => {
     });
   });
 
-  it('generates no default source with disableSelfSource', async () => {
+  it('generates no default source with "selfSource": false in flags/config.json', async () => {
     const dir = projectWithVercelFlags();
+    mkdirSync(join(dir, 'flags'));
+    writeFileSync(join(dir, 'flags/config.json'), '{ "selfSource": false }');
 
-    await withFlags<NextConfig>(
-      {},
-      { dir, disableSelfSource: true },
-    )('phase-production-build');
+    await withFlags<NextConfig>({}, { dir })('phase-production-build');
 
     expect(existsSync(join(dir, '.flags'))).toBe(false);
   });

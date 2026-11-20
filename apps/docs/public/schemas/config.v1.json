@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flags-sdk.dev/schemas/config.v1.json",
+  "title": "flags/config.json",
+  "description": "The static settings of the Flags SDK. The framework plugins, the CLI and the runtime read this file.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "selfSource": {
+      "type": "boolean",
+      "default": true,
+      "description": "The default source self. An application which depends on @vercel/flags-core has the source self with the flags of its Vercel project, also without flags/sources/self/, and the code generation loads these flags from Vercel Flags. false turns it off."
+    }
+  },
+  "additionalProperties": false
+}

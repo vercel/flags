@@ -6,7 +6,7 @@ import { defineConfig } from 'tsup';
  * and esbuild would follow that mapping and bundle them. A bundler alias of
  * the application can only replace an import which is still there.
  */
-const replaceable = /^flags\/(framework|config)$/;
+const replaceable = /^flags\/(framework|config|hooks|overrides|settings)$/;
 
 const keepReplaceableImports = {
   name: 'keep-replaceable-imports',
@@ -24,6 +24,9 @@ export default defineConfig({
     // Separate entries, so that a bundler can replace them with an alias
     framework: 'src/framework.ts',
     'config-module': 'src/config-module.ts',
+    'hooks-module': 'src/hooks-module.ts',
+    'overrides-module': 'src/overrides-module.ts',
+    'settings-module': 'src/settings-module.ts',
     manifest: 'src/manifest.ts',
     tooling: 'src/tooling.ts',
     cli: 'src/cli.ts',

@@ -5,12 +5,7 @@
  * aliases.
  */
 import { join } from 'node:path';
-import {
-  type FlagsAliases,
-  type GenerateOptions,
-  generateFlags,
-  watchFlags,
-} from 'flags/tooling';
+import { type FlagsAliases, generateFlags, watchFlags } from 'flags/tooling';
 
 export interface CodeGeneration {
   /**
@@ -40,7 +35,6 @@ const generations = store[registryKey];
 export function startCodeGeneration(
   dir: string,
   watch: boolean,
-  options: GenerateOptions = {},
 ): CodeGeneration {
   const key = `${watch ? 'watch' : 'build'}:${dir}`;
   const existing = generations.get(key);
@@ -54,21 +48,19 @@ export function startCodeGeneration(
     }
   };
   const ready = watch
-    ? watchFlags(dir, { ...options, signal: controller.signal }).then(
-        (result) => {
-          result.done
-            .catch((error: unknown) => {
-              console.error(
-                'flags: The watch of the catalogs stopped. Restart the dev server.',
-                error,
-              );
-            })
-            .finally(remove);
-          return result.aliases;
-        },
-      )
+    ? watchFlags(dir, { signal: controller.signal }).then((result) => {
+        result.done
+          .catch((error: unknown) => {
+            console.error(
+              'flags: The watch of the catalogs stopped. Restart the dev server.',
+              error,
+            );
+          })
+          .finally(remove);
+        return result.aliases;
+      })
     : // A later build generates again
-      generateFlags(dir, options).finally(remove);
+      generateFlags(dir).finally(remove);
   const generation: CodeGeneration = {
     ready,
     stop: () => {

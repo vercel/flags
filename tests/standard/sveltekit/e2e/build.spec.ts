@@ -81,7 +81,7 @@ test('writes the manifest of the flags into the server output', () => {
   });
 });
 
-test('uses flags/config.ts and the request without onInvoke', async ({
+test('uses flags/hooks.ts and the request without onInvoke', async ({
   request,
 }) => {
   const [anonymous, alice] = await Promise.all([
@@ -90,7 +90,7 @@ test('uses flags/config.ts and the request without onInvoke', async ({
   ]);
 
   expect(await anonymous.text()).toContain(
-    '{"checkout":false,"text":"Hello from flags/config.ts"}',
+    '{"checkout":false,"text":"Hello from flags/hooks.ts"}',
   );
   expect(await alice.text()).toContain('{"checkout":true');
 });

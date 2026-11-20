@@ -4,10 +4,7 @@ export type {
   CatalogLoader,
   CatalogLoadOptions,
 } from './catalog';
-export {
-  type Config,
-  defineConfig,
-} from './config';
+export type { Config } from './config';
 export { FlagEvaluationError } from './errors';
 export {
   type Evaluate,
@@ -55,6 +52,7 @@ export {
   type Runtime,
   runtime,
 } from './runtime';
+export type { Settings } from './settings';
 export {
   type DefaultSourceInput,
   defineSource,
