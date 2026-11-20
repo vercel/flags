@@ -136,7 +136,7 @@ import { afterAll } from 'vitest';
 afterAll(() => runtime.onShutdown());
 ```
 
-Without the framework plugin, `flags/config.ts` is not loaded in tests. Call `runtime.configure(config)` in the setup file if the tests need its hooks or overrides options.
+Without the framework plugin, the configuration files are not loaded in tests. If the tests need the hooks or the overrides options, call `runtime.configure({ hooks, overrides })` in the setup file, with the default exports of `flags/hooks.ts` and `flags/overrides.ts`.
 
 ## Simulate a request
 

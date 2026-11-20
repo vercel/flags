@@ -12,7 +12,7 @@ app.use(flags());
 
 - **One middleware.** Each request runs in the scope of the SDK, also after
   an `await` in a handler.
-- **`flags/config.ts` as an option.** Hono often runs without a bundler,
+- **The configuration as an option.** Hono often runs without a bundler,
   so the configuration is an option, not an alias.
 - **Errors pass through.** An `HTTPException` reaches Hono unchanged, also
   from `getEvaluationContext`.
@@ -44,23 +44,41 @@ app.get('/', async (c) => {
 });
 ```
 
-### 2️⃣ Optional: `flags/config.ts`
+### 2️⃣ Optional: the configuration files
 
 You do not need a configuration file: each flag names its source, and
-overrides work with `FLAGS_SECRET`, or on Vercel, without one. Add
-`flags/config.ts` (or `src/flags/config.ts`), next to `flags/sources`, for
-settings of all flags: OpenFeature `hooks`, and the options of `overrides`.
-It has no source. Without a bundler, nothing loads it: pass it to the
-middleware, `app.use(flags({ config }))`.
+overrides work with `FLAGS_SECRET`, or on Vercel, without one. The folder
+`flags` (or `src/flags`), next to `flags/sources`, can have one file for each
+part of the configuration of all flags:
+
+- `flags/hooks.ts`: the OpenFeature hooks for all flags, as the default
+  export.
+- `flags/overrides.ts`: the options of the overrides, as the default export.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+
+Without a bundler, nothing loads the code files. Import them, and pass them
+to the middleware:
 
 ```ts
-// flags/config.ts
-import { defineConfig } from 'flags';
+// flags/hooks.ts
+import type { Hook } from 'flags';
 
-export const config = defineConfig({
-  hooks: [myLoggingHook],
-});
+const hooks: Hook[] = [myLoggingHook];
+
+export default hooks;
 ```
+
+```ts
+import hooks from './flags/hooks';
+import overrides from './flags/overrides';
+
+app.use(flags({ config: { hooks, overrides } }));
+```
+
+`flags sync`, `flags watch` and `flags manifest` read `flags/config.json`.
+The middleware does not read it. If your code needs the settings, read the
+file yourself, and pass them as `settings`. See
+[Configuration](https://flags-sdk.dev/docs/flags/configuration).
 
 ## Sources and code generation
 
@@ -69,7 +87,7 @@ names its source. Use one of two ways:
 
 - Write `defineSource` and `bindFlag` by hand.
 - Put each source into `flags/sources/<source>` (`catalog.ts`,
-  `provider.ts` and an optional `context.ts`). By convention, the main source of the
+  `provider.ts`, and an optional `context.ts` and `hooks.ts`). By convention, the main source of the
   application is `flags/sources/self`. Run `flags sync` (one time) or
   `flags watch` (after each change of a catalog), and import the generated
   module:
@@ -85,8 +103,8 @@ flags manifest [dir] [--out <file>]
 ```
 
 - It imports the modules which start with `'use flags'` in `dir` with
-  Node.js, and writes `flags-manifest.json`. It loads `flags/config.ts` if
-  it finds one.
+  Node.js, and writes `flags-manifest.json`. It loads `flags/hooks.ts`,
+  `flags/overrides.ts` and `flags/config.json` if it finds them.
 - Run it on the source if Node.js can run it (TypeScript with type
   stripping, Node.js 22.18 or newer), or on the output of `tsc`, which
   keeps the directive. A bundled output loses the directive.

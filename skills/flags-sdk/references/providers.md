@@ -54,7 +54,7 @@ Create flags with `vercel flags create <key> --kind <kind> --description "<descr
 
 ### By hand
 
-Without a bundler, or when you prefer code. With a framework plugin, also set `disableSelfSource: true` (e.g. `withFlags(config, { disableSelfSource: true })`), so that the plugin does not generate the default source `self` too:
+Without a bundler, or when you prefer code. With a framework plugin, also set `"selfSource": false` in `flags/config.json`, so that the plugin does not generate the default source `self` too:
 
 ```ts
 // flags/self.ts

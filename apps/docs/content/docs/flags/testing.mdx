@@ -151,7 +151,7 @@ import { afterAll } from 'vitest';
 afterAll(() => runtime.onShutdown());
 ```
 
-Unless your test runner uses the plugin of your framework, `flags/config.ts` is not loaded in tests. To test with its hooks or overrides options, call `runtime.configure(config)` in the setup file. You can also test a flag through overrides (see below).
+Unless your test runner uses the plugin of your framework, `flags/hooks.ts` and `flags/overrides.ts` are not loaded in tests. To test with them, import them and call `runtime.configure({ hooks, overrides })` in the setup file. You can also test a flag through overrides (see below).
 
 ## Simulate a request
 

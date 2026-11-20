@@ -10,7 +10,7 @@ The Flags SDK does not depend on a framework. You define flags with the `flags` 
 A framework package is a thin layer between the SDK and the framework. It does these things for you, so that you do not write glue code in your pages:
 
 - **Request scope.** It gives the SDK the current request (headers, cookies, URL). Each `getEvaluationContext` and each inline `decide` function receives this request. The SDK evaluates each flag one time for each request, so all parts of a page see the same value.
-- **Config loading.** It loads your optional `flags/config.ts` (hooks and override options). See [Configuration](/docs/flags/configuration).
+- **Config loading.** It loads your optional `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`. See [Configuration](/docs/flags/configuration).
 - **Signals.** Some frameworks use thrown errors as signals, for example `redirect()` or `notFound()`. The package makes sure that such errors reach the framework unchanged, also when you throw them from `getEvaluationContext`.
 - **`'use flags'` registration.** A module that starts with the `'use flags'` directive exports only flags. The build plugin registers these flags, so that the SDK knows all flags and sources.
 - **Code generation.** With a bundler, the plugin generates the modules of `flags:<source>` from the folders of `flags/sources`, and `flags:self` with the flags of your Vercel project if you depend on `@vercel/flags-core` (see [Code generation](/docs/flags/code-generation)).

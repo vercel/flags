@@ -1,6 +1,6 @@
 # Frameworks
 
-The flags and the call sites are the same in every framework. A framework package only gives the SDK the current request, loads `flags/config.ts`, lets framework signals through, registers `'use flags'` modules, generates `flags:<source>`, and serves the manifest in development.
+The flags and the call sites are the same in every framework. A framework package only gives the SDK the current request, loads the configuration files (`flags/hooks.ts`, `flags/overrides.ts`, `flags/config.json`), lets framework signals through, registers `'use flags'` modules, generates `flags:<source>`, and serves the manifest in development.
 
 The source folder is the same in every framework with a bundler (see [code-generation.md](code-generation.md)). With `@vercel/flags-core` in `package.json`, the source `self` is the default source of Vercel Flags: no folder is needed. Add only the file of the part that you replace, e.g. the context:
 
@@ -29,7 +29,7 @@ export default new VercelProvider();
 export { default } from '@vercel/flags-core/catalog';
 ```
 
-Without `flags/sources`, the types of the default source go to `src/flags/generated.d.ts` if the app has `src/`, else `flags/generated.d.ts`. Each plugin has `disableSelfSource: true` to turn the default source off, e.g. when the sources are written by hand.
+Without `flags/sources`, the types of the default source go to `src/flags/generated.d.ts` if the app has `src/`, else `flags/generated.d.ts`. To turn the default source off, e.g. when the sources are written by hand, set `"selfSource": false` in `flags/config.json`. Each plugin and the CLI read this file. There is no plugin option for it.
 
 To try the SDK without an account, export `new TypedInMemoryProvider({...})` of `@openfeature/server-sdk` from `provider.ts`, and return a static catalog (see [code-generation.md](code-generation.md#static-catalog)).
 
@@ -63,8 +63,8 @@ export default withFlags({
 
 - `withFlags` returns a phase function. It must be the outer plugin: `withFlags(withVercelToolbar()(nextConfig))`.
 - A phase function config: `withFlags((phase) => ({ ... }))`.
-- `flags/config.ts` outside the app directory or its `src`: `withFlags({}, { dir: '/path/to/the/app' })`.
-- No default source `self`: `withFlags({}, { disableSelfSource: true })`.
+- The folder `flags` outside the app directory or its `src`: `withFlags({}, { dir: '/path/to/the/app' })`.
+- No default source `self`: `"selfSource": false` in `flags/config.json`.
 - Without code generation: `withFlags({}, { disableCodeGeneration: true })`. It returns the object, and still reads `.flags/aliases.json`, e.g. after `flags sync` or with `flags watch -- next dev`.
 
 Use a flag in a server component or a route handler:
@@ -224,11 +224,11 @@ export default defineConfig({
 });
 ```
 
-- Put the source folder (or only `context.ts` for the default source) into `src/flags/sources/self/`, since SvelteKit type-checks `src` only. The types go into `src/flags/generated.d.ts`. `flags/config.ts` goes into `src/flags/config.ts`.
+- Put the source folder (or only `context.ts` for the default source) into `src/flags/sources/self/`, since SvelteKit type-checks `src` only. The types go into `src/flags/generated.d.ts`. The configuration files go into `src/flags/` too, e.g. `src/flags/hooks.ts` and `src/flags/config.json`.
 - No `handle` hook is needed. The binding reads the request with `getRequestEvent()`.
 - Flags work in `load` of `+page.server.ts` and `+layout.server.ts`, form actions, `+server.ts`, and `hooks.server.ts`. Do not import `flags` in universal `+page.ts` files or components.
 - `redirect()` and `error()` pass through, also from `getEvaluationContext`.
-- No default source `self`: `flags({ disableSelfSource: true })`.
+- No default source `self`: `"selfSource": false` in `src/flags/config.json`.
 - Without code generation: `flags({ disableCodeGeneration: true })`.
 
 ```ts
@@ -276,7 +276,7 @@ export default defineNuxtConfig({
 - It starts the providers with the Nitro server and closes them at shutdown. Do not call `runtime.onInit()` or `runtime.onShutdown()`.
 - Flags run only on the Nitro server. Evaluate them in server routes, and load the values with `useFetch`. Do not import `flags` or `flags:self` in components or composables.
 - `createError()` passes through, also from `getEvaluationContext`.
-- No default source `self`: `modules: [['@flags-sdk/nuxt', { disableSelfSource: true }]]`.
+- No default source `self`: `"selfSource": false` in `flags/config.json`.
 - Without code generation: `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
 
 ```ts
@@ -328,7 +328,7 @@ export default defineConfig({
 - No middleware is needed. The binding reads the request with `getRequest()`.
 - Route loaders also run in the browser, so call flags in a server function. Server routes can call flags directly.
 - `redirect()` and `notFound()` pass through, also from `getEvaluationContext`.
-- No default source `self`: `flags({ disableSelfSource: true })`. Without `flags/sources`, its types go into `src/flags/generated.d.ts`.
+- No default source `self`: `"selfSource": false` in `flags/config.json`. Without `flags/sources`, its types go into `src/flags/generated.d.ts`.
 - Without code generation: `flags({ disableCodeGeneration: true })`.
 
 ```tsx
@@ -446,7 +446,7 @@ process.on('SIGTERM', () => {
 });
 ```
 
-- `flags/config.ts` is not loaded for you: `app.use(flags({ config }))`.
+- The configuration files are not loaded for you: `import hooks from './flags/hooks'`, then `app.use(flags({ config: { hooks } }))`. `flags sync` and `flags watch` read `flags/config.json`.
 - `HTTPException` passes through, also from `getEvaluationContext`.
 - Without the middleware: `app.use((c, next) => runtime.onInvoke(c.req.raw, next))`.
 - Manifest: run `npx flags manifest` (on the source with Node.js 22.18 or newer, or on the `tsc` output). A bundled output loses the directive.
@@ -487,7 +487,7 @@ process.on('SIGTERM', () => {
 ```
 
 - The middleware converts the Node.js headers to Web `Headers`, and builds the URL from `Host` and `originalUrl`.
-- `flags/config.ts`: `app.use(flags({ config }))`.
+- The configuration files: `import hooks from './flags/hooks'`, then `app.use(flags({ config: { hooks } }))`, as for Hono.
 - Manifest: `npx flags manifest`, as for Hono.
 
 ## No framework (plain Node.js)
@@ -499,7 +499,7 @@ Install only `flags` (and your provider). Call the runtime yourself:
 | `runtime.onInit()`                | Once at startup        | Initializes the providers of all registered sources. Logs errors.    |
 | `runtime.onInvoke(request, next)` | For each request       | Runs `next` in the scope of the request. Returns its result.         |
 | `runtime.onShutdown()`            | When the process stops | Closes the providers.                                                |
-| `runtime.configure(config)`       | At startup             | Loads `flags/config.ts`, if you have one.                            |
+| `runtime.configure(config)`       | At startup             | Sets the configuration, e.g. `{ hooks, overrides }` of `flags/hooks.ts` and `flags/overrides.ts`. |
 
 ```ts
 // A fetch handler: a Web Request fits as it is
@@ -521,7 +521,7 @@ export default {
 
 A framework with a middleware that wraps each handler needs no binding: `app.use((request, next) => runtime.onInvoke(request, next))`.
 
-Write a binding when the framework gives the request at any time (like `headers()` or `getRequestEvent()`), uses thrown errors as signals, or should load `flags/config.ts` and the manifest without app code:
+Write a binding when the framework gives the request at any time (like `headers()` or `getRequestEvent()`), uses thrown errors as signals, or should load the configuration files and the manifest without app code:
 
 ```ts
 // binding.ts: the module behind the alias flags/framework
@@ -530,9 +530,22 @@ import type { SetupFramework } from 'flags';
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);
   runtime.setRethrow(rethrowSignal);
-  runtime.setLoadConfig(async () => (await import('flags/config')).config);
+  runtime.setLoadConfig(async () => {
+    // Import the files in the binding, which the bundler builds, so that
+    // the aliases of the plugin apply
+    const { configFromModules } = await import('flags/config');
+    return configFromModules(
+      await Promise.all([
+        import('flags/hooks'),
+        import('flags/overrides'),
+        import('flags/settings'),
+      ]),
+    );
+  });
 };
 ```
+
+- The build plugin aliases `flags/hooks`, `flags/overrides` and `flags/settings` to `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`, only for the files that exist. Find them with `findConfigModules(dir)` of `flags/tooling`. The binding imports the three modules itself, and builds the configuration with `configFromModules` of `flags/config`.
 
 - The binding imports only types from `flags`.
 - `setGetRequest` returns `FlagsRequestInit` or `undefined`, with the same `headers` object for one request.

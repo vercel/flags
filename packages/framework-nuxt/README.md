@@ -1,7 +1,7 @@
 # @flags-sdk/nuxt
 
 The Nuxt package of the [Flags SDK](../flags). It connects the SDK to the
-server of Nuxt (Nitro): the current request, `flags/config.ts`, the errors
+server of Nuxt (Nitro): the current request, the configuration files, the errors
 of Nitro, the lifecycle of the server, discovery for Flags Explorer, and
 code generation.
 
@@ -43,22 +43,30 @@ export default defineNuxtConfig({ modules: ['@flags-sdk/nuxt'] });
 
 That is the only required step.
 
-### 2️⃣ Optional: `flags/config.ts`
+### 2️⃣ Optional: the configuration files
 
 You do not need a configuration file: each flag names its source, and
-overrides work with `FLAGS_SECRET`, or on Vercel, without one. Add
-`flags/config.ts` (or `src/flags/config.ts`), next to `flags/sources`, for
-settings of all flags: OpenFeature `hooks`, and the options of `overrides`.
-It has no source. The module loads it automatically.
+overrides work with `FLAGS_SECRET`, or on Vercel, without one. The folder `flags` (or `src/flags`),
+next to `flags/sources`, can have one file for each part of the
+configuration of all flags. None of them has a source:
+
+- `flags/hooks.ts`: the OpenFeature hooks for all flags, as the default
+  export.
+- `flags/overrides.ts`: the options of the overrides, as the default export.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+
+The module loads them automatically. In development, a change applies without a restart.
 
 ```ts
-// flags/config.ts
-import { defineConfig } from 'flags';
+// flags/hooks.ts
+import type { Hook } from 'flags';
 
-export const config = defineConfig({
-  hooks: [myLoggingHook],
-});
+const hooks: Hook[] = [myLoggingHook];
+
+export default hooks;
 ```
+
+See [Configuration](https://flags-sdk.dev/docs/flags/configuration).
 
 ## Usage
 
@@ -97,7 +105,7 @@ export default defineNuxtConfig({
 ```
 
 - Each source is a directory `flags/sources/<source>` with `catalog.ts`,
-  `provider.ts` and an optional `context.ts`. By convention, the main source of the
+  `provider.ts`, and an optional `context.ts` and `hooks.ts`. By convention, the main source of the
   application is `flags/sources/self`.
 - With `@vercel/flags-core` in the dependencies, the source `self` is the
   default source of Vercel Flags, also without `flags/sources/self`:
@@ -105,7 +113,7 @@ export default defineNuxtConfig({
   Each file in `flags/sources/self` replaces its part, e.g.
   `context.ts` adds an evaluation context. Without the credentials of
   `vercel env pull`, `flags:self` has no flags and the SDK warns. To turn
-  the default source off, use `modules: [['@flags-sdk/nuxt', { disableSelfSource: true }]]`.
+  the default source off, set `"selfSource": false` in `flags/config.json`.
 - The module generates `.flags/<source>.ts` one time for `nuxt build`, and
   watches the catalogs in `nuxt dev`. It adds the aliases `flags:<source>`
   for Vite and for Nitro:
@@ -127,7 +135,9 @@ export default defineNuxtConfig({
 ## How it works
 
 - The module sets `nitro.alias` for `flags/framework` (to
-  `@flags-sdk/nuxt/binding`) and `flags/config`, and adds `flags` and
+  `@flags-sdk/nuxt/binding`), and for `flags/hooks`, `flags/overrides` and
+  `flags/settings` (to `flags/hooks.ts`, `flags/overrides.ts` and
+  `flags/config.json`, if they exist). It adds `flags` and
   `@flags-sdk/nuxt` to `nitro.externals.inline`, so that Nitro bundles the
   SDK and the aliases reach it. It points Nitro to its ESM files, so that
   the bundle has one copy of the SDK.

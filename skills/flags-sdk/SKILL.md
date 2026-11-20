@@ -4,11 +4,11 @@ description: >
   Write feature flag code with the Flags SDK v5 (the `flags` npm package) and Vercel Flags.
   Use when installing or configuring the SDK, adding a flag to code, or changing flag code:
   `defineFlag` (inline flags), `bindFlag` and `defineSource` (provider flags), the file system
-  API (`flags/sources/<source>/provider.ts`, `catalog.ts`, `context.ts`) with
+  API (`flags/sources/<source>/provider.ts`, `catalog.ts`, `context.ts`, `hooks.ts`) with
   `import { ... } from 'flags:<source>'`, the default source `flags:self` of
-  `@vercel/flags-core` (`disableSelfSource`), code generation (`flags sync`, `flags watch`,
+  `@vercel/flags-core` (`"selfSource": false` in `flags/config.json`), code generation (`flags sync`, `flags watch`,
   `.flags/`, `flags/generated.d.ts`), `'use flags'` modules, `evaluate`, `runtime`,
-  `flags/config.ts`, the framework packages (`withFlags` of `@flags-sdk/next/plugin`,
+  `flags/hooks.ts`, `flags/overrides.ts`, `flags/config.json`, the framework packages (`withFlags` of `@flags-sdk/next/plugin`,
   `@flags-sdk/sveltekit`, `@flags-sdk/nuxt`, `@flags-sdk/tanstack-start`, `@flags-sdk/hono`,
   `@flags-sdk/express`, `@flags-sdk/vite`), precompute (`@flags-sdk/next/precompute`),
   `FlagValues`, Flags Explorer and its manifest route, overrides, `FLAGS_SECRET`,
@@ -55,18 +55,21 @@ For other providers, put a source into a folder. The plugin generates `.flags/<s
 
 ```txt
 flags/                    # in the app root or in src/ (SvelteKit: always src/flags)
-  config.ts               # optional: export const config = defineConfig({ hooks?, overrides? })
+  config.json             # optional: static settings, e.g. { "selfSource": false }
+  hooks.ts                # optional: default export: the hooks for all flags (Hook[])
+  overrides.ts            # optional: default export: the override options (OverridesOptions)
   sources/
     self/
       provider.ts         # default export: an OpenFeature provider (optional for the default source self)
       catalog.ts          # default export: a CatalogLoader, build and dev only, in Node.js (optional for self)
       context.ts          # optional: default export getEvaluationContext(request, input)
+      hooks.ts            # optional: default export: the hooks of this source (Hook[])
   generated.d.ts          # generated types, commit it or run `flags sync` before tsc
                           # (without flags/sources: src/flags/generated.d.ts if the app has src/)
 .flags/                   # generated modules, ignored by its own .gitignore
 ```
 
-**Hand-written sources** (Hono, Express, plain Node.js, or when the user prefers code): write `defineSource` in one module (e.g. `flags/self.ts`) and the `bindFlag` calls in a `'use flags'` module (e.g. `flags.ts`). The generated code is the same code, so the call sites do not change when you switch. In a framework with a plugin and `@vercel/flags-core`, also set `disableSelfSource: true` in the plugin.
+**Hand-written sources** (Hono, Express, plain Node.js, or when the user prefers code): write `defineSource` in one module (e.g. `flags/self.ts`) and the `bindFlag` calls in a `'use flags'` module (e.g. `flags.ts`). The generated code is the same code, so the call sites do not change when you switch. In a framework with a plugin and `@vercel/flags-core`, also set `"selfSource": false` in `flags/config.json`.
 
 Inline flags (`defineFlag`) go into a hand-written `'use flags'` module in both setups.
 
@@ -90,7 +93,7 @@ Check the project, and skip the steps that are done:
 - **Package manager**: use the lockfile (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `bun.lock`/`bun.lockb`) to pick `pnpm add`, `npm install`, `yarn add` or `bun add`.
 - **SDK version**: is `flags` in `package.json`, and which major? Code with `flag()` from `flags/next` or `flags/sveltekit`, `@flags-sdk/vercel`, `identify`, `dedupe` or `app/.well-known/vercel/flags/route.ts` is v4. Do not mix v4 and v5 APIs. Ask the user before you upgrade, then follow [references/upgrading-from-v4.md](references/upgrading-from-v4.md).
 - **Framework**: which framework, and does it have a bundler? This selects the package and the setup.
-- **Sources**: does `flags/sources/` (or `src/flags/sources/`) exist? Which sources? Is there a hand-written `defineSource`? Is `@vercel/flags-core` in `package.json` (then `flags:self` is the default source, unless the plugin sets `disableSelfSource`)?
+- **Sources**: does `flags/sources/` (or `src/flags/sources/`) exist? Which sources? Is there a hand-written `defineSource`? Is `@vercel/flags-core` in `package.json` (then `flags:self` is the default source, unless `flags/config.json` sets `"selfSource": false`)?
 - **Vercel link**: run `vercel project inspect --non-interactive` and check the owner and project name. A `.vercel/` folder alone does not prove a link. If it reports `link_required`, run `vercel link`. If the user named a project or team and the output differs, stop and ask.
 - **Credentials**: does `.env.local` contain `VERCEL_OIDC_TOKEN=` (or an SDK key in `FLAGS=`)? Do not print the values.
 - **Flags Explorer**: in Next.js, does `app/.well-known/flags/manifest.json/route.ts` exist? Is `@vercel/toolbar` installed?
@@ -261,11 +264,12 @@ Precompute keeps pages static while flags vary per visitor. The proxy calls `pre
 ## Common pitfalls
 
 - **`withFlags` is not the outer plugin.** It returns a phase function. `withVercelToolbar()(withFlags({}))` breaks. Use `withFlags(withVercelToolbar()({}))`. If another plugin must be outer, use `withFlags(config, { disableCodeGeneration: true })` and run `flags sync` before `next dev` and `next build`.
-- **Hand-written sources with `@vercel/flags-core`.** An app that depends on `@vercel/flags-core` gets the default source `flags:self` and the network requests of its catalog, also when it writes its sources by hand. Set `disableSelfSource: true` in the plugin (`withFlags(config, { disableSelfSource: true })`, `flags({ disableSelfSource: true })`, `modules: [['@flags-sdk/nuxt', { disableSelfSource: true }]]`), and use `flags sync --disable-self-source`.
+- **Hand-written sources with `@vercel/flags-core`.** An app that depends on `@vercel/flags-core` gets the default source `flags:self` and the network requests of its catalog, also when it writes its sources by hand. Set `"selfSource": false` in `flags/config.json`. The plugins, `flags sync` and `flags watch` read this file. There is no plugin option and no CLI flag for it.
 - **Creating `provider.ts` and `catalog.ts` for Vercel Flags.** Not needed with `@vercel/flags-core`: the default source `self` has them. Add a file only to replace its part. Each other source still needs both files.
-- **An empty `flags:self` in CI.** Without credentials, the default catalog gives no flags and the SDK warns; the build does not fail, but the type check fails at the import of a flag. Pull the credentials (or set `FLAGS`), commit `flags/generated.d.ts`, or set `disableSelfSource`. A custom `catalog.ts` fails the build instead.
+- **An empty `flags:self` in CI.** Without credentials, the default catalog gives no flags and the SDK warns; the build does not fail, but the type check fails at the import of a flag. Pull the credentials (or set `FLAGS`), commit `flags/generated.d.ts`, or set `"selfSource": false` in `flags/config.json`. A custom `catalog.ts` fails the build instead.
 - **Webpack in Next.js.** `withFlags` supports Turbopack only. A webpack build throws.
-- **No source on `bindFlag`.** The runtime has no default source. `bindFlag` without `source` throws. `flags/config.ts` has no source option.
+- **No source on `bindFlag`.** The runtime has no default source. `bindFlag` without `source` throws. The configuration files have no source option.
+- **No `flags/config.ts` and no `defineConfig`.** They do not exist. Put the hooks for all flags into the default export of `flags/hooks.ts`, the override options into the default export of `flags/overrides.ts`, and the static settings into `flags/config.json`. The SDK checks `flags/config.json` strictly: an unknown key or a wrong type is an error.
 - **Missing `type`.** A non-boolean flag without `type` is a type error, and a string value fails at runtime with `TYPE_MISMATCH`.
 - **Other exports in a `'use flags'` module.** Each export must be a flag. Export sources, helpers, types and precompute groups from other modules. An export that is not a flag makes the manifest fail.
 - **Side effects in a `'use flags'` module or `provider.ts`.** Tools import these modules to read the flags, e.g. when a build writes the manifest. Do not open connections at import. Some providers connect when you create them (LaunchDarkly, Split, CloudBees), and some throw without a key (the Flagsmith client): keep them in one module of their own, or create them lazily on `initialize()`. See [references/providers.md](references/providers.md#providers-that-connect-at-import).

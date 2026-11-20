@@ -20,9 +20,10 @@ Node.js 20.19, or 22.12 or newer. The package runs only on the server.
 | `flags/tooling`  | Framework packages and build tools. See [flags/tooling](/docs/api-reference/flags-tooling) |
 | `flags/manifest` | Tools that create or read the flags manifest. See [flags/manifest](/docs/api-reference/flags-tooling#flagsmanifest) |
 
-The subpaths `flags/framework` and `flags/config` are replaced by bundler
-aliases of framework packages. Your
-application does not import them. See
+The subpaths `flags/framework`, `flags/hooks`, `flags/overrides` and
+`flags/settings` are replaced by bundler aliases of framework packages. The
+framework binding imports `flags/config`, which loads them. Your application
+does not import these subpaths. See
 [Custom frameworks](/docs/frameworks/custom-frameworks).
 
 ## Defining flags
@@ -155,7 +156,7 @@ function defineSource<P extends Provider, N extends FlagManagementSystem, C exte
 | `provider`             | `Provider`                                              | Any OpenFeature server provider. Required.                                                                                                                                                 |
 | `project`              | `Project`                                               | The flag project in the flag management system. Optional. Flags Explorer uses it for links to the dashboard. Without it, the flags work the same, but the manifest names no source for them. |
 | `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => C \| Promise<C>` | The last step of the chain. Returns the evaluation context for the provider. Runs once per request and input. Outside of a request, it runs on each evaluation with `request` undefined.     |
-| `hooks`                | `readonly Hook[]`                                       | OpenFeature hooks for the flags of this source. They run after the hooks of the configuration and before those of the call side and the provider. They also run for overrides.             |
+| `hooks`                | `readonly Hook[]`                                       | OpenFeature hooks for the flags of this source. They run after the hooks of the configuration and before those of the call side and the provider. They also run for overrides. The code generation passes the default export of `flags/sources/<source>/hooks.ts`.             |
 
 The returned source is frozen. Throws a `TypeError` for a `project` with
 `platform` (use `system`), or a `systemManifest` that is not an HTTPS URL.
@@ -296,10 +297,11 @@ import { runtime } from 'flags';
 runtime.configure(config: Config): void;
 ```
 
-Sets the configuration, usually the `config` export of `flags/config.ts`.
-A new call replaces the configuration. Throws before it changes anything if
-the configuration is not valid, e.g. when `hooks` is not an array, or when it
-has a `defaultSource` (an option of earlier versions: give each flag its
+Sets the configuration, e.g. `{ hooks }` with the default export of
+`flags/hooks.ts`. A framework binding calls it with the files of the folder
+`flags`. A new call replaces the configuration. Throws before it changes anything if
+the configuration is not valid, e.g. when `hooks` is not an array, when
+`settings` has an unknown key, or when it has a `defaultSource` (an option of earlier versions: give each flag its
 source).
 
 ### `runtime.onInit`
@@ -391,7 +393,7 @@ A framework binding calls these in its `setupFramework` function. See
 | Method                            | Description                                                                                                                                                                              |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `runtime.setGetRequest(fn)`       | `fn: GetRequest \| undefined`. Returns the current request as `FlagsRequestInit`, or `undefined` outside of a request. For frameworks without a wrapping middleware. The `headers` object must stay the same during one request, because the SDK identifies the request by it. Inside `onInvoke`, it is not called. |
-| `runtime.setLoadConfig(fn)`       | `fn: LoadConfig \| undefined`. Returns the configuration. Called once in production, and before each evaluation in development, so changes of `flags/config.ts` apply without a restart. |
+| `runtime.setLoadConfig(fn)`       | `fn: LoadConfig \| undefined`. Returns the configuration. Called once in production, and before each evaluation in development, so changes of `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` apply without a restart. Bindings pass `loadConfig` of `flags/config`. |
 | `runtime.setRethrow(fn)`          | `fn: ((error: unknown) => void) \| undefined`. Throws an error again if the framework must receive it, e.g. a redirect. The runtime calls it before it uses a `defaultValue`.          |
 
 Related types:
@@ -408,42 +410,54 @@ Related types:
 
 ## Configuration
 
-### `defineConfig`
-
-Returns the configuration as it is, with its exact type. Export it as `config`
-from the optional `flags/config.ts`. Framework plugins load it. See
+Each part of the configuration has its own optional file in the folder
+`flags`. Framework plugins load them. See
 [Configuration](/docs/flags/configuration).
 
-```ts
-function defineConfig<const C extends Config>(config: C): C;
-```
+### `Config`
 
-| Option      | Type               | Description                                                                                                   |
-| ----------- | ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `overrides` | `OverridesOptions` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions).                          |
-| `hooks`     | `readonly Hook[]`  | OpenFeature hooks for all flags. They run first, and also for overrides, with the reason `OVERRIDE`.         |
+The type of the configuration, the argument of `runtime.configure`.
+
+| Field       | Type               | File                 | Description                                                                                          |
+| ----------- | ------------------ | -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `hooks`     | `readonly Hook[]`  | `flags/hooks.ts`     | OpenFeature hooks for all flags. They run first, and also for overrides, with the reason `OVERRIDE`. |
+| `overrides` | `OverridesOptions` | `flags/overrides.ts` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions).                 |
+| `settings`  | `Settings`         | `flags/config.json`  | The static settings, which the plugins and the CLI also read. See [`Settings`](#settings).          |
 
 The configuration has no sources: each flag of a provider names its source in
 `bindFlag`.
 
-```ts title="flags/config.ts"
-import { defineConfig } from 'flags';
+```ts title="flags/hooks.ts"
+import type { Hook } from 'flags';
 
-export const config = defineConfig({
-  overrides: { secret: process.env.FLAGS_SECRET },
-  hooks: [
-    {
-      after(hookContext, details) {
-        console.log(hookContext.flagKey, details.value);
-      },
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      console.log(hookContext.flagKey, details.value);
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
-### `Config`
+### `Settings`
 
-The type of the configuration, with the fields of `defineConfig`.
+The type of `flags/config.json`. The SDK checks the settings strictly: an
+unknown key or a value of the wrong type is an error. The key `$schema` is
+allowed. The JSON Schema is at
+`https://flags-sdk.dev/schemas/config.v1.json`.
+
+| Setting      | Type      | Description                                                                                                                        |
+| ------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `selfSource` | `boolean` | The [default source `self`](/docs/flags/code-generation#the-default-source-self). `false` turns it off. The default is `true`. |
+
+```json title="flags/config.json"
+{
+  "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
+  "selfSource": false
+}
+```
 
 ## Registration
 
@@ -535,7 +549,7 @@ secret.
 
 ### `OverridesOptions`
 
-The `overrides` option of the configuration.
+The `overrides` option of the configuration: the default export of `flags/overrides.ts`.
 
 | Option   | Type                                | Description                                                                                                                                                                  |
 | -------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -675,20 +689,20 @@ The reasons that hooks see in `EvaluationDetails`:
 - `DECIDE_REASON` (`'DECIDE'`): the value of an inline flag, from `decide`.
 - `OVERRIDE_REASON` (`'OVERRIDE'`): the value of an override.
 
-```ts title="flags/config.ts"
-import { defineConfig, OVERRIDE_REASON } from 'flags';
+```ts title="flags/hooks.ts"
+import { type Hook, OVERRIDE_REASON } from 'flags';
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after(hookContext, details) {
-        if (details.reason === OVERRIDE_REASON) {
-          console.log(`Override of ${hookContext.flagKey}`);
-        }
-      },
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      if (details.reason === OVERRIDE_REASON) {
+        console.log(`Override of ${hookContext.flagKey}`);
+      }
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
 ## Code generation types

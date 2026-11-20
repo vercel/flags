@@ -207,8 +207,8 @@ An application which depends on `@vercel/flags-core` has the default source
 `new VercelProvider()`, and the application imports the flags of its Vercel
 project from `flags:self`, without `flags/sources/self/`. Without the
 credentials of `vercel env pull`, `flags:self` has no flags and the SDK
-warns. To turn the default source off, set `disableSelfSource: true` in the
-plugin of the Flags SDK.
+warns. To turn the default source off, set `"selfSource": false` in
+`flags/config.json` of the application.
 
 A `catalog.ts` replaces the default catalog, e.g. with options:
 

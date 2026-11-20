@@ -4,7 +4,8 @@ description: The API of the SvelteKit, Nuxt, TanStack Start, Vite, Hono and Expr
 ---
 
 Each framework package connects the Flags SDK to one framework: it gives the
-runtime the current request, loads the optional `flags/config.ts`, and lets the signals of
+runtime the current request, loads the optional files of the folder `flags` (`hooks.ts`, `overrides.ts` and
+`config.json`), and lets the signals of
 the framework through. Your application code imports only `flags`; these
 packages are only for the setup. For Next.js, see
 [`@flags-sdk/next`](/docs/api-reference/next).
@@ -15,8 +16,8 @@ packages are only for the setup. For Next.js, see
 | `@flags-sdk/nuxt`           | `.` (the module), `/binding`, `/plugin` | `modules: ['@flags-sdk/nuxt']`           |
 | `@flags-sdk/tanstack-start` | `/vite`, `/binding`                  | `flags()` in `vite.config.ts`               |
 | `@flags-sdk/vite`           | `.`                                  | For framework packages, not applications    |
-| `@flags-sdk/hono`           | `.`                                  | `app.use(flags({ config }))`                |
-| `@flags-sdk/express`        | `.`                                  | `app.use(flags({ config }))`                |
+| `@flags-sdk/hono`           | `.`                                  | `app.use(flags({ config: { hooks } }))`     |
+| `@flags-sdk/express`        | `.`                                  | `app.use(flags({ config: { hooks } }))`     |
 
 The `/binding` entry point of each package exports `setupFramework`, the
 framework binding behind the alias `flags/framework`. The plugin sets the
@@ -34,7 +35,8 @@ function flags(options?: FlagsSvelteKitOptions): Plugin;
 ```
 
 The Vite plugin. It points `flags/framework` to the SvelteKit binding,
-`flags/config` to `flags/config.ts` (in the project or in `src`), registers
+`flags/hooks`, `flags/overrides` and `flags/settings` to `flags/hooks.ts`,
+`flags/overrides.ts` and `flags/config.json` (in the project or in `src`), registers
 `'use flags'` modules, serves the manifest at
 `/.well-known/flags/manifest.json` in development, and writes
 `flags-manifest.json` after a build.
@@ -47,14 +49,15 @@ An application which depends on `@vercel/flags-core` also gets the default
 source `self`, with the flags of its Vercel project (see
 [The default source `self`](/docs/flags/code-generation#the-default-source-self)).
 Without a folder `flags/sources` and without the default source, it writes
-nothing. In SvelteKit, put the
+nothing. To turn off the default source, set `"selfSource": false` in
+`flags/config.json` (see [Configuration](/docs/flags/configuration#flagsconfigjson)).
+In SvelteKit, put the
 folder into `src/flags`, since SvelteKit type-checks `src` only. See
 [Code generation](/docs/flags/code-generation).
 
 | Option                  | Type      | Description                                                                        |
 | ----------------------- | --------- | ---------------------------------------------------------------------------------- |
 | `disableCodeGeneration` | `boolean` | Turns off the code generation of `flags:<source>`. The default is `false`.         |
-| `disableSelfSource`     | `boolean` | Turns off the default source `self` of `@vercel/flags-core`. The default is `false`. |
 
 ```ts title="vite.config.ts"
 import { flags } from '@flags-sdk/sveltekit/vite';
@@ -87,8 +90,9 @@ export default defineNuxtConfig({
 The module adds the Vite plugin of `@flags-sdk/vite` to the Vite build and to
 the Nitro build. It:
 
-- points `flags/framework` to the Nuxt binding, and `flags/config` to
-  `flags/config.ts`;
+- points `flags/framework` to the Nuxt binding, and `flags/hooks`,
+  `flags/overrides` and `flags/settings` to `flags/hooks.ts`,
+  `flags/overrides.ts` and `flags/config.json`, for each file that exists;
 - enables `experimental.asyncContext` of Nitro, which the binding needs;
 - registers `'use flags'` modules, serves the manifest in `nuxt dev`, and
   writes `flags-manifest.json` into the server output (`.output/server`);
@@ -103,7 +107,6 @@ the Nitro build. It:
 | Option                  | Type      | Description                                                                |
 | ----------------------- | --------- | -------------------------------------------------------------------------- |
 | `disableCodeGeneration` | `boolean` | Turns off the code generation of `flags:<source>`. The default is `false`. |
-| `disableSelfSource`     | `boolean` | Turns off the default source `self` of `@vercel/flags-core`. The default is `false`. |
 
 ```ts title="nuxt.config.ts"
 export default defineNuxtConfig({
@@ -136,7 +139,7 @@ function flags(options?: FlagsTanStackStartOptions): Plugin;
 ```
 
 The Vite plugin, with the same behavior and the same `disableCodeGeneration`
-and `disableSelfSource` options as for SvelteKit. It resolves the server and router modules of
+option as for SvelteKit. It resolves the server and router modules of
 TanStack Start for React or Solid, whichever the project has.
 
 ```ts title="vite.config.ts"
@@ -172,12 +175,11 @@ function flags(options?: FlagsVitePluginOptions): Plugin;
 
 | Option            | Type                                       | Description                                                                                                                                                    |
 | ----------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `binding`         | `string`                                   | The module behind `flags/framework`, resolved from the project. With it, the plugin also points `flags/config` to `flags/config.ts`.                           |
+| `binding`         | `string`                                   | The module behind `flags/framework`, resolved from the project. With it, the plugin also points `flags/hooks`, `flags/overrides` and `flags/settings` to the files of the folder `flags`. |
 | `bundle`          | `readonly string[]`                        | More packages to bundle into the server code, e.g. the package of the binding. `flags` is always bundled when there is a binding.                              |
 | `dedupe`          | `readonly string[]`                        | Packages that the binding imports and that must be the copy of the project, e.g. `@sveltejs/kit` (`resolve.dedupe`).                                           |
 | `projectModules`  | `Readonly<Record<string, readonly string[]>>` | Modules that the binding imports, resolved to the first candidate the project has.                                                                          |
 | `disableCodeGeneration` | `boolean`                            | Turns off the code generation. By default, the plugin generates the modules of `flags:<source>` and `flags/generated.d.ts` from the catalogs of `flags/sources/<source>/`, one time for a build and after each change for the dev server, and points the aliases `flags:<source>` to them. Also for other Vite setups. |
-| `disableSelfSource` | `boolean`                                | Turns off the default source `self`. By default, an application which depends on `@vercel/flags-core` has the source `self` with the flags of its Vercel project, also without `flags/sources/self/`. The code generation then loads these flags from Vercel Flags. |
 | `manifest`        | `boolean`                                  | Whether a build writes `flags-manifest.json`. The default is `true`.                                                                                           |
 | `root`            | `string`                                   | The directory of the project. The default is the root of Vite.                                                                                                 |
 
@@ -204,7 +206,6 @@ manifest in development.
 function startCodeGeneration(
   dir: string,
   watch: boolean,
-  options?: GenerateOptions,
 ): CodeGeneration;
 function resolveAliases(dir: string, aliases: FlagsAliases): Record<string, string>;
 ```
@@ -212,8 +213,7 @@ function resolveAliases(dir: string, aliases: FlagsAliases): Record<string, stri
 The code generation of the plugin, for plugins of other
 bundlers, e.g. the Nuxt module. `startCodeGeneration` generates the modules
 one time (`watch: false`), or again after each change of a catalog
-(`watch: true`). `options` are the `GenerateOptions` of `flags/tooling`,
-e.g. `{ disableSelfSource: true }`. Its `CodeGeneration` has `ready`, a promise of the aliases
+(`watch: true`). It reads `selfSource` of `flags/config.json` itself. Its `CodeGeneration` has `ready`, a promise of the aliases
 when the first modules exist, and `stop()`. `resolveAliases` turns the
 aliases into absolute paths, e.g. `{ 'flags:self': '/app/.flags/self.ts' }`.
 
@@ -234,7 +234,7 @@ rethrow so that an `HTTPException` reaches Hono unchanged, also from
 
 | Option   | Type     | Description                                                                                                             |
 | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `config` | `Config` | The configuration, e.g. the `config` export of `flags/config.ts`. The middleware passes it to `runtime.configure` once. |
+| `config` | `Config` | The configuration, e.g. `{ hooks }` with the default export of `flags/hooks.ts`. The middleware passes it to `runtime.configure` once. |
 
 Hono often runs without a bundler, so the configuration is an option, not an
 alias.
@@ -244,10 +244,10 @@ import { flags } from '@flags-sdk/hono';
 import { evaluate } from 'flags';
 import { Hono } from 'hono';
 import { bannerText, summerSale } from './flags';
-import { config } from './flags/config';
+import hooks from './flags/hooks';
 
 const app = new Hono();
-app.use(flags({ config }));
+app.use(flags({ config: { hooks } }));
 
 app.get('/', async (c) => {
   const [sale, banner] = await evaluate([summerSale, bannerText]);
@@ -273,16 +273,16 @@ handlers, which pass them to `next` as usual.
 
 | Option   | Type     | Description                                                                                                             |
 | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `config` | `Config` | The configuration, e.g. the `config` export of `flags/config.ts`. The middleware passes it to `runtime.configure` once. |
+| `config` | `Config` | The configuration, e.g. `{ hooks }` with the default export of `flags/hooks.ts`. The middleware passes it to `runtime.configure` once. |
 
 ```ts title="src/server.ts"
 import { flags } from '@flags-sdk/express';
 import express from 'express';
 import { newCheckout } from './flags';
-import { config } from './flags/config';
+import hooks from './flags/hooks';
 
 const app = express();
-app.use(flags({ config }));
+app.use(flags({ config: { hooks } }));
 
 app.get('/', async (_request, response) => {
   response.json({ checkout: await newCheckout() });

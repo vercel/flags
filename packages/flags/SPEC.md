@@ -52,10 +52,10 @@ writes a deployment adapter.
    each create a part of the context (see "Evaluation context chain").
 6. Done: overrides. Override cookies, trusted with the shared secret
    `FLAGS_SECRET` (the format of v4) or signed by Vercel (see "Overrides").
-7. Done: configuration. `runtime.configure` with the optional
-   `flags/config.ts`: hooks and overrides. There is no default source: each
-   flag of a provider names its source (see "Configuration" and "No default
-   source").
+7. Done: configuration. `runtime.configure` with the optional files
+   `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`. There is
+   no default source: each flag of a provider names its source (see
+   "Configuration" and "No default source").
 8. Done: flag value types. Boolean, string, number and object flags, with
    typed default values, options and overrides (see "Flag value types").
 9. Done: Next.js. `@flags-sdk/next/plugin` and `@flags-sdk/next/binding`, tested in
@@ -84,7 +84,7 @@ writes a deployment adapter.
     `validateFlagsManifest` of `flags/manifest` checks a manifest. The provider contract is
     OpenFeature, so the standard of this SDK is the contract between
     frameworks and the SDK: `FlagsRequestInit`, the lifecycle,
-    `flags/config.ts`, and the format of discovery.
+    the configuration files, and the format of discovery.
 15. Done: one standard with sources. "Source" becomes "source"
     (`defineSource`, `bindFlag`), and code generation from catalogs
     (`flags:<source>`) in each framework with a bundler. The plan is in
@@ -238,7 +238,15 @@ through its own package name, and the build of the SDK keeps these imports:
 | Module            | Default              | Replaced by                                             |
 | ----------------- | -------------------- | ------------------------------------------------------- |
 | `flags/framework` | no framework binding | a framework plugin, e.g. with `@flags-sdk/next/binding` |
-| `flags/config`    | no configuration     | a framework plugin, with `flags/config.ts`              |
+| `flags/hooks`     | no hooks             | a framework plugin, with `flags/hooks.ts`               |
+| `flags/overrides` | no options           | a framework plugin, with `flags/overrides.ts`           |
+| `flags/settings`  | the defaults         | a framework plugin, with `flags/config.json`            |
+
+`flags/config` is not replaced. It exports `configFromModules`, which builds
+the `Config` object from the three modules (see "Configuration"). The
+binding imports the three modules itself: it is bundled, so the aliases
+apply to its imports, also when a framework loads `flags` from
+`node_modules`, e.g. Nitro in `nuxt dev`.
 
 A bundler can put more than one copy of the package into one process, e.g.
 one copy for each layer of Next.js. Thus, the state is on `globalThis`, under
@@ -566,8 +574,8 @@ OpenFeature:
 
 | OpenFeature   | This SDK                                  |
 | ------------- | ----------------------------------------- |
-| API           | `hooks` of the configuration              |
-| Client        | `hooks` of `defineSource`             |
+| API           | `hooks` of the configuration: `flags/hooks.ts` |
+| Client        | `hooks` of `defineSource`, or `flags/sources/<source>/hooks.ts` |
 | Invocation    | `flag({ hooks, hookHints })`, `evaluate`  |
 | Provider      | `provider.hooks`                          |
 
@@ -602,15 +610,18 @@ An application reports overrides with a hook, e.g. to the system of an
 experiment:
 
 ```ts
-export const config = defineConfig({
-  hooks: [
-    {
-      after(hookContext, details) {
-        if (details.reason === OVERRIDE_REASON) report(hookContext.flagKey);
-      },
+// flags/hooks.ts
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      if (details.reason === OVERRIDE_REASON) {
+        report(hookContext.flagKey);
+      }
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
 Without hooks, an override does not create the evaluation context, as
@@ -664,33 +675,63 @@ await track(launchdarkly, 'purchase', {
 ## Configuration
 
 `runtime.configure(config)` configures the SDK. The configuration is
-optional. By convention, it is the export `config` of `flags/config.ts`, and
-the framework binding calls `runtime.configure` with it. Without a
-framework, the application calls it at startup.
+optional. Each part has one optional file in the folder `flags` (in the
+directory of the application or in `src`). The framework binding loads the
+files, builds the configuration with `configFromModules` of `flags/config`,
+and calls `runtime.configure`
+with the result. Without a framework, the application calls it at startup.
+
+| File | Part of `Config` | Read by |
+| --- | --- | --- |
+| `flags/hooks.ts` | `hooks`: the default export, OpenFeature hooks for all flags (see "Hooks, events and tracking") | the application |
+| `flags/overrides.ts` | `overrides`: the default export, which override tokens the SDK accepts (see "Overrides") | the application |
+| `flags/config.json` | `settings`: the static settings (`Settings`) | the plugins, the CLI and the application |
+| `flags/sources/<source>/hooks.ts` | the hooks of one source, for `defineSource({ hooks })` | the application |
 
 ```ts
-// flags/config.ts
-import { defineConfig } from 'flags';
+// flags/hooks.ts
+import type { Hook } from 'flags';
 
-export const config = defineConfig({
-  hooks: [loggingHook],
-});
+const hooks: Hook[] = [loggingHook];
+
+export default hooks;
 ```
 
-- `overrides`: which override tokens the SDK accepts (see "Overrides").
-- `hooks`: OpenFeature hooks for all flags (see "Hooks, events and
-  tracking").
+```jsonc
+// flags/config.json
+{
+  "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
+  "selfSource": false
+}
+```
+
+- Each setting has exactly one place. The code files run only in the
+  application. Only the JSON file is static, so every tool can read it.
+  A source has the same split: `catalog.ts` at build time, and
+  `provider.ts`, `context.ts` and `hooks.ts` in the application.
+- `flags/overrides.ts` is code, so it can read the environment, e.g.
+  `secret: process.env.MY_SECRET`.
+- `settings`: the only setting is `selfSource` (a boolean, the default is
+  `true`, see "The default source `self`"). The check is strict: an unknown
+  key or a wrong type is an error, in the plugins, in the CLI and in
+  `runtime.configure`. `$schema` is allowed. The JSON Schema is
+  `https://flags-sdk.dev/schemas/config.v1.json`.
+- The plugins alias `flags/hooks`, `flags/overrides` and `flags/settings` to
+  the files (`findConfigModules` of `flags/tooling`). Without a file, the
+  alias is not set, and the empty module of `flags` applies.
+  `configFromModules` returns the same object while the files do not change, so
+  the runtime does not configure again in development without a change.
+- Frameworks without a bundler (Hono, Express, plain Node.js) call
+  `runtime.configure({ hooks, overrides })` themselves. They can read
+  `flags/config.json` themselves if necessary. `flags sync` and
+  `flags watch` read it anyway.
 - The configuration has no source. `defaultSource` throws: "The
   configuration has no defaultSource. Give each flag its source, e.g. with
   flags/sources/self."
 - `runtime.configure` validates the full configuration at once, and throws
   before it changes anything. A new call replaces the configuration, e.g.
   after a reload in development.
-- The convention has one name: `flags/config.ts` exports `config`, not a
-  default export. Two accepted names would be ambiguous.
-- `defineConfig(config)` returns the configuration as it is, with its exact
-  type (a `const` type parameter).
-- `test/register` checks the pattern of `flags/config.ts` with its own
+- `test/register` checks the pattern of `flags/hooks.ts` with its own
   TypeScript program, as part of `type-check`: a flag of a provider needs
   its source, and the configuration has no `defaultSource`.
 
@@ -763,9 +804,9 @@ The SDK needs no configuration:
 The SDK reads these environment variables when a token needs them, because
 they can change until then. An empty variable counts as missing.
 
-The option `overrides` of the configuration (see "Configuration") changes the
-defaults. The trust comes only from the options and the environment, never
-from the token.
+The default export of `flags/overrides.ts` (the option `overrides` of the
+configuration, see "Configuration") changes the defaults. The trust comes
+only from the options and the environment, never from the token.
 
 - `secret`: the shared secret. The default is `FLAGS_SECRET`. `false` accepts
   no tokens of the shared secret. An explicit secret that is not valid throws
@@ -1020,7 +1061,7 @@ provide the same itself.
 | --- | --- | --- |
 | `flags` | runtime, `defineFlag`, `bindFlag`, `defineSource`, overrides, `evaluate`, `track`, `flags/manifest`, `flags/tooling`, the command line `flags` | the application, and the framework packages |
 | `@flags-sdk/next` | `/binding`, `/plugin` (`withFlags`), `/precompute`, `/manifest` (the route), and the loaders of Turbopack | `next.config.ts`, `proxy.ts`, one route file |
-| `@flags-sdk/vite` | the generic Vite plugin: the binding, `flags/config.ts`, `'use flags'` modules, the manifest, the code generation | the framework packages for Vite |
+| `@flags-sdk/vite` | the generic Vite plugin: the binding, the configuration files, `'use flags'` modules, the manifest, the code generation | the framework packages for Vite |
 | `@flags-sdk/sveltekit` | `/binding`, `/vite` | `vite.config.ts` |
 | `@flags-sdk/nuxt` | the module, `/binding`, `/plugin` (Nitro) | `nuxt.config.ts` |
 | `@flags-sdk/tanstack-start` | `/binding`, `/vite` | `vite.config.ts` |
@@ -1036,9 +1077,9 @@ provide the same itself.
   only uses the public API of `flags`.
 - `flags/tooling` is the public API for framework packages and build tools:
   `findFlagsModules`, `hasUseFlagsDirective`, `addSelfRegistration`,
-  `writeManifestFromBuild`, `MANIFEST_FILE`, `findConfigFile`,
-  `optionIndex`, `registerFramework`, and the code generation:
-  `generateFlags`, `watchFlags`, `GenerateOptions`, `renderSourceModule`,
+  `writeManifestFromBuild`, `MANIFEST_FILE`, `findConfigModules`,
+  `readSettings`, `optionIndex`, `registerFramework`, and the code
+  generation: `generateFlags`, `watchFlags`, `renderSourceModule`,
   `findGeneratedDeclarations` and `GENERATED_DIRECTORY` (see "Code
   generation"). It is part of the
   contract of a framework binding.
@@ -1051,25 +1092,30 @@ provide the same itself.
 
 A framework binding connects the SDK to a framework. It has two parts:
 
-1. **A build plugin**, e.g. `withFlags` of `@flags-sdk/next/plugin`. It sets two
-   bundler aliases:
+1. **A build plugin**, e.g. `withFlags` of `@flags-sdk/next/plugin`. It sets
+   these bundler aliases:
    - `flags/framework` to the module of the binding, e.g. `@flags-sdk/next/binding`.
-   - `flags/config` to the `flags/config.ts` of the application, if it exists.
+   - `flags/hooks`, `flags/overrides` and `flags/settings` to
+     `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` of the
+     application, each only if the file exists.
 2. **The module of the binding** behind `flags/framework`. It exports
    `setupFramework(runtime)`, which the runtime calls one time, before the
    first evaluation and in `onInit`.
 
 The application does not import the module of the binding. The runtime
 imports `flags/framework` itself, so the binding works in each bundle
-that uses `flags`. Without a plugin, `flags/framework` and `flags/config`
-are empty modules.
+that uses `flags`. Without a plugin, `flags/framework`, `flags/hooks`,
+`flags/overrides` and `flags/settings` are empty modules.
 
 The module of the binding:
 
 - must not import `flags` statically, because `flags` imports it. It gets
   the runtime as an argument.
-- loads the configuration with a dynamic `import('flags/config')`, because
-  `flags/config.ts` imports `flags`.
+- loads the configuration with dynamic imports of `flags/hooks`,
+  `flags/overrides` and `flags/settings`, and builds it with
+  `configFromModules` of `flags/config`. The imports are dynamic because
+  `flags/hooks.ts` can import `flags`, and they are in the binding, so that
+  the aliases apply.
 - uses only the public API of the SDK, so that a framework can take it over,
   e.g. as its own module behind the same alias.
 
@@ -1084,7 +1130,8 @@ The module of the binding:
 - `setLoadConfig`: in production, the runtime calls it one time. In
   development (`NODE_ENV` is not `production`), it calls it before each
   evaluation, and configures again when it returns a different object. Thus,
-  a change of `flags/config.ts` applies without a restart. If the source
+  a change of `flags/hooks.ts`, `flags/overrides.ts` or
+  `flags/config.json` applies without a restart. If the source
   throws, the evaluation fails, and the next one tries again.
 - `setRethrow`: some frameworks use errors as signals, e.g. Next.js to stop
   the static rendering, or to postpone a part of a page. The SDK must never
@@ -1098,7 +1145,7 @@ The tasks of a binding:
 
 | Task                                   | With a framework                                                                            | Without a framework                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Load `flags/config.ts`                 | The plugin sets the alias of `flags/config`, the binding calls `setLoadConfig`           | `runtime.configure(config)` at startup                     |
+| Load the configuration files           | The plugin sets the aliases of the files, the binding calls `setLoadConfig`              | `runtime.configure({ hooks, overrides })` at startup       |
 | Give the request to the runtime        | `runtime.onInvoke(request, next)` in a middleware, or `setGetRequest`                    | `runtime.onInvoke` in a middleware                         |
 | Convert the request                    | The binding gives `FlagsRequestInit`, e.g. a Web `Request`                                  | The application converts it, e.g. Node.js headers          |
 | Let signals of the framework through   | `setRethrow`                                                                                | Not necessary                                              |
@@ -1108,7 +1155,8 @@ The tasks of a binding:
 
 Rules for each binding:
 
-- Use only the export `config` of `flags/config.ts`.
+- Use only the default exports of `flags/hooks.ts` and `flags/overrides.ts`,
+  and `flags/config.json`, through `configFromModules`.
 - Give the request as `FlagsRequestInit`. Give the same `headers` object
   during one request.
 - Set the aliases for each bundler that the framework supports. For
@@ -1143,7 +1191,7 @@ export default withFlags({ /* the configuration of Next.js */ });
 
 | Path                    | Content                                                          | Used by                    |
 | ----------------------- | ---------------------------------------------------------------- | -------------------------- |
-| `@flags-sdk/next/plugin`     | `withFlags(nextConfig, { dir?, disableCodeGeneration?, disableSelfSource? })`, the build plugin | `next.config.ts`        |
+| `@flags-sdk/next/plugin`     | `withFlags(nextConfig, { dir?, disableCodeGeneration? })`, the build plugin | `next.config.ts`        |
 | `@flags-sdk/next/binding`            | `setupFramework`, the module of the binding                     | the alias, not the app     |
 | `@flags-sdk/next/precompute` | precompute, for the transition (milestone 11)                     | the proxy and pages        |
 
@@ -1151,8 +1199,8 @@ export default withFlags({ /* the configuration of Next.js */ });
   supports only Turbopack: its `webpack` function throws, so a build with
   `--webpack` stops with a clear error. It keeps the aliases and the rules
   of the application. It finds
-  `flags/config.ts` (`.ts`, `.mts`, `.js` or `.mjs`) in the directory of the
-  application or in `src`.
+  `flags/hooks.ts`, `flags/overrides.ts` (`.ts`, `.mts`, `.js` or `.mjs`) and
+  `flags/config.json` in the directory of the application or in `src`.
 - The request: no middleware wraps the rendering, but `headers()` returns the
   same object during one request. Thus, `@flags-sdk/next/binding` uses
   `runtime.setGetRequest` with `headers()` and `cookies()`. The test shows
@@ -1175,14 +1223,15 @@ export default withFlags({ /* the configuration of Next.js */ });
 
 `tests/standard/next` tests the binding with a build of Turbopack.
 `pnpm test:e2e` runs the tests with HTTP requests, without a browser. `next dev` was also
-tested by hand, with a change of `flags/config.ts` during the run.
+tested by hand, with a change of the configuration during the run.
 
 **SvelteKit** (done). Package: `@flags-sdk/sveltekit`. Guide:
 `../framework-sveltekit/README.md`.
 
 - `flags()` of `@flags-sdk/sveltekit/vite` uses `@flags-sdk/vite` with the
   binding `@flags-sdk/sveltekit/binding`. The plugin resolves the binding
-  from the project, points `flags/config` to `flags/config.ts`, and bundles
+  from the project, points `flags/hooks`, `flags/overrides` and
+  `flags/settings` to the files of the application, and bundles
   `flags` and `@flags-sdk/sveltekit` into the server code
   (`ssr.noExternal`), so that the aliases reach the SDK.
 - The request: `getRequestEvent()` of `$app/server` (SvelteKit 2.20 or
@@ -1347,7 +1396,7 @@ By convention, the main source of an application is `flags/sources/self`,
 imported as `flags:self`. An application with more sources adds more
 directories, e.g. `flags/sources/shop` for `flags:shop`. The folder `flags`
 is in the directory of the application, or else in `src`, as for
-`flags/config.ts`. Without `flags/sources` and without the default source
+`flags/hooks.ts`. Without `flags/sources` and without the default source
 `self` (see below), the generation writes nothing.
 
 `catalog.ts` and the files which it imports can use relative imports
@@ -1359,13 +1408,15 @@ imports need the `.ts` extension.
 ### The files of a source
 
 Each source is a directory `flags/sources/<source>`, with `catalog.ts` and
-`provider.ts`, and an optional `context.ts`. Each file has a default export:
+`provider.ts`, and an optional `context.ts` and `hooks.ts`. Each file has a
+default export:
 
 | File | Default export | Runs |
 | --- | --- | --- |
 | `catalog.ts` | A `CatalogLoader`: returns one `Catalog`, or yields a complete `Catalog` first and again after each change | In Node.js, at the generation only |
 | `provider.ts` | The OpenFeature provider | In the application |
 | `context.ts` (optional) | `getEvaluationContext(request, input)`, as for `defineSource` | In the application |
+| `hooks.ts` (optional) | The OpenFeature hooks of the source, for `defineSource({ hooks })` | In the application |
 
 Without `context.ts`, the source has no `getEvaluationContext`: the
 provider gets only the evaluation context of the call side, and the flags
@@ -1398,7 +1449,7 @@ it, there is no `flags:self` of its own, no network request, and no file.
 - Each other source, and `self` without `@vercel/flags-core`, needs
   `provider.ts` and `catalog.ts`.
 - Without `flags/sources`, the types go into a folder `flags` which
-  exists (in the root or in `src`, e.g. with `flags/config.ts`). Without
+  exists (in the root or in `src`, e.g. with `flags/hooks.ts`). Without
   one, they go to `src/flags/generated.d.ts` if the application has `src`,
   else to `flags/generated.d.ts`, and the generation creates the folder.
   It removes a `generated.d.ts` with its own header from the other place,
@@ -1410,16 +1461,16 @@ it, there is no `flags:self` of its own, no network request, and no file.
   credentials, the source has no flags, and the SDK warns:
 
   ```txt
-  flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: … Run `vercel link` and `vercel env pull`, or set disableSelfSource.
+  flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: … Run `vercel link` and `vercel env pull`, or set `"selfSource": false` in flags/config.json.
   ```
 
   The generation does not fail. An
   import of a flag of `flags:self` then fails the type check. A
   `catalog.ts` of the application still fails the generation.
-- `disableSelfSource: true` in each plugin, and `--disable-self-source` for
-  `flags sync` and `flags watch`, turn it off. The option also avoids the
-  network requests of the generation. An application which depends on
-  `@vercel/flags-core` and writes its sources by hand sets it.
+- `"selfSource": false` in `flags/config.json` turns it off. It is the only
+  opt-out: the plugins, `flags sync` and `flags watch` read the file. It
+  also avoids the network requests of the generation. An application which
+  depends on `@vercel/flags-core` and writes its sources by hand sets it.
 
 ### The generated module
 
@@ -1472,9 +1523,9 @@ catalog: OpenFeature providers do not give their project.
 
 ### The commands
 
-- `flags sync [dir] [--production] [--disable-self-source]` generates one time, from the first
+- `flags sync [dir] [--production]` generates one time, from the first
   catalog of each source, and closes the catalogs.
-- `flags watch [dir] [--production] [--disable-self-source] [-- command ...args]` generates again
+- `flags watch [dir] [--production] [-- command ...args]` generates again
   after each change of a catalog. It starts the command after the first
   generation, and stops when the command ends, or on SIGINT and SIGTERM.
   A change of a file of a source needs a restart.
@@ -1486,8 +1537,8 @@ catalog: OpenFeature providers do not give their project.
 ### In the frameworks
 
 Each framework with a bundler generates the code by default, and has the
-option `disableCodeGeneration` to turn it off, and `disableSelfSource` to
-turn off only the default source `self`. Its build plugin generates `.flags/<source>.ts` one time for a build, and watches the
+option `disableCodeGeneration` to turn it off. `"selfSource": false` in
+`flags/config.json` turns off only the default source `self`. Its build plugin generates `.flags/<source>.ts` one time for a build, and watches the
 catalogs in development. It adds the aliases `flags:<source>` to the
 bundler.
 
@@ -1593,7 +1644,7 @@ build of the application.
    fields of `project`, without `system` and `systemManifest`). The
    definitions refer to it by an id: the system, and a number if two
    sources have the same system. Two source objects with the same
-   project are one source. The Next.js route loads `flags/config.ts`
+   project are one source. The Next.js route loads the configuration
    first (`runtime.prepare()`).
 2. Vercel Flags uses the platform project of Vercel as its flag project.
    Thus, its variables `projectId`, `environment` and `teamId` come from
@@ -1779,7 +1830,7 @@ Not decided yet.
   application.
 - **Tracing** with OpenTelemetry, as v4 had, e.g. as a hook.
 - **More checks in the conformance suite:** `onInit` and `onShutdown`, and
-  the reload of `flags/config.ts` in development.
+  the reload of the configuration files in development.
 - **More frameworks:** Astro, React Router, Remix.
 - **A security review** of the overrides and of the precompute codes.
 

@@ -1,7 +1,7 @@
 # @flags-sdk/tanstack-start
 
 The TanStack Start package of the [Flags SDK](../flags). It connects the SDK
-to TanStack Start: the current request, `flags/config.ts`, the signals of
+to TanStack Start: the current request, the configuration files, the signals of
 TanStack Router, discovery for Flags Explorer, and code generation.
 
 ```ts
@@ -51,22 +51,30 @@ export default defineConfig({
 
 That is the only required step.
 
-### 2️⃣ Optional: `flags/config.ts`
+### 2️⃣ Optional: the configuration files
 
 You do not need a configuration file: each flag names its source, and
-overrides work with `FLAGS_SECRET`, or on Vercel, without one. Add
-`flags/config.ts` (or `src/flags/config.ts`), next to `flags/sources`, for
-settings of all flags: OpenFeature `hooks`, and the options of `overrides`.
-It has no source. The Vite plugin loads it automatically.
+overrides work with `FLAGS_SECRET`, or on Vercel, without one. The folder `flags` (or `src/flags`),
+next to `flags/sources`, can have one file for each part of the
+configuration of all flags. None of them has a source:
+
+- `flags/hooks.ts`: the OpenFeature hooks for all flags, as the default
+  export.
+- `flags/overrides.ts`: the options of the overrides, as the default export.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
+
+The Vite plugin loads them automatically. In development, a change applies without a restart.
 
 ```ts
-// flags/config.ts
-import { defineConfig } from 'flags';
+// flags/hooks.ts
+import type { Hook } from 'flags';
 
-export const config = defineConfig({
-  hooks: [myLoggingHook],
-});
+const hooks: Hook[] = [myLoggingHook];
+
+export default hooks;
 ```
+
+See [Configuration](https://flags-sdk.dev/docs/flags/configuration).
 
 ## Usage
 
@@ -108,7 +116,7 @@ export default defineConfig({
 ```
 
 - Each source is a directory `flags/sources/<source>` with `catalog.ts`,
-  `provider.ts` and an optional `context.ts`. By convention, the main source of the
+  `provider.ts`, and an optional `context.ts` and `hooks.ts`. By convention, the main source of the
   application is `flags/sources/self`.
 - With `@vercel/flags-core` in the dependencies, the source `self` is the
   default source of Vercel Flags, also without `flags/sources/self`:
@@ -116,7 +124,7 @@ export default defineConfig({
   Each file in `flags/sources/self` replaces its part, e.g.
   `context.ts` adds an evaluation context. Without the credentials of
   `vercel env pull`, `flags:self` has no flags and the SDK warns. To turn
-  the default source off, use `flags({ disableSelfSource: true })`.
+  the default source off, set `"selfSource": false` in `flags/config.json`.
 - The plugin generates `.flags/<source>.ts` one time for `vite build`, and
   watches the catalogs in `vite dev`. It adds the aliases
   `flags:<source>`:

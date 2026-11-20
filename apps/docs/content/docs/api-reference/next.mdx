@@ -61,7 +61,9 @@ adds:
   SDK the current request (`headers()`, `cookies()`, and `connection()`),
   passes the signals of Next.js through `unstable_rethrow`, and loads the
   configuration.
-- The alias `flags/config` to `flags/config.ts`, if it exists.
+- The aliases `flags/hooks` to `flags/hooks.ts`, `flags/overrides` to
+  `flags/overrides.ts` and `flags/settings` to `flags/config.json`, for each
+  file that exists.
 - The self-registration of each `'use flags'` module.
 - The modules of the route `@flags-sdk/next/manifest`, and
   `flags-manifest.json` in `distDir` after `next build`.
@@ -75,9 +77,8 @@ It supports only Turbopack. A build with webpack throws.
 
 | Option                  | Type      | Description                                                                                                                                                                              |
 | ----------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dir`                   | `string`  | The directory of the application, where the plugin looks for `flags/config.ts` and `flags/sources` (also in `src`). The default is the current directory.                                 |
+| `dir`                   | `string`  | The directory of the application, where the plugin looks for the files of the folder `flags` and for `flags/sources` (also in `src`). The default is the current directory.                                 |
 | `disableCodeGeneration` | `boolean` | Turns off the code generation of `flags:<source>`. For a configuration object, `withFlags` then returns the object, not a function of the phase. The default is `false`.                 |
-| `disableSelfSource`     | `boolean` | Turns off the default source `self`, the flags of your Vercel project for an application which depends on `@vercel/flags-core`. Also stops the requests of the code generation to Vercel Flags. The default is `false`. |
 
 By default, `withFlags` generates the modules of `flags:<source>` from the
 catalogs of `flags/sources/<source>`: once for `next build`, and again after
@@ -156,12 +157,15 @@ export default withFlags({}, { disableCodeGeneration: true });
 
 To keep the code generation of `flags/sources`, but turn off the default
 source `self`, e.g. if you depend on `@vercel/flags-core` and write the
-source of Vercel Flags by hand:
+source of Vercel Flags by hand, set `selfSource` in `flags/config.json`. This
+also stops the requests of the code generation to Vercel Flags. See
+[Configuration](/docs/flags/configuration#flagsconfigjson).
 
-```ts title="next.config.ts"
-import { withFlags } from '@flags-sdk/next/plugin';
-
-export default withFlags({}, { disableSelfSource: true });
+```json title="flags/config.json"
+{
+  "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
+  "selfSource": false
+}
 ```
 
 With `disableCodeGeneration`, `withFlags` still reads `.flags/aliases.json`, e.g.
@@ -404,7 +408,8 @@ The framework binding of Next.js, of type `SetupFramework`. `withFlags` points
    turn into the default value.
 2. Sets `runtime.setRethrow` to `unstable_rethrow` of Next.js, so `redirect()`,
    `notFound()` and "Dynamic server usage" reach Next.js.
-3. Sets `runtime.setLoadConfig` to load `flags/config.ts`.
+3. Sets `runtime.setLoadConfig` to `loadConfig` of `flags/config`, which
+   loads `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`.
 
 Server components only have `headers()` and `cookies()`, so `request.url` is
 `undefined` in the evaluation context chain.

@@ -3,7 +3,7 @@ title: Next.js
 description: Set up the Flags SDK in a Next.js App Router project with one line in next.config.ts.
 ---
 
-`@flags-sdk/next` connects the Flags SDK to Next.js. It gives each flag the request of the page, loads `flags/config.ts`, lets Next.js signals pass through, generates the modules of `flags:<source>`, registers your flags for Flags Explorer, and adds [precompute](/docs/frameworks/next/precompute) for static pages with flags. You add one plugin to `next.config.ts`. Your pages import only `flags` and your flags.
+`@flags-sdk/next` connects the Flags SDK to Next.js. It gives each flag the request of the page, loads the configuration files of the folder `flags`, lets Next.js signals pass through, generates the modules of `flags:<source>`, registers your flags for Flags Explorer, and adds [precompute](/docs/frameworks/next/precompute) for static pages with flags. You add one plugin to `next.config.ts`. Your pages import only `flags` and your flags.
 
 **Requirements:** Next.js 15.4 or newer with the App Router and Turbopack, and Node.js 20.19, or 22.12 or newer.
 
@@ -39,7 +39,7 @@ export default withFlags({
   See [With other plugins](/docs/api-reference/next#with-other-plugins).
 </Callout>
 
-If `flags/config.ts` is not in the app directory or in its `src` folder, pass the directory: `withFlags({}, { dir: '/path/to/the/app' })`.
+If the folder `flags` is not in the app directory or in its `src` folder, pass the directory: `withFlags({}, { dir: '/path/to/the/app' })`.
 
 ### 3. Create the flag in Vercel
 
@@ -154,24 +154,30 @@ Set the cookie `beta=1` to see the beta banner.
 
   To evaluate several flags in the proxy and render static pages, use [precompute](/docs/frameworks/next/precompute).
 
-## Optional: `flags/config.ts`
+## Optional: the configuration files
 
-You do not need a configuration file. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
+You do not need configuration files. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without them.
 
-Add `flags/config.ts`, next to `flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, or the options of overrides. The `withFlags` plugin loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
+Add a file to the folder `flags`, next to `flags/sources`, when you want settings for all flags:
 
-```ts title="flags/config.ts"
-import { defineConfig } from 'flags';
+- `flags/hooks.ts`: OpenFeature hooks for every flag, as the default export.
+- `flags/overrides.ts`: the options of overrides, as the default export.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after: (context, details) => {
-        console.log(`${context.flagKey} = ${JSON.stringify(details.value)}`);
-      },
+The `withFlags` plugin loads the files automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
+
+```ts title="flags/hooks.ts"
+import type { Hook } from 'flags';
+
+const hooks: Hook[] = [
+  {
+    after: (context, details) => {
+      console.log(`${context.flagKey} = ${JSON.stringify(details.value)}`);
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
 See [Configuration](/docs/flags/configuration) for all options.
@@ -193,7 +199,7 @@ To show the values of a request in Flags Explorer and in Vercel Web Analytics, r
 
 ## Without code generation
 
-You can also write the source and its flags by hand, e.g. if you prefer code to the folder of a source. Use `defineSource` and `bindFlag`. Without a folder `flags/sources` and without `@vercel/flags-core`, the code generation writes nothing. With `@vercel/flags-core`, use `withFlags({}, { disableSelfSource: true })`, so that the plugin does not generate the default source `self`. To turn off all code generation, use `withFlags({}, { disableCodeGeneration: true })`.
+You can also write the source and its flags by hand, e.g. if you prefer code to the folder of a source. Use `defineSource` and `bindFlag`. Without a folder `flags/sources` and without `@vercel/flags-core`, the code generation writes nothing. With `@vercel/flags-core`, set `"selfSource": false` in `flags/config.json`, so that the plugin does not generate the default source `self`. To turn off all code generation, use `withFlags({}, { disableCodeGeneration: true })`.
 
 ```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -335,10 +341,10 @@ The tests need the same `FLAGS_SECRET` as the app. To load it from your `.env` f
 
 ## How it works
 
-`withFlags` sets two Turbopack aliases: `flags/framework` points to `@flags-sdk/next/binding`, and `flags/config` points to your `flags/config.ts`. It also points each `flags:<source>` to its module in `.flags`. Before the first evaluation, the SDK calls the binding, which sets three things:
+`withFlags` sets Turbopack aliases: `flags/framework` points to `@flags-sdk/next/binding`, and `flags/hooks`, `flags/overrides` and `flags/settings` point to your `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`, if they exist. It also points each `flags:<source>` to its module in `.flags`. Before the first evaluation, the SDK calls the binding, which sets three things:
 
 1. **The request.** It reads `headers()` and `cookies()`. `headers()` returns the same object for one request, so the SDK uses it to find the per-request cache. The binding also waits for `connection()`.
 2. **The rethrow.** It passes errors to `unstable_rethrow`, so that Next.js signals pass through.
-3. **The config.** It imports `flags/config.ts`: one time in production, and before each evaluation in development.
+3. **The config.** It loads `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` and builds the configuration with `configFromModules` of `flags/config`: one time in production, and before each evaluation in development.
 
 Next.js can put more than one copy of the SDK into one process, one for each layer. All copies share one runtime through `globalThis`, so they share the configuration, the providers and their clients. The binding follows the [Flags SDK standard](/docs/standard/framework-bindings).

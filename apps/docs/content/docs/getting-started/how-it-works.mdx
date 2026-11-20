@@ -85,7 +85,7 @@ There is one runtime for each process, shared by all copies of the `flags` packa
 The runtime needs the current request: its headers, cookies and URL. Each framework gives it in a different way. A framework binding connects the two:
 
 - It gives the runtime the current request, either with a middleware (`runtime.onInvoke(request, next)`) or with a function that reads the request at any time.
-- It loads the optional [`flags/config.ts`](/docs/flags/configuration).
+- It loads the optional [configuration files](/docs/flags/configuration) of the folder `flags`, e.g. `flags/hooks.ts`.
 - It lets the signals of the framework through, e.g. `redirect()` and `notFound()` in Next.js.
 - It registers the modules with the `'use flags'` directive, and writes the [flags manifest](/docs/tooling/flags-manifest) for tools.
 

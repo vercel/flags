@@ -88,13 +88,21 @@ time for each request and input.
 
 ## 4. The replaceable modules
 
-The runtime imports two modules through the name of its own package. A
+The runtime imports these modules through the name of its own package. A
 build plugin replaces them.
 
 | Module | Default | Replaced by |
 | --- | --- | --- |
 | `flags/framework` | no binding | the framework binding (section 5) |
-| `flags/config` | no configuration | `flags/config.ts` of the application (section 6) |
+| `flags/hooks` | no hooks | `flags/hooks.ts` of the application (section 6) |
+| `flags/overrides` | no options | `flags/overrides.ts` of the application (section 6) |
+| `flags/settings` | the defaults | `flags/config.json` of the application (section 6) |
+
+The module `flags/config` exports `configFromModules`. It builds the
+`Config` object `{ hooks?, overrides?, settings? }` from the modules
+`flags/hooks`, `flags/overrides` and `flags/settings`. A build plugin MUST
+NOT replace it. The binding MUST import the three modules itself, so that
+the aliases apply to the imports of bundled code.
 
 ### 4.1 Replacement
 
@@ -164,7 +172,23 @@ redirect. These are **signals**.
 ### 5.3 The config source
 
 A framework with a bundler MUST call `runtime.setLoadConfig(source)`,
-where `source` returns the export `config` of `flags/config`.
+where `source` imports the three modules and returns the result of
+`configFromModules` of `flags/config`:
+
+```ts
+runtime.setLoadConfig(async () => {
+  // Import the files in the binding, which the bundler builds, so that
+  // the aliases of the plugin apply
+  const { configFromModules } = await import('flags/config');
+  return configFromModules(
+    await Promise.all([
+      import('flags/hooks'),
+      import('flags/overrides'),
+      import('flags/settings'),
+    ]),
+  );
+});
+```
 
 - In development, the runtime calls the source before each evaluation, and
   applies a new configuration. In production, it calls it one time.
@@ -185,15 +209,28 @@ evaluation belongs to the request.
   application evaluates the flag outside, and passes the value into the
   cache scope.
 
-## 6. `flags/config.ts`
+## 6. The configuration files
 
-- The file is OPTIONAL. It has the settings for all flags: `hooks` and
-  `overrides`. It has no source.
-- The file MUST be named `flags/config.ts`, `flags/config.mts`,
-  `flags/config.js` or `flags/config.mjs`, in the directory of the
-  application or in its `src` directory.
-- The configuration MUST be the named export `config`. A default export
-  MUST NOT be read.
+The folder `flags` of the application has one OPTIONAL file for each part
+of the configuration. The configuration has no source.
+
+| File | Contains | Module |
+| --- | --- | --- |
+| `flags/hooks.ts` | The default export: the hooks for all flags | `flags/hooks` |
+| `flags/overrides.ts` | The default export: the override options (`OverridesOptions`) | `flags/overrides` |
+| `flags/config.json` | The static settings (`Settings`) | `flags/settings` |
+
+- The folder `flags` MUST be in the directory of the application or in its
+  `src` directory. An implementation MUST look in the directory first.
+- `flags/hooks.ts` and `flags/overrides.ts` MAY also end in `.mts`, `.js`
+  or `.mjs`.
+- A build plugin MUST set the alias of a module only if its file exists
+  (`findConfigModules` of `flags/tooling`). Without the file, the module of
+  `flags` is empty.
+- `flags/config.json` is static. The build plugins, the CLI and the runtime
+  MUST read the same file. An unknown key or a value of the wrong type MUST
+  be an error. The key `$schema` is allowed. The JSON Schema is
+  `https://flags-sdk.dev/schemas/config.v1.json`.
 - A framework without a bundler MUST let the application give the
   configuration, e.g. as an option of a middleware, and give it to
   `runtime.configure(config)`.

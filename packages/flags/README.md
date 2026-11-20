@@ -105,8 +105,8 @@ import { withFlags } from '@flags-sdk/next/plugin';
 export default withFlags({});
 ```
 
-The framework package gives the SDK the current request, loads
-`flags/config.ts`, and lets the signals of the framework through, e.g. a
+The framework package gives the SDK the current request, loads the
+configuration files of the folder `flags`, and lets the signals of the framework through, e.g. a
 redirect.
 
 ### 2️⃣ Connect your flag management system
@@ -176,8 +176,9 @@ TL;DR:
 - The framework package connects the SDK to the request, one time.
 - A source connects the flags to your flag management system.
 - Your code defines flags and calls them.
-- Optional: `flags/config.ts` holds settings for all flags: hooks and
-  overrides.
+- Optional: the folder `flags` holds the configuration for all flags:
+  `flags/hooks.ts` (hooks), `flags/overrides.ts` (overrides) and
+  `flags/config.json` (static settings).
 
 ## Flags
 
@@ -295,8 +296,16 @@ context. Each other source needs `provider.ts` and `catalog.ts`.
 
 Run `vercel link` and `vercel env pull` for the credentials. Without them,
 `flags:self` has no flags, and the SDK warns. To turn off the default source,
-use `disableSelfSource: true` in the plugin, or
-`flags sync --disable-self-source`.
+set `"selfSource": false` in `flags/config.json`:
+
+```json
+{
+  "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
+  "selfSource": false
+}
+```
+
+The framework plugins, `flags sync` and `flags watch` read this file.
 
 ## Overrides
 
@@ -313,6 +322,10 @@ import { encryptOverrides } from 'flags';
 
 const cookie = await encryptOverrides({ 'summer-sale': true }); // e.g. in a test
 ```
+
+To change which cookies the SDK accepts, export the options
+(`OverridesOptions`) from `flags/overrides.ts`. See
+[Configuration](https://flags-sdk.dev/docs/flags/configuration).
 
 ## Flag values in the page
 
@@ -341,22 +354,26 @@ const content = serializeFlagValues(await encryptFlagValues(values));
 The SDK runs the OpenFeature parts which the OpenFeature client usually runs:
 
 ```ts
-// flags/config.ts
-import { defineConfig, OVERRIDE_REASON } from 'flags';
+// flags/hooks.ts
+import { type Hook, OVERRIDE_REASON } from 'flags';
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after(hookContext, details) {
-        if (details.reason === OVERRIDE_REASON) report(hookContext.flagKey);
-      },
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      if (details.reason === OVERRIDE_REASON) {
+        report(hookContext.flagKey);
+      }
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
-- **Hooks** of the configuration, of a source, of a call, and of the
-  provider. An override has the reason `OVERRIDE`.
+- **Hooks** run in this order: `flags/hooks.ts` (all flags), the source
+  (`defineSource({ hooks })` or `flags/sources/<source>/hooks.ts`), the call
+  (`evaluate(..., { hooks })`), and the provider (`provider.hooks`). An
+  override has the reason `OVERRIDE`.
 - **Events:** `runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', handler)`.
 - **Tracking:** `await track(self, 'purchase', { details: { value: 99 } })`.
   `track` needs the source.
@@ -379,9 +396,10 @@ secrets.
 
 ```ts
 import { runtime } from 'flags';
-import { config } from './flags/config';
+import hooks from './flags/hooks';
+import overrides from './flags/overrides';
 
-runtime.configure(config);
+runtime.configure({ hooks, overrides });
 await runtime.onInit(); // optional: initialize the providers at startup
 
 // For each request, e.g. in a middleware

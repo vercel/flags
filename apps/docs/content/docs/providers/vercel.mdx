@@ -96,7 +96,7 @@ Toggle the flag for the development environment in the dashboard, and reload the
 
 ### Without code generation
 
-Without a bundler, e.g. with Hono, Express or plain Node.js, or if you prefer to write the code, define the source and the flags by hand. The generated code is the same. With a framework plugin, also set `disableSelfSource: true`, e.g. `withFlags({}, { disableSelfSource: true })`, so that the plugin does not load the flags of Vercel Flags for the default source:
+Without a bundler, e.g. with Hono, Express or plain Node.js, or if you prefer to write the code, define the source and the flags by hand. The generated code is the same. With a framework plugin, also set `"selfSource": false` in [`flags/config.json`](/docs/flags/configuration#flagsconfigjson), so that the plugin does not load the flags of Vercel Flags for the default source:
 
 ```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -129,7 +129,7 @@ export const summerSale = bindFlag({
 
 ## Replace a part of the source
 
-Each file in `flags/sources/self/` replaces its part of the default source: `context.ts` the evaluation context, `provider.ts` the provider, and `catalog.ts` the catalog. The other parts stay the defaults. The next sections show each part.
+Each file in `flags/sources/self/` replaces its part of the default source: `context.ts` the evaluation context, `provider.ts` the provider, and `catalog.ts` the catalog. `hooks.ts` adds OpenFeature hooks for the flags of the source. The other parts stay the defaults. The next sections show each part.
 
 ## Targeting
 

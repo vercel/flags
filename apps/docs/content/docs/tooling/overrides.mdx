@@ -25,20 +25,20 @@ Overrides work the same for [inline flags](/docs/flags/inline-flags) and for [pr
 
 React to overrides with a hook, e.g. to report them:
 
-```ts title="flags/config.ts"
-import { defineConfig, OVERRIDE_REASON } from 'flags';
+```ts title="flags/hooks.ts"
+import { type Hook, OVERRIDE_REASON } from 'flags';
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after(hookContext, details) {
-        if (details.reason === OVERRIDE_REASON) {
-          console.log(`Override of ${hookContext.flagKey}: ${details.value}`);
-        }
-      },
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      if (details.reason === OVERRIDE_REASON) {
+        console.log(`Override of ${hookContext.flagKey}: ${details.value}`);
+      }
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
 ## Which cookies the SDK accepts
@@ -102,19 +102,19 @@ Anyone with the secret can create overrides. Use a different secret for each app
 
 ## Configuration
 
-The `overrides` option of the optional [`flags/config.ts`](/docs/flags/configuration) changes the defaults. Without the file, overrides work with `FLAGS_SECRET` or on Vercel.
+The default export of the optional [`flags/overrides.ts`](/docs/flags/configuration#flagsoverridests) changes the defaults. Without the file, overrides work with `FLAGS_SECRET` or on Vercel.
 
-```ts title="flags/config.ts"
-import { defineConfig } from 'flags';
+```ts title="flags/overrides.ts"
+import type { OverridesOptions } from 'flags';
 
-export const config = defineConfig({
-  overrides: {
-    // The shared secret. The default is FLAGS_SECRET. false accepts no such tokens.
-    secret: process.env.FLAGS_SECRET,
-    // Cookies signed by Vercel. true, false, or an object with options.
-    vercel: true,
-  },
-});
+const overrides: OverridesOptions = {
+  // The shared secret. The default is FLAGS_SECRET. false accepts no such tokens.
+  secret: process.env.FLAGS_SECRET,
+  // Cookies signed by Vercel. true, false, or an object with options.
+  vercel: true,
+};
+
+export default overrides;
 ```
 
 On Vercel, the SDK accepts both kinds by default, also when `FLAGS_SECRET` is set. With an explicit `vercel`, it also accepts signed cookies outside of Vercel, e.g. with a test issuer.
@@ -129,7 +129,7 @@ The options of `vercel`:
 | `cacheMaxAgeMs` | 5 minutes | How long the public keys stay in the cache. |
 | `cooldownMs` | 30 seconds | The minimum time between two loads of the keys for an unknown key ID. |
 
-To turn overrides off, set `overrides: { secret: false, vercel: false }`.
+To turn overrides off, export `{ secret: false, vercel: false }` from `flags/overrides.ts`.
 
 ## Troubleshooting
 
@@ -141,7 +141,7 @@ flags: The override cookie was ignored. Reason: wrong-scope.
 
 - **`wrong-scope`**: the token is for a different project or environment. Check the linked project, and run `vercel env pull` again.
 - **`missing-secret`**: the cookie is encrypted, but the application has no `FLAGS_SECRET`. Set the same secret as the tool which created the cookie.
-- **`untrusted-jws`**: the cookie is signed by Vercel, but the application does not accept signed cookies here, e.g. because the application does not run on Vercel, or the project is not linked. Link the project, or configure `overrides.vercel`.
+- **`untrusted-jws`**: the cookie is signed by Vercel, but the application does not accept signed cookies here, e.g. because the application does not run on Vercel, or the project is not linked. Link the project, or set `vercel` in `flags/overrides.ts`.
 - **`expired-token`**, **`invalid-signature`**, **`unknown-key`**: create the override again in Flags Explorer.
 - **An override of one flag is ignored**: its value has a different type than the flag. The SDK logs `flags: The override of flag "<key>" was ignored`.
 

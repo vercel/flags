@@ -20,6 +20,7 @@ flags/
       catalog.ts    # The flags of the source, for the generator only
       provider.ts   # The OpenFeature provider
       context.ts    # Optional: getEvaluationContext(request, input)
+      hooks.ts      # Optional: the OpenFeature hooks of the source
     marketing/      # Optional: a second source, e.g. a second system
       catalog.ts
       provider.ts
@@ -31,13 +32,14 @@ flags/
 
 - The `flags` folder is in the app root or in `src`. In SvelteKit, use `src/flags`.
 - The folder name is the source name, and the module is `flags:<name>`. It must start with a letter and contain only letters, digits, `-` and `_`.
-- Each source needs `provider.ts` and `catalog.ts`. `context.ts` is optional. The exception is the [default source `self`](#the-default-source-self).
+- Each source needs `provider.ts` and `catalog.ts`. `context.ts` and `hooks.ts` are optional. The exception is the [default source `self`](#the-default-source-self).
 
 | File                    | Default export                                                       | Runs                                         |
 | ----------------------- | -------------------------------------------------------------------- | -------------------------------------------- |
 | `catalog.ts`            | A `CatalogLoader`: one catalog, or yields a catalog after each change | In Node.js, only when code is generated      |
 | `provider.ts`           | The OpenFeature provider                                             | In the app                                   |
 | `context.ts` (optional) | `getEvaluationContext(request, input)`                               | In the app                                   |
+| `hooks.ts` (optional)   | `Hook[]`: the hooks of the source, given to `defineSource({ hooks })` | In the app                                   |
 
 ## The default source `self`
 
@@ -53,8 +55,8 @@ An app with `@vercel/flags-core` in any dependency field of `package.json` (`dep
 - Every other source, and `self` without `@vercel/flags-core`, needs `provider.ts` and `catalog.ts`.
 - Without a `flags/sources` folder, the types go to `src/flags/generated.d.ts` if the app has `src/`, else to `flags/generated.d.ts` (the folder is created). The module is `.flags/self.ts`.
 - The catalog sets `project: { system: 'vercel-flags', projectId }`, so Flags Explorer links each flag to the dashboard.
-- If the flags can not be loaded before the first catalog (e.g. CI without credentials), `flags:self` has no flags, and the SDK warns: ``flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: … Run `vercel link` and `vercel env pull`, or set disableSelfSource.`` The build does not fail. An import of a flag of `flags:self` then fails the type check. A custom `catalog.ts` still fails the build on errors.
-- Opt out with `disableSelfSource: true` in the plugin, or `--disable-self-source` for `flags sync` and `flags watch`. This also stops the network requests of the code generation. Set it when the app depends on `@vercel/flags-core` but writes its sources by hand.
+- If the flags can not be loaded before the first catalog (e.g. CI without credentials), `flags:self` has no flags, and the SDK warns: ``flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: … Run `vercel link` and `vercel env pull`, or set `"selfSource": false` in flags/config.json.`` The build does not fail. An import of a flag of `flags:self` then fails the type check. A custom `catalog.ts` still fails the build on errors.
+- Opt out with `"selfSource": false` in `flags/config.json` (in the app root or in `src/`). The plugins, `flags sync` and `flags watch` read this file. There is no plugin option and no CLI flag. This also stops the network requests of the code generation. Set it when the app depends on `@vercel/flags-core` but writes its sources by hand.
 
 ### `provider.ts`
 
@@ -181,7 +183,7 @@ export default async function* loadCatalog({
 `.flags/<source>.ts`:
 
 - the `'use flags'` directive;
-- one `defineSource` with `provider.ts` (or `new VercelProvider()` for the default source), `context.ts` (if present) and the `project` of the catalog (if present);
+- one `defineSource` with `provider.ts` (or `new VercelProvider()` for the default source), `context.ts` and `hooks.ts` (if present) and the `project` of the catalog (if present);
 - one `bindFlag` per flag, sorted by key, exported under its key (`export { flag_0 as "summer-sale" }`):
   - `type` from the variants: `boolean`, `string` or `number` if all variants have that type, else `object`;
   - `options`: the variants (they do not limit the value);
@@ -213,8 +215,8 @@ import { 'summer-sale' as summerSale } from 'flags:self';
 - The dev server generates before it resolves the imports.
 - Without a `flags/sources` folder and without `@vercel/flags-core`, the plugins write nothing.
 - Opt out: `withFlags({}, { disableCodeGeneration: true })`, `flags({ disableCodeGeneration: true })`, `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
-- Opt out of the default source only: `withFlags({}, { disableSelfSource: true })`, `flags({ disableSelfSource: true })`, `modules: [['@flags-sdk/nuxt', { disableSelfSource: true }]]`.
-- Restart the dev server after you add or remove a source, or add, remove or change `provider.ts`, `catalog.ts` or `context.ts`.
+- Opt out of the default source only: `"selfSource": false` in `flags/config.json`, for each framework.
+- Restart the dev server after you add or remove a source, or add, remove or change `provider.ts`, `catalog.ts`, `context.ts` or `hooks.ts`.
 
 ### The types in CI
 
@@ -233,16 +235,16 @@ import { 'summer-sale' as summerSale } from 'flags:self';
 The `flags` package has the `flags` command. No extra install.
 
 ```sh
-flags sync [dir] [--production] [--disable-self-source]
-flags watch [dir] [--production] [--disable-self-source] [-- command ...args]
+flags sync [dir] [--production]
+flags watch [dir] [--production] [-- command ...args]
 flags manifest [dir] [--out <file>]
 ```
 
 - `flags sync`: generates once from the first catalog of each source, then closes the catalogs. Fails if a catalog fails (the default catalog of `self` warns instead).
-- `--disable-self-source`: no default source `self`.
+- `"selfSource": false` in `flags/config.json`: no default source `self`.
 - `flags watch`: generates, then again after each catalog change. With `-- command`, it starts the command after the first generation, e.g. `flags watch -- node --watch server.ts`. A change of a source file needs a restart.
 - Both load the `.env` files of the directory first, for the catalog credentials: `.env.<mode>.local`, `.env.local`, `.env.<mode>`, `.env`. An earlier file wins, and a variable that is already set wins over all files. The mode is `production` with `--production` or `NODE_ENV=production`, otherwise `development`.
-- `flags manifest`: for apps without a framework plugin. Imports the `'use flags'` modules of `dir` with Node.js, loads `flags/config.ts` if found, and writes `flags-manifest.json` (or `--out`). Run it on the `tsc` output or on TypeScript sources with Node.js 22.18 or newer, e.g. `"postbuild": "flags manifest dist"`.
+- `flags manifest`: for apps without a framework plugin. Imports the `'use flags'` modules of `dir` with Node.js, loads `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` if found, and writes `flags-manifest.json` (or `--out`). Run it on the `tsc` output or on TypeScript sources with Node.js 22.18 or newer, e.g. `"postbuild": "flags manifest dist"`.
 
 ## Default values
 

@@ -1,6 +1,6 @@
 ---
 title: Framework bindings
-description: The contract between a framework and the Flags SDK - the request, the replaceable modules, signals, caches, flags/config.ts and the lifecycle.
+description: The contract between a framework and the Flags SDK - the request, the replaceable modules, signals, caches, the configuration files and the lifecycle.
 ---
 
 A **framework binding** connects the Flags SDK to one framework. It tells the runtime of `flags` three things which only the framework knows: the current request, the configuration of the application, and which thrown values belong to the framework. With a bundler, a **build plugin** sets this up and discovers the flags of the application.
@@ -25,7 +25,18 @@ import type { SetupFramework } from 'flags';
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);
   runtime.setRethrow(rethrowSignal);
-  runtime.setLoadConfig(async () => (await import('flags/config')).config);
+  runtime.setLoadConfig(async () => {
+    // Import the files in the binding, which the bundler builds, so that
+    // the aliases of the plugin apply
+    const { configFromModules } = await import('flags/config');
+    return configFromModules(
+      await Promise.all([
+        import('flags/hooks'),
+        import('flags/overrides'),
+        import('flags/settings'),
+      ]),
+    );
+  });
 };
 ```
 
@@ -60,17 +71,21 @@ The runtime creates the evaluation context, and evaluates each flag, once for ea
 
 ## The replaceable modules
 
-The runtime imports two modules through the name of its own package. A build plugin replaces them with a bundler alias:
+The SDK imports these modules through the name of its own package. A build plugin replaces them with a bundler alias:
 
-| Module | Default | Replaced by |
-| --- | --- | --- |
 | `flags/framework` | No binding | The framework binding |
-| `flags/config` | No configuration | `flags/config.ts` of the application |
+| `flags/hooks` | No hooks | `flags/hooks.ts` of the application |
+| `flags/overrides` | The default override options | `flags/overrides.ts` of the application |
+| `flags/settings` | The default settings | `flags/config.json` of the application |
+
+- A plugin MUST set the alias of `flags/hooks`, `flags/overrides` or `flags/settings` only if the file exists. `findConfigModules` of `flags/tooling` returns the files. Without a file, the empty default module of `flags` applies.
+- A plugin MUST NOT replace `flags/config`. It is a module of the SDK: its `configFromModules` builds the `Config` object `{ hooks?, overrides?, settings? }` from the three modules.
+- The binding MUST import `flags/hooks`, `flags/overrides` and `flags/settings` itself, not through a module of `flags`. The binding is bundled, so the aliases apply to its imports, also when the framework loads `flags` from `node_modules`, e.g. Nitro in `nuxt dev`.
 
 ### Replacement
 
 - An implementation which replaces a module MUST make the replacement reach the runtime, e.g. by bundling the package `flags` into the server code (`ssr.noExternal` of Vite, `externals.inline` of Nitro).
-- An implementation MUST resolve a replacement from the project of the application, not from the package `flags`. With pnpm, e.g., a Vite plugin needs a `resolveId` hook with the order `pre`, or Vite resolves `flags/config` through the exports of the package.
+- An implementation MUST resolve a replacement from the project of the application, not from the package `flags`. With pnpm, e.g., a Vite plugin needs a `resolveId` hook with the order `pre`, or Vite resolves `flags/hooks` through the exports of the package.
 - If the runtime is not bundled, e.g. because the framework loads it from `node_modules` in development, a binding MUST register itself with `registerFramework` of `flags/tooling` before the first evaluation:
 
   ```ts
@@ -113,7 +128,18 @@ import { getRequestEvent } from '$app/server';
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);
   runtime.setRethrow(rethrowSignal);
-  runtime.setLoadConfig(async () => (await import('flags/config')).config);
+  runtime.setLoadConfig(async () => {
+    // Import the files in the binding, which the bundler builds, so that
+    // the aliases of the plugin apply
+    const { configFromModules } = await import('flags/config');
+    return configFromModules(
+      await Promise.all([
+        import('flags/hooks'),
+        import('flags/overrides'),
+        import('flags/settings'),
+      ]),
+    );
+  });
 };
 
 function getRequest(): FlagsRequestInit | undefined {
@@ -174,9 +200,11 @@ Some frameworks control the flow of a request with thrown values, e.g. `redirect
 
 ### The config source
 
-A framework with a bundler MUST call `runtime.setLoadConfig(source)`, where `source` returns the export `config` of `flags/config`.
+A framework with a bundler MUST call `runtime.setLoadConfig(source)`, where `source` imports the three modules and returns the result of `configFromModules` of `flags/config`.
 
-- In development, the runtime calls the source before each evaluation, and applies a new configuration. A change of `flags/config.ts` applies without a restart.
+- `configFromModules` returns the same object as long as the files do not change. The runtime configures again only for a new object.
+
+- In development, the runtime calls the source before each evaluation, and applies a new configuration. A change of `flags/hooks.ts`, `flags/overrides.ts` or `flags/config.json` applies without a restart.
 - In production, it calls the source once.
 
 ### Rendering and caches
@@ -187,12 +215,18 @@ A flag value can change at any time, and depends on the request. Thus, an evalua
 - A precomputed value does not use the request. It MAY be prerendered.
 - A binding MUST NOT let an evaluation run in a cache scope of the framework, e.g. `'use cache'` of Next.js, if it can recognize one. The request source MUST throw an error there, and `rethrow` MUST throw it again, so that the flag does not silently return its default value. The application evaluates the flag outside, and passes the value into the cache scope.
 
-## `flags/config.ts`
+## The configuration files
 
-The configuration of the application (`hooks` and `overrides`) is in one optional file, which the binding loads if it exists. It has no source: each flag of a provider names its source.
+The configuration of the application has one optional file for each part, in the folder `flags` of the application or of its `src` directory. The binding loads each file which exists. The configuration has no source: each flag of a provider names its source.
 
-- The file MUST be named `flags/config.ts`, `flags/config.mts`, `flags/config.js` or `flags/config.mjs`, in the directory of the application or in its `src` directory. `findConfigFile` of `flags/tooling` finds it.
-- The configuration MUST be the named export `config`. A default export MUST NOT be read.
+| File | Part of `Config` | Read by |
+| --- | --- | --- |
+| `flags/hooks.ts` (or `.mts`, `.js`, `.mjs`) | `hooks`: the default export | The application |
+| `flags/overrides.ts` (or `.mts`, `.js`, `.mjs`) | `overrides`: the default export | The application |
+| `flags/config.json` | `settings` | The plugins, the CLI and the application |
+
+- The code files MUST give their value as the default export.
+- `flags/config.json` is static. An implementation MUST reject an unknown key or a value of the wrong type. The key `$schema` is allowed. `readSettings` of `flags/tooling` reads and checks it.
 - A framework without a bundler MUST let the application give the configuration, e.g. as an option of a middleware, and give it to `runtime.configure(config)`.
 
 ## The lifecycle
@@ -224,7 +258,8 @@ Functions for bindings and build plugins:
 | Function | Purpose |
 | --- | --- |
 | `registerFramework` | Registers a binding without the alias |
-| `findConfigFile` | Finds `flags/config.ts` in a directory or its `src` |
+| `findConfigModules` | Finds `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` in a directory or its `src` |
+| `readSettings` | Reads and checks `flags/config.json` |
 | `hasUseFlagsDirective` | Finds the `'use flags'` directive in the directive prologue |
 | `addSelfRegistration` | Appends the registration to a `'use flags'` module |
 | `findFlagsModules` | Finds the `'use flags'` modules of a project |

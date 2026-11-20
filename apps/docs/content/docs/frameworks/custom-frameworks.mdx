@@ -15,7 +15,7 @@ import { runtime } from 'flags';
 app.use((request, next) => runtime.onInvoke(request, next));
 ```
 
-Write a full binding when the framework can give the current request at any time but has no middleware around the render (like `headers()` in Next.js or `getRequestEvent()` in SvelteKit), when it uses thrown errors as signals, or when you want `flags/config.ts`, `'use flags'` registration and the manifest to work without code in the application.
+Write a full binding when the framework can give the current request at any time but has no middleware around the render (like `headers()` in Next.js or `getRequestEvent()` in SvelteKit), when it uses thrown errors as signals, or when you want the configuration files, `'use flags'` registration and the manifest to work without code in the application.
 
 ## What a framework provides
 
@@ -34,7 +34,18 @@ import type { SetupFramework } from 'flags';
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);
   runtime.setRethrow(rethrowSignal);
-  runtime.setLoadConfig(async () => (await import('flags/config')).config);
+  runtime.setLoadConfig(async () => {
+    // Import the files in the binding, which the bundler builds, so that
+    // the aliases of the plugin apply
+    const { configFromModules } = await import('flags/config');
+    return configFromModules(
+      await Promise.all([
+        import('flags/hooks'),
+        import('flags/overrides'),
+        import('flags/settings'),
+      ]),
+    );
+  });
 };
 ```
 
@@ -42,7 +53,7 @@ The runtime calls `setupFramework` one time, before the first evaluation.
 
 - **`setGetRequest`** sets the request source. It returns the current request as a `FlagsRequestInit` (`headers`, `cookies` and `url`, each optional), or `undefined` outside of a request. The SDK identifies a request by its `headers` object, so return the same object during one request.
 - **`setRethrow`** sets a function that throws an error again if the framework must receive it, for example a redirect. The runtime calls it before it uses the default value of a flag. Use the check functions of the framework, such as `isRedirect()`.
-- **`setLoadConfig`** loads `flags/config.ts` through the alias `flags/config`. In development, the runtime calls it before each evaluation, so a change applies without a restart.
+- **`setLoadConfig`** imports `flags/hooks`, `flags/overrides` and `flags/settings`, which the plugin points to `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`, and builds the configuration with `configFromModules` of `flags/config`. The imports are in the binding, because the binding is bundled, so the aliases apply. In development, the runtime calls it before each evaluation, so a change applies without a restart.
 - **No static import of `flags`.** `flags` imports the binding, so the binding imports only types from `flags`. It gets the runtime as an argument.
 
 ### Rendering and caches
@@ -51,12 +62,17 @@ If the framework prerenders, the request source must make an evaluation part of 
 
 ## The replaceable modules
 
-The runtime imports two modules through its own package name. A bundler alias replaces them:
+The SDK imports these modules through its own package name. A bundler alias replaces them:
 
 | Module | Default | Replaced by |
 | --- | --- | --- |
 | `flags/framework` | no binding | the framework binding |
-| `flags/config` | no configuration | `flags/config.ts` of the application |
+| `flags/hooks` | no hooks | `flags/hooks.ts` of the application |
+| `flags/overrides` | the default override options | `flags/overrides.ts` of the application |
+| `flags/settings` | the default settings | `flags/config.json` of the application |
+
+- **Set an alias only for a file that exists.** `findConfigModules(dir)` of `flags/tooling` returns the files, e.g. `{ 'flags/hooks': '/app/flags/hooks.ts' }`. Without a file, `flags` gives an empty default module.
+- **Do not replace `flags/config`.** It is the loader of the SDK, which the binding imports.
 
 - **Bundle the SDK.** An alias only reaches the SDK when the bundler bundles `flags`, so bundle it into the server code (for example `ssr.noExternal` of Vite, or `externals.inline` of Nitro).
 - **Resolve from the project.** With pnpm, resolve a replacement that is a package name from the project, not from `flags`.
@@ -117,12 +133,13 @@ A module that starts with the `'use flags'` directive exports only flags, and im
    - in development, serve it at `/.well-known/flags/manifest.json` with `cache-control: no-store`, and only in development;
    - after a build, write it as `flags-manifest.json` (`MANIFEST_FILE`) into the server output. `writeManifestFromBuild` imports the built modules in a child process.
 
-Call `runtime.prepare()` before `createManifest`. It sets up the binding and loads `flags/config.ts`, without the initialization of providers. See [Flags manifest](/docs/tooling/flags-manifest) and the [manifest format](/docs/standard/flags-manifest-format).
+Call `runtime.prepare()` before `createManifest`. It sets up the binding and loads the configuration, without the initialization of providers. See [Flags manifest](/docs/tooling/flags-manifest) and the [manifest format](/docs/standard/flags-manifest-format).
 
 | Function of `flags/tooling` | Purpose |
 | --- | --- |
 | `registerFramework` | Registers a binding without the alias |
-| `findConfigFile` | Finds `flags/config.ts` in a directory or its `src` |
+| `findConfigModules` | Finds `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` in a directory or its `src` |
+| `readSettings` | Reads and checks `flags/config.json` |
 | `hasUseFlagsDirective` | Finds the `'use flags'` directive in the directive prologue |
 | `addSelfRegistration` | Appends the registration to a `'use flags'` module |
 | `findFlagsModules` | Finds the `'use flags'` modules of a project |
@@ -134,12 +151,12 @@ Call `runtime.prepare()` before `createManifest`. It sets up the binding and loa
 
 ## Code generation
 
-Code generation is optional. Each source is a folder `flags/sources/<source>` with `catalog.ts`, `provider.ts` and an optional `context.ts`. By convention, the main source of an application is `flags/sources/self`. The folder `flags` is in the root of the project or in `src`. The build plugin generates `.flags/<source>.ts` and the types in `flags/generated.d.ts` with the functions of `flags/tooling`, and sets the alias `flags:<source>` to each module:
+Code generation is optional. Each source is a folder `flags/sources/<source>` with `catalog.ts`, `provider.ts`, and an optional `context.ts` and `hooks.ts`. By convention, the main source of an application is `flags/sources/self`. The folder `flags` is in the root of the project or in `src`. The build plugin generates `.flags/<source>.ts` and the types in `flags/generated.d.ts` with the functions of `flags/tooling`, and sets the alias `flags:<source>` to each module:
 
-- for a build, `generateFlags(dir, options)` one time, before the bundler resolves the imports;
-- for a dev server, `watchFlags(dir, { signal, ...options })`, which generates again after each change of a catalog.
+- for a build, `generateFlags(dir)` one time, before the bundler resolves the imports;
+- for a dev server, `watchFlags(dir, { signal })`, which generates again after each change of a catalog.
 
-`options` is `GenerateOptions`: `{ disableSelfSource?: boolean }`. An application which depends on `@vercel/flags-core` has the [default source `self`](/docs/flags/code-generation#the-default-source-self), also without `flags/sources/self`. Give your users the option `disableSelfSource`, and pass it on. Find the types with `findGeneratedDeclarations(dir)`: for the default source, they can be in `src/flags/generated.d.ts` without a folder `flags/sources`.
+An application which depends on `@vercel/flags-core` has the [default source `self`](/docs/flags/code-generation#the-default-source-self), also without `flags/sources/self`. The application turns it off with `"selfSource": false` in `flags/config.json`. `generateFlags` and `watchFlags` read the file, so your plugin needs no option for it. Find the types with `findGeneratedDeclarations(dir)`: for the default source, they can be in `src/flags/generated.d.ts` without a folder `flags/sources`.
 
 Both return the aliases, e.g. `{ "flags:self": "./.flags/self.ts" }`. The plugins of the Flags SDK generate the code by default, and have the option `disableCodeGeneration` to turn it off, e.g. `flags({ disableCodeGeneration: true })`. Without a folder `flags/sources` and without the default source, they write nothing. A framework without a bundler has no plugin: the application runs `flags sync` and imports `./.flags/self.ts`. See [Code generation](/docs/flags/code-generation).
 

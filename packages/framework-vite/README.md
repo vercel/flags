@@ -8,8 +8,9 @@ uses the plugin of its framework package, not this one.
 
 ## Features
 
-- **The framework binding** behind `flags/framework`, and `flags/config.ts`
-  behind `flags/config`.
+- **The framework binding** behind `flags/framework`, and the configuration
+  files behind `flags/hooks` (`flags/hooks.ts`), `flags/overrides`
+  (`flags/overrides.ts`) and `flags/settings` (`flags/config.json`).
 - **`'use flags'` modules** register their flags.
 - **The manifest of the flags:** at `/.well-known/flags/manifest.json` in
   development, and as `flags-manifest.json` in the server output.
@@ -17,8 +18,8 @@ uses the plugin of its framework package, not this one.
   `flags/sources/<source>`, by default, with the types in
   `flags/generated.d.ts`. The option `disableCodeGeneration` turns it off.
   An application which depends on `@vercel/flags-core` also gets the
-  default source `self`, with the flags of its Vercel project. The option
-  `disableSelfSource` turns it off.
+  default source `self`, with the flags of its Vercel project. `"selfSource": false` in
+  `flags/config.json` turns it off.
 - **A Rollup plugin too**, e.g. for the server build of Nitro.
 
 ## Installation
@@ -48,7 +49,6 @@ export function myFrameworkFlags() {
 | `dedupe`          | Packages which the binding imports, which must be the copy of the project       |
 | `projectModules`  | Modules which the binding imports, by the first package which the project has   |
 | `disableCodeGeneration` | Turns off the code generation. By default, the plugin generates `.flags/<source>.ts` and `flags/generated.d.ts` from `flags/sources/<source>`: one time for a build, and again after each change of a catalog for the dev server. It adds the aliases `flags:<source>` |
-| `disableSelfSource` | Turns off the default source `self`. By default, an application which depends on `@vercel/flags-core` has the source `self` with the flags of its Vercel project, also without `flags/sources/self/` |
 | `manifest`        | Whether a build writes `flags-manifest.json`. The default is `true`             |
 | `root`            | The directory of the project. The default is the root of Vite                   |
 

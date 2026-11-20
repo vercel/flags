@@ -1,82 +1,83 @@
 ---
 title: Configuration
-description: Set hooks and override options for all flags in flags/config.ts.
+description: Set hooks, override options and static settings for all flags in the flags folder.
 ---
 
-`flags/config.ts` holds settings for all flags of your application. **It is optional**: without it, flags work, each provider flag names its source, and overrides work with `FLAGS_SECRET` or on Vercel. Add the file when you want to:
+The `flags` folder of your application holds the configuration for all flags. **Each file is optional**: without them, flags work, each provider flag names its source, and overrides work with `FLAGS_SECRET` or on Vercel. Add a file when you want to:
 
 - add **hooks**: OpenFeature hooks that run for every flag;
-- change the **overrides**: which override cookies the SDK accepts.
+- change the **overrides**: which override cookies the SDK accepts;
+- change a **static setting**, e.g. turn off the default source `self`.
+
+Each concern has one file:
+
+| File | Contains | Read by |
+| --- | --- | --- |
+| `flags/config.json` | The static settings, e.g. `selfSource` | The framework plugins, the CLI and the runtime |
+| `flags/hooks.ts` | The default export: the hooks for all flags | The application |
+| `flags/overrides.ts` | The default export: the override options | The application |
+| `flags/sources/<source>/hooks.ts` | The default export: the hooks of one source | The application |
+
+Each setting has exactly one place. The code files run only in the application. Only the JSON file is static, so every tool can read it. A source has the same split: `catalog.ts` is read at build time, and `provider.ts`, `context.ts` and `hooks.ts` run in the application.
 
 The configuration has no source. Each provider flag names its source, e.g. the source `self` of [`flags/sources/self`](/docs/flags/code-generation).
 
-```ts title="flags/config.ts"
-import { defineConfig } from 'flags';
+## The files
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after(hookContext, details) {
-        console.log(`${hookContext.flagKey}: ${details.value} (${details.reason})`);
-      },
-    },
-  ],
-});
-```
+- The files live in the `flags` folder of your application, next to `flags/sources`. If your application has a `src` directory, they can also live in `src/flags`.
+- `flags/hooks.ts` and `flags/overrides.ts` can also end in `.mts`, `.js` or `.mjs`.
+- Export the value of a code file as the default export.
 
-## The file
+### How they are loaded
 
-- It lives in the `flags` folder of your application, next to `flags/sources`: `flags/config.ts`, or `src/flags/config.ts` if your application has a `src` directory. The names `flags/config.ts`, `flags/config.mts`, `flags/config.js` and `flags/config.mjs` work.
-- Export the configuration as `config`, a named export. A default export is not read.
-- Wrap it in `defineConfig`. It returns the configuration as it is, with its exact type.
+How your application gets the files depends on the framework (see [Frameworks](/docs/frameworks)):
 
-### How it is loaded
-
-How your application gets the file depends on the framework (see [Frameworks](/docs/frameworks)):
-
-- The plugins of Next.js, SvelteKit, Nuxt and TanStack Start find the file and load it automatically. In development, a change of the file applies without a restart.
-- The middlewares of Hono and Express take it as an option: `app.use(flags({ config }))`.
-- Without a framework, pass it to the runtime at startup:
+- The plugins of Next.js, SvelteKit, Nuxt and TanStack Start find the files and load them automatically. In development, a change of a file applies without a restart. Restart the dev server after you add or remove a file, or after you change `selfSource`.
+- The middlewares of Hono and Express take the configuration as an option: `app.use(flags({ config: { hooks } }))`.
+- Without a framework, pass the configuration to the runtime at startup:
 
 ```ts title="server.ts"
 import { runtime } from 'flags';
-import { config } from './flags/config';
+import hooks from './flags/hooks';
+import overrides from './flags/overrides';
 
-runtime.configure(config);
+runtime.configure({ hooks, overrides });
 ```
 
 `runtime.configure` checks the whole configuration at once, and throws before it changes anything. A new call replaces the configuration, e.g. after a reload in development.
 
-## Options
+Without a bundler, the SDK does not read `flags/config.json` in the application. `flags sync` and `flags watch` read it anyway. If you need the settings at runtime, read the file yourself and pass it as `settings`.
 
-| Option | Meaning |
-| --- | --- |
-| `hooks` | OpenFeature hooks for all flags. They run first, before the hooks of the source, of the call and of the provider. |
-| `overrides` | Which override cookies the SDK accepts. |
-
-### `hooks`
+## `flags/hooks.ts`
 
 Hooks for all flags, e.g. to log each evaluation, or to report overrides:
 
-```ts title="flags/config.ts"
-import { defineConfig, OVERRIDE_REASON } from 'flags';
+```ts title="flags/hooks.ts"
+import { type Hook, OVERRIDE_REASON } from 'flags';
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after(hookContext, details) {
-        if (details.reason === OVERRIDE_REASON) {
-          console.log(`${hookContext.flagKey} is overridden: ${details.value}`);
-        }
-      },
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      if (details.reason === OVERRIDE_REASON) {
+        console.log(`${hookContext.flagKey} is overridden: ${details.value}`);
+      }
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
+
+The hooks run in this order:
+
+1. The hooks of `flags/hooks.ts`, for all flags.
+2. The hooks of the source: `defineSource({ hooks })`, or the default export of `flags/sources/<source>/hooks.ts`.
+3. The hooks of the call: `evaluate(flag, { hooks })`.
+4. The hooks of the provider (`provider.hooks`). The OpenFeature provider sets them, e.g. the Vercel provider reports overrides with a hook. Your application does not set them.
 
 See [OpenFeature](/docs/flags/openfeature#hooks).
 
-### `overrides`
+## `flags/overrides.ts`
 
 Flags Explorer overrides flags for your browser with the cookie `flag-overrides`. The SDK only accepts trusted cookies, and needs no configuration for this:
 
@@ -84,26 +85,44 @@ Flags Explorer overrides flags for your browser with the cookie `flag-overrides`
 2. On Vercel or locally after `vercel env pull`, it accepts cookies that Vercel signed for this project, also when `FLAGS_SECRET` is set.
 3. Otherwise, it accepts no override cookies.
 
-The option `overrides` changes these defaults:
+The default export of `flags/overrides.ts` changes these defaults:
 
 | Option | Meaning |
 | --- | --- |
 | `secret` | The shared secret. The default is `FLAGS_SECRET`. `false` accepts no cookies of a shared secret. |
 | `vercel` | `true` accepts cookies that Vercel signs, `false` accepts none, and an object sets options, e.g. `project` (`projectId`, `environment`, `teamId`) or `maxLifetimeSeconds` (the default is 7 days). |
 
-With an explicit `vercel` option, both kinds of cookies can be active, e.g. during a migration:
+The file is code, so it can read the environment. With an explicit `vercel` option, both kinds of cookies can be active, e.g. during a migration:
 
-```ts title="flags/config.ts"
-import { defineConfig } from 'flags';
+```ts title="flags/overrides.ts"
+import type { OverridesOptions } from 'flags';
 
-export const config = defineConfig({
-  overrides: {
-    vercel: {
-      project: { projectId: 'prj_shop', environment: 'preview' },
-      maxLifetimeSeconds: 7 * 24 * 60 * 60, // one week
-    },
+const overrides: OverridesOptions = {
+  secret: process.env.MY_FLAGS_SECRET,
+  vercel: {
+    project: { projectId: 'prj_shop', environment: 'preview' },
+    maxLifetimeSeconds: 7 * 24 * 60 * 60, // one week
   },
-});
+};
+
+export default overrides;
 ```
 
 See [Overrides](/docs/tooling/overrides) for how overrides work and how to create them.
+
+## `flags/config.json`
+
+The static settings. The framework plugins, the CLI (`flags sync`, `flags watch` and `flags manifest`) and the runtime read the same file:
+
+```json title="flags/config.json"
+{
+  "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
+  "selfSource": false
+}
+```
+
+| Setting | Meaning |
+| --- | --- |
+| `selfSource` | The default source `self`. `false` turns it off. The default is `true`. See [Code generation](/docs/flags/code-generation#turn-it-off). |
+
+The SDK checks the file strictly. An unknown key or a value of the wrong type is an error, in the plugins, in the CLI and in `runtime.configure`. The key `$schema` is allowed. The [JSON Schema](https://flags-sdk.dev/schemas/config.v1.json) gives your editor completion and checks.

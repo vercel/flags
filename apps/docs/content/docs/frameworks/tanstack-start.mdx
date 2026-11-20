@@ -3,7 +3,7 @@ title: TanStack Start
 description: Set up the Flags SDK in TanStack Start with one Vite plugin.
 ---
 
-`@flags-sdk/tanstack-start` connects the Flags SDK to TanStack Start. It gives each flag the current request through `getRequest()`, loads `flags/config.ts`, lets `redirect()` and `notFound()` pass through, generates the modules of `flags:<source>`, and registers your flags for Flags Explorer. It works with the React and the Solid version of TanStack Start. Your code imports only `flags`.
+`@flags-sdk/tanstack-start` connects the Flags SDK to TanStack Start. It gives each flag the current request through `getRequest()`, loads the configuration files of the folder `flags`, lets `redirect()` and `notFound()` pass through, generates the modules of `flags:<source>`, and registers your flags for Flags Explorer. It works with the React and the Solid version of TanStack Start. Your code imports only `flags`.
 
 **Requirements:** TanStack Start 1 with Vite 6 or newer.
 
@@ -138,7 +138,7 @@ Set the cookie `beta=1` to see the beta banner.
 
 ## Without code generation
 
-You can also write the source and its flags by hand. Use `defineSource` and `bindFlag`. Without a folder `flags/sources` and without `@vercel/flags-core`, the code generation writes nothing. With `@vercel/flags-core`, use `flags({ disableSelfSource: true })`, so that the plugin does not generate the default source `self`. To turn off all code generation, use `flags({ disableCodeGeneration: true })`.
+You can also write the source and its flags by hand. Use `defineSource` and `bindFlag`. Without a folder `flags/sources` and without `@vercel/flags-core`, the code generation writes nothing. With `@vercel/flags-core`, set `"selfSource": false` in `flags/config.json`, so that the plugin does not generate the default source `self`. To turn off all code generation, use `flags({ disableCodeGeneration: true })`.
 
 ```ts title="src/flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -193,24 +193,30 @@ export const Route = createFileRoute('/api/flags')({
 
 The binding reads the request with `getRequest()`, so flags work in server functions, server routes, and the server rendering of pages. Each flag is evaluated one time for each request.
 
-## Optional: `flags/config.ts`
+## Optional: the configuration files
 
-You do not need a configuration file. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
+You do not need configuration files. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without them.
 
-Add `flags/config.ts`, next to `flags/sources`, when you want settings for all flags: OpenFeature hooks for every flag, or the options of overrides. The Vite plugin loads it automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
+Add a file to the folder `flags`, next to `flags/sources`, when you want settings for all flags:
 
-```ts title="flags/config.ts"
-import { defineConfig } from 'flags';
+- `flags/hooks.ts`: OpenFeature hooks for every flag, as the default export.
+- `flags/overrides.ts`: the options of overrides, as the default export.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`.
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after: (context, details) => {
-        console.log(`${context.flagKey} = ${JSON.stringify(details.value)}`);
-      },
+The Vite plugin loads the files automatically, from the `flags` folder of your project or of `src`. In development, a change applies without a restart.
+
+```ts title="flags/hooks.ts"
+import type { Hook } from 'flags';
+
+const hooks: Hook[] = [
+  {
+    after: (context, details) => {
+      console.log(`${context.flagKey} = ${JSON.stringify(details.value)}`);
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
 See [Configuration](/docs/flags/configuration) for all options.

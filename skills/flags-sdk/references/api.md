@@ -32,7 +32,7 @@ Node.js 20.19, or 22.12 or newer. Server only.
 | `flags/tooling`  | Framework packages and build tools                              |
 | `flags/manifest` | Tools that create or read the flags manifest                    |
 
-`flags/framework` and `flags/config` are replaced by bundler aliases of the framework packages. Apps do not import them.
+`flags/framework`, `flags/hooks`, `flags/overrides` and `flags/settings` are replaced by bundler aliases of the framework packages. `flags/config` exports `configFromModules` for the bindings. Apps do not import them.
 
 ### Defining flags
 
@@ -174,7 +174,7 @@ Types: `Evaluate`, `FlagEvaluationContext<F>`, `EvaluateContext<F[]>`, `Evaluate
 
 | Method                                      | Description                                                                                                                       |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `runtime.configure(config)`                 | Sets the configuration (the `config` of `flags/config.ts`). Throws before it changes anything if the config is invalid, e.g. with a `defaultSource`. |
+| `runtime.configure(config)`                 | Sets the configuration: `{ hooks?, overrides?, settings? }` (the files `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`). Throws before it changes anything if the config is invalid, e.g. with a `defaultSource`. |
 | `runtime.onInit()`                          | Optional, at startup. Sets up the binding, loads the config, initializes the providers of all registered sources. Logs errors. |
 | `runtime.onInvoke(request, next)`           | Runs `next` in the scope of the request. `request` is a Web `Request` or `{ headers?, cookies?, url? }`. Pass the same `headers` object for the whole request. |
 | `runtime.onShutdown()`                      | At process stop. Waits for running initializations, then calls `onClose` of each provider.                                       |
@@ -189,24 +189,42 @@ Types: `Runtime`, `GetRequest`, `LoadConfig`, `SetupFramework`, `FlagDefinition`
 
 ### Configuration
 
-```ts
-// flags/config.ts (or src/flags/config.ts; .ts, .mts, .js, .mjs)
-import { defineConfig } from 'flags';
+One optional file for each part, in `flags/` (in the app root or in `src/`). There is no `flags/config.ts` and no `defineConfig`.
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after(hookContext, details) {
-        console.log(`${hookContext.flagKey}: ${details.value} (${details.reason})`);
-      },
+| File | Contains | Read by |
+| --- | --- | --- |
+| `flags/config.json` | Static settings (`Settings`): `selfSource` (boolean, default `true`). `$schema` is allowed. An unknown key or a wrong type is an error. | The plugins, the CLI and the runtime |
+| `flags/hooks.ts` (`.mts`, `.js`, `.mjs`) | Default export: `Hook[]`, the hooks for all flags | The app |
+| `flags/overrides.ts` (`.mts`, `.js`, `.mjs`) | Default export: `OverridesOptions` (see below). Code is allowed, e.g. `secret: process.env.MY_SECRET` | The app |
+| `flags/sources/<source>/hooks.ts` | Default export: the hooks of one source, for `defineSource({ hooks })` | The app |
+
+```ts
+// flags/hooks.ts
+import type { Hook } from 'flags';
+
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      console.log(`${hookContext.flagKey}: ${details.value} (${details.reason})`);
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
-- Optional. Export it as the named export `config`. A default export is not read.
-- Options: `hooks` (run first, also for overrides) and `overrides` (see below). No sources.
-- The plugins of Next.js, SvelteKit, Nuxt and TanStack Start load it, and reload it in development. Hono and Express: `app.use(flags({ config }))`. No framework: `runtime.configure(config)`.
+```jsonc
+// flags/config.json
+{
+  "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
+  "selfSource": false
+}
+```
+
+- Hook order: `flags/hooks.ts` (all flags), then the source (`defineSource({ hooks })` or `flags/sources/<source>/hooks.ts`), then the call (`evaluate(..., { hooks })`), then `provider.hooks` (set by the provider, not by the app). The hooks also run for overrides.
+- No sources in the configuration.
+- The plugins of Next.js, SvelteKit, Nuxt and TanStack Start load the files, and reload them in development. Hono and Express: `app.use(flags({ config: { hooks, overrides } }))` with `import hooks from './flags/hooks'`. No framework: `runtime.configure({ hooks, overrides })`. Without a bundler, read `flags/config.json` yourself if the app needs it; `flags sync` and `flags watch` read it anyway.
+- Types: `Config` (`{ hooks?, overrides?, settings? }`), `Settings` (`{ selfSource?: boolean }`).
 
 ### Registration
 
@@ -251,14 +269,14 @@ Asks Vercel to sign a token for the project and environment of the host's OIDC t
 function decryptOverrides(token: string, secret?: string): Promise<FlagOverrides | undefined>;
 ```
 
-#### `OverridesOptions` (the `overrides` option of `defineConfig`)
+#### `OverridesOptions` (the default export of `flags/overrides.ts`)
 
 | Option   | Type                                | Description                                                                  |
 | -------- | ----------------------------------- | ---------------------------------------------------------------------------- |
 | `secret` | `string \| false`                   | The shared secret. Default `FLAGS_SECRET`. `false` accepts no such tokens.    |
 | `vercel` | `boolean \| VercelOverridesOptions` | Tokens signed by Vercel. `true`, `false`, or options.                          |
 
-`VercelOverridesOptions`: `project` (`projectId`, `environment`, `teamId?`), `maxLifetimeSeconds` (default 7 days), `issuer`, `jwksUrl`, `cacheMaxAgeMs` (default 5 minutes), `cooldownMs` (default 30 seconds), `allowInsecureLocalhost`, `fetch`. Turn overrides off with `overrides: { secret: false, vercel: false }`.
+`VercelOverridesOptions`: `project` (`projectId`, `environment`, `teamId?`), `maxLifetimeSeconds` (default 7 days), `issuer`, `jwksUrl`, `cacheMaxAgeMs` (default 5 minutes), `cooldownMs` (default 30 seconds), `allowInsecureLocalhost`, `fetch`. Turn overrides off with `{ secret: false, vercel: false }` in `flags/overrides.ts`.
 
 Types: `FlagOverrides` (`Record<string, JsonValue>`), `OverrideRejection`, `OverridesError`, `PlatformProject`.
 
@@ -322,7 +340,7 @@ The source is required. A generated module does not export its source: use `enab
 
 For framework packages and build tools. Apps do not use them.
 
-`flags/tooling`: `registerFramework(setup)`, `findConfigFile(dir)`, `hasUseFlagsDirective(source)`, `addSelfRegistration(source, fileName)`, `findFlagsModules(projectDir)`, `writeManifestFromBuild({ projectDir, modules, output })`, `generateFlags(dir?, options?: GenerateOptions)` (behind `flags sync`, returns aliases such as `{ 'flags:self': './.flags/self.ts' }`), `watchFlags(dir, { signal, disableSelfSource? })` (behind `flags watch`), `findGeneratedDeclarations(dir)` (finds `flags/generated.d.ts` in `dir` or `dir/src`), `renderSourceModule(name, catalog, sourcesPath?, files?)`, `optionIndex(value, options)`, `MANIFEST_FILE` (`'flags-manifest.json'`), `GENERATED_DIRECTORY` (`'.flags'`). Types: `FlagsAliases`, `WatchResult`, `GenerateOptions` (`{ disableSelfSource?: boolean }`), `SourceFiles` (`{ context?: boolean; provider?: 'file' | 'vercel' }`; `'vercel'` renders `new VercelProvider()` instead of the import of `provider.ts`).
+`flags/tooling`: `registerFramework(setup)`, `findConfigModules(dir)` (returns `{ 'flags/hooks'?, 'flags/overrides'?, 'flags/settings'? }`, the paths of `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` in `dir` or `dir/src`), `readSettings(dir)` (reads and checks `flags/config.json`; `{}` without the file), `hasUseFlagsDirective(source)`, `addSelfRegistration(source, fileName)`, `findFlagsModules(projectDir)`, `writeManifestFromBuild({ projectDir, modules, output })`, `generateFlags(dir?)` (behind `flags sync`, returns aliases such as `{ 'flags:self': './.flags/self.ts' }`), `watchFlags(dir, { signal })` (behind `flags watch`), `findGeneratedDeclarations(dir)` (finds `flags/generated.d.ts` in `dir` or `dir/src`), `renderSourceModule(name, catalog, sourcesPath?, files?)`, `optionIndex(value, options)`, `MANIFEST_FILE` (`'flags-manifest.json'`), `GENERATED_DIRECTORY` (`'.flags'`). `generateFlags` and `watchFlags` read `"selfSource"` of `flags/config.json`. Types: `FlagsAliases`, `WatchResult`, `ConfigModule`, `SourceFiles` (`{ context?: boolean; provider?: 'file' | 'vercel'; hooks?: boolean }`; `hooks` imports `hooks.ts` of the source; `'vercel'` renders `new VercelProvider()` instead of the import of `provider.ts`).
 
 `flags/manifest`: `createManifest(modules)` (from `{ id, exports }` of `'use flags'` modules; throws for an export that is not a flag), `validateFlagsManifest`, `validateSystemManifest`, `resolveFlagLinks`, `expandTemplate`.
 
@@ -336,8 +354,8 @@ const manifest = createManifest([{ id: 'flags.ts', exports: { ...flags } }]);
 ## The `flags` CLI
 
 ```sh
-flags sync [dir] [--production] [--disable-self-source]
-flags watch [dir] [--production] [--disable-self-source] [-- command ...args]
+flags sync [dir] [--production]
+flags watch [dir] [--production] [-- command ...args]
 flags manifest [dir] [--out <file>]
 ```
 
@@ -361,18 +379,18 @@ Next.js 15.4 or newer, App Router, Turbopack.
 ```ts
 function withFlags<T extends object>(
   config?: T | NextConfigFunction<T>,
-  options?: { dir?: string; disableCodeGeneration?: false; disableSelfSource?: boolean },
+  options?: { dir?: string; disableCodeGeneration?: false },
 ): NextConfigFunction<T>;
-function withFlags<T extends object>(config: T, options: { dir?: string; disableCodeGeneration: true; disableSelfSource?: boolean }): T;
+function withFlags<T extends object>(config: T, options: { dir?: string; disableCodeGeneration: true }): T;
 ```
 
-- Adds the aliases `flags/framework` (the binding: `headers()`, `cookies()`, `connection()`, `unstable_rethrow`), `flags/config`, and `flags:<source>` (from `.flags/aliases.json`).
+- Adds the aliases `flags/framework` (the binding: `headers()`, `cookies()`, `connection()`, `unstable_rethrow`), `flags/hooks`, `flags/overrides` and `flags/settings` (to `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json`, if they exist), and `flags:<source>` (from `.flags/aliases.json`).
 - Self-registers each `'use flags'` module, and writes `flags-manifest.json` into `distDir` after `next build`.
 - Injects a random precompute secret per build, unless `FLAGS_PRECOMPUTE_SECRET` is set.
 - With Cache Components, encrypts `FlagValues` in `'use cache'`.
 - Generates code once for `next build`, watches for `next dev`, does nothing for `next start`.
-- `dir`: where to look for `flags/config.ts` and `flags/sources` (also in `src`). Default: the current directory.
-- `disableSelfSource`: no default source `self` for an app with `@vercel/flags-core` (see [code-generation.md](code-generation.md#the-default-source-self)). Set it when the sources are written by hand.
+- `dir`: where to look for the folder `flags` (also in `src`). Default: the current directory.
+- No default source `self` for an app with `@vercel/flags-core`: `"selfSource": false` in `flags/config.json` (see [code-generation.md](code-generation.md#the-default-source-self)). Set it when the sources are written by hand. There is no option of `withFlags` for it.
 - Returns a phase function, so it must be the outer plugin. With `disableCodeGeneration: true` and an object config, it returns the object.
 - A phase function config: `withFlags((phase) => ({ ... }))`. Do not call `withFlags` inside the function.
 
@@ -416,10 +434,10 @@ Development: the manifest of all `'use flags'` modules, `cache-control: no-store
 
 | Package                     | Entry points                            | Setup                                                    | Option                          |
 | --------------------------- | --------------------------------------- | -------------------------------------------------------- | ------------------------------- |
-| `@flags-sdk/sveltekit`      | `/vite` (`flags`), `/binding`           | `plugins: [sveltekit(), flags()]`                        | `disableCodeGeneration`, `disableSelfSource` |
-| `@flags-sdk/nuxt`           | `.` (module), `/binding`, `/plugin`     | `modules: ['@flags-sdk/nuxt']`                           | `disableCodeGeneration`, `disableSelfSource` (config key `flags`, type `FlagsNuxtOptions`) |
-| `@flags-sdk/tanstack-start` | `/vite` (`flags`), `/binding`           | `plugins: [nitro(), tanstackStart(), viteReact(), flags()]` | `disableCodeGeneration`, `disableSelfSource` |
-| `@flags-sdk/vite`           | `.` (`flags`, `MANIFEST_PATH`, `startCodeGeneration`, `resolveAliases`) | For framework packages and other Vite setups | `binding`, `bundle`, `dedupe`, `projectModules`, `disableCodeGeneration`, `disableSelfSource`, `manifest`, `root` |
+| `@flags-sdk/sveltekit`      | `/vite` (`flags`), `/binding`           | `plugins: [sveltekit(), flags()]`                        | `disableCodeGeneration` |
+| `@flags-sdk/nuxt`           | `.` (module), `/binding`, `/plugin`     | `modules: ['@flags-sdk/nuxt']`                           | `disableCodeGeneration` (config key `flags`, type `FlagsNuxtOptions`) |
+| `@flags-sdk/tanstack-start` | `/vite` (`flags`), `/binding`           | `plugins: [nitro(), tanstackStart(), viteReact(), flags()]` | `disableCodeGeneration` |
+| `@flags-sdk/vite`           | `.` (`flags`, `MANIFEST_PATH`, `startCodeGeneration`, `resolveAliases`) | For framework packages and other Vite setups | `binding`, `bundle`, `dedupe`, `projectModules`, `disableCodeGeneration`, `manifest`, `root` |
 | `@flags-sdk/hono`           | `.` (`flags`)                           | `app.use(flags({ config }))`                             | `config`                        |
 | `@flags-sdk/express`        | `.` (`flags`)                           | `app.use(flags({ config }))`                             | `config`                        |
 

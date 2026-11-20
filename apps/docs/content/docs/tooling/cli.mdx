@@ -20,7 +20,7 @@ With a framework plugin, the code generation runs for you by default, during the
 ## `flags sync`
 
 ```bash
-flags sync [dir] [--production] [--disable-self-source]
+flags sync [dir] [--production]
 ```
 
 Runs the catalog of each source in `flags/sources/<source>` one time, and writes `.flags/<source>.ts`, e.g. `.flags/self.ts` for the main source `flags/sources/self`. It also writes the types of `flags:<source>` into `flags/generated.d.ts`. The folder `flags` is in `dir` or in its `src` folder. See [Code generation](/docs/flags/code-generation).
@@ -29,7 +29,7 @@ If your application depends on `@vercel/flags-core`, it also writes the [default
 
 - `dir` is the directory of your application. The default is the current directory.
 - `--production` loads the `.env` files for production. See [Environment variables](#environment-variables).
-- `--disable-self-source` turns off the default source `self`. The command then makes no requests to Vercel Flags for it.
+- It reads the static settings of [`flags/config.json`](/docs/flags/configuration#flagsconfigjson). With `"selfSource": false`, it writes no default source `self`, and makes no requests to Vercel Flags for it.
 - It writes a file only when its content changes, and removes the module of a removed source.
 - If a catalog fails, the command fails, and the last generated modules stay.
 
@@ -47,7 +47,7 @@ Run it before the type check and the build, e.g. in CI:
 ## `flags watch`
 
 ```bash
-flags watch [dir] [--production] [--disable-self-source] [-- command ...args]
+flags watch [dir] [--production] [-- command ...args]
 ```
 
 Generates the modules, then generates them again each time a catalog yields a new catalog, e.g. when someone changes a flag in the dashboard. It takes the same options as `flags sync`.
@@ -63,7 +63,7 @@ Generates the modules, then generates them again each time a catalog yields a ne
   ```
 
 - It stops on `SIGINT` and `SIGTERM`.
-- A change of `provider.ts`, `context.ts` or `catalog.ts` needs a restart.
+- A change of `provider.ts`, `context.ts`, `hooks.ts`, `catalog.ts` or `flags/config.json` needs a restart.
 
 ## Environment variables
 
@@ -85,7 +85,7 @@ flags manifest [dir] [--out <file>]
 Writes the flags manifest for applications without a framework plugin, e.g. Hono or Express on Node.js. Framework plugins of Next.js, SvelteKit, Nuxt and TanStack Start write the manifest themselves.
 
 - It finds the modules which start with `'use flags'` in `dir` (the default is the current directory), imports them with Node.js, and writes the manifest. It skips `node_modules`, build outputs and hidden directories, except `.flags`.
-- It loads `flags/config.ts` if it finds one in `dir`, in its `src` directory, or in the current directory.
+- It loads `flags/hooks.ts`, `flags/overrides.ts` and `flags/config.json` if it finds them in `dir` or in its `src` directory.
 - `--out` sets the file. The default is `flags-manifest.json` in `dir`.
 
 Run it on the output of `tsc`, which keeps the `'use flags'` directive, or on your TypeScript source if Node.js can run it (type stripping, Node.js 22.18 or newer). A bundled output loses the directive.
