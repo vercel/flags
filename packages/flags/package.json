@@ -64,6 +64,7 @@
     }
   },
   "files": [
+    "bin",
     "dist",
     "CHANGELOG.md"
   ],
@@ -95,6 +96,6 @@
     "jose": "^6.2.12"
   },
   "bin": {
-    "flags": "./dist/cli.js"
+    "flags": "./bin/flags.js"
   }
 }
