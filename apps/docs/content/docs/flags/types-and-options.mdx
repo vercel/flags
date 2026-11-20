@@ -7,11 +7,12 @@ Each flag has a value type. Without `type`, a flag is a boolean. Set `type` for 
 
 ```ts title="flags.ts"
 import { bindFlag } from 'flags';
+import { self } from './flags/self';
 
-export const summerSale = bindFlag({ key: 'summer-sale' }); // boolean
-export const bannerText = bindFlag({ key: 'banner-text', type: 'string' }); // string
-export const maxItems = bindFlag({ key: 'max-items', type: 'number' }); // number
-export const theme = bindFlag({ key: 'theme', type: 'object' }); // any JSON value
+export const summerSale = bindFlag({ key: 'summer-sale', source: self }); // boolean
+export const bannerText = bindFlag({ key: 'banner-text', source: self, type: 'string' }); // string
+export const maxItems = bindFlag({ key: 'max-items', source: self, type: 'number' }); // number
+export const theme = bindFlag({ key: 'theme', source: self, type: 'object' }); // any JSON value
 ```
 
 The same applies to [inline flags](/docs/flags/inline-flags) with `defineFlag`.
@@ -33,10 +34,10 @@ The SDK does not infer the type from `defaultValue` or `options`. Set `type` exp
 
 ```ts
 // Type error: without a type, a flag is a boolean
-bindFlag({ key: 'banner-text', defaultValue: 'Welcome' });
+bindFlag({ key: 'banner-text', source: self, defaultValue: 'Welcome' });
 
 // Type error: a number flag needs a number
-bindFlag({ key: 'max-items', type: 'number', defaultValue: 'many' });
+bindFlag({ key: 'max-items', source: self, type: 'number', defaultValue: 'many' });
 ```
 
 In JavaScript without TypeScript, the SDK logs a warning instead, e.g. `The defaultValue of flag "banner-text" is not a boolean. Set type to use a different type.`
@@ -54,6 +55,7 @@ Overrides from Flags Explorer must fit the type too. An override of a different 
 ```ts title="flags.ts"
 export const checkout = bindFlag({
   key: 'checkout',
+  source: self,
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -111,6 +113,7 @@ An option of an `object` flag must be an object with a `value`, because a JSON v
 ```ts title="flags.ts"
 export const theme = bindFlag({
   key: 'theme',
+  source: self,
   type: 'object',
   options: [
     { value: { color: 'white' }, label: 'Light' },

@@ -45,8 +45,8 @@ export const config = defineConfig({
 
 The SDK chooses with the environment, without configuration:
 
-1. If `FLAGS_SECRET` is set, it accepts only cookies encrypted with `FLAGS_SECRET`.
-2. Otherwise, on Vercel, or locally with a linked project (when `VERCEL` or `VERCEL_OIDC_TOKEN` is set), it accepts only cookies which Vercel signed for this project and environment.
+1. If `FLAGS_SECRET` is set, it accepts cookies encrypted with `FLAGS_SECRET`.
+2. On Vercel, or locally with a linked project (when `VERCEL` or the OIDC token is set), it accepts cookies which Vercel signed for this project and environment, also when `FLAGS_SECRET` is set.
 3. Otherwise, it accepts no overrides.
 
 The trust comes only from your configuration and the environment, never from the cookie.
@@ -141,7 +141,7 @@ flags: The override cookie was ignored. Reason: wrong-scope.
 
 - **`wrong-scope`**: the token is for a different project or environment. Check the linked project, and run `vercel env pull` again.
 - **`missing-secret`**: the cookie is encrypted, but the application has no `FLAGS_SECRET`. Set the same secret as the tool which created the cookie.
-- **`untrusted-jws`**: the cookie is signed by Vercel, but the application does not accept signed cookies here, e.g. because `FLAGS_SECRET` is set, or the project is not linked. Link the project, or configure `overrides.vercel`.
+- **`untrusted-jws`**: the cookie is signed by Vercel, but the application does not accept signed cookies here, e.g. because the application does not run on Vercel, or the project is not linked. Link the project, or configure `overrides.vercel`.
 - **`expired-token`**, **`invalid-signature`**, **`unknown-key`**: create the override again in Flags Explorer.
 - **An override of one flag is ignored**: its value has a different type than the flag. The SDK logs `flags: The override of flag "<key>" was ignored`.
 

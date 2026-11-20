@@ -10,12 +10,13 @@ A flag can fail: the provider is down, the flag does not exist in your flag mana
 
 ```ts title="flags.ts"
 import { bindFlag } from 'flags';
+import { self } from './flags/self';
 
 // Returns false when the evaluation fails
-export const summerSale = bindFlag({ key: 'summer-sale', defaultValue: false });
+export const summerSale = bindFlag({ key: 'summer-sale', source: self, defaultValue: false });
 
 // Throws when the evaluation fails
-export const pricingTable = bindFlag({ key: 'pricing-table', type: 'string' });
+export const pricingTable = bindFlag({ key: 'pricing-table', source: self, type: 'string' });
 ```
 
 ## With a default value
