@@ -38,7 +38,7 @@ For fast evaluations of Vercel Flags, also on your own computer, install
 the OpenFeature provider of Vercel Flags:
 
 ```sh
-pnpm add @vercel/flags-core @openfeature/server-sdk
+pnpm add @vercel/flags-core
 ```
 
 ## Setup

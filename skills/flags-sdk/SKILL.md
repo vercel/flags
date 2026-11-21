@@ -105,9 +105,9 @@ One-time setup. The example is Next.js; the other frameworks differ only in step
 
 1. **Install the packages**:
    ```sh
-   pnpm add flags @flags-sdk/next @vercel/flags-core @openfeature/server-sdk
+   pnpm add flags @flags-sdk/next @vercel/flags-core
    ```
-   `@openfeature/server-sdk` is a peer dependency of `VercelProvider`. Your code does not import it.
+   `VercelProvider` does not need `@openfeature/server-sdk` at runtime, so you do not install it. With `"skipLibCheck": false` in `tsconfig.json`, install it as a dev dependency for its types.
 2. **Add the plugin**. `withFlags` returns a function of the phase, so it must be the outer plugin:
    ```ts
    // next.config.ts

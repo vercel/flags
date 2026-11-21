@@ -7,7 +7,7 @@ description: Set up the Flags SDK in a Next.js App Router project with one line 
 
 **Requirements:** Next.js 15.4 or newer with the App Router and Turbopack, and Node.js 20.19, or 22.12 or newer.
 
-<CopyPrompt text="Add the Flags SDK v5 to my Next.js App Router app with Vercel Flags. Install `flags`, `@flags-sdk/next`, `@vercel/flags-core` and `@openfeature/server-sdk`, and wrap `next.config.ts` with `withFlags({})` from `@flags-sdk/next/plugin`. Do not create `provider.ts` or `catalog.ts`: with `@vercel/flags-core`, the source `self` has the flags of my Vercel project by default. Run `vercel link` and `vercel env pull`. If my targeting rules use entities, add `flags/sources/self/context.ts` (default export `getEvaluationContext(request)`). Use the flag with `import { enableSale } from 'flags:self'` in a server component, add the manifest route `app/.well-known/flags/manifest.json/route.ts` with `export { GET } from '@flags-sdk/next/manifest'`, and run the type check and `next build` when finished.">
+<CopyPrompt text="Add the Flags SDK v5 to my Next.js App Router app with Vercel Flags. Install `flags`, `@flags-sdk/next` and `@vercel/flags-core`, and wrap `next.config.ts` with `withFlags({})` from `@flags-sdk/next/plugin`. Do not create `provider.ts` or `catalog.ts`: with `@vercel/flags-core`, the source `self` has the flags of my Vercel project by default. Run `vercel link` and `vercel env pull`. If my targeting rules use entities, add `flags/sources/self/context.ts` (default export `getEvaluationContext(request)`). Use the flag with `import { enableSale } from 'flags:self'` in a server component, add the manifest route `app/.well-known/flags/manifest.json/route.ts` with `export { GET } from '@flags-sdk/next/manifest'`, and run the type check and `next build` when finished.">
   Add the Flags SDK v5 to my Next.js App Router app with Vercel Flags. Install the packages, wrap `next.config.ts` with `withFlags`, link the Vercel project and pull its environment variables, use `enableSale` from `flags:self` in a server component, add the manifest route, and run the type check and `next build` when finished.
 </CopyPrompt>
 
@@ -16,10 +16,10 @@ description: Set up the Flags SDK in a Next.js App Router project with one line 
 ### 1. Install the packages
 
 ```sh title="Terminal"
-npm install flags @flags-sdk/next @vercel/flags-core @openfeature/server-sdk
+npm install flags @flags-sdk/next @vercel/flags-core
 ```
 
-`flags` is the SDK. `@flags-sdk/next` is only for the setup, for precompute, and for `FlagValues`. `@vercel/flags-core` has the provider and the catalog of [Vercel Flags](/docs/providers/vercel), and `@openfeature/server-sdk` is its peer dependency. Use the provider of your flag management system instead, if you have a different one.
+`flags` is the SDK. `@flags-sdk/next` is only for the setup, for precompute, and for `FlagValues`. `@vercel/flags-core` has the provider and the catalog of [Vercel Flags](/docs/providers/vercel). It needs no OpenFeature package. Use the provider of your flag management system instead, if you have a different one.
 
 ### 2. Add the plugin
 

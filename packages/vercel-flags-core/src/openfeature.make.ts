@@ -8,16 +8,18 @@
  * imports from index.next-js to get cached functions.
  */
 
-import {
-  ErrorCode,
-  type EvaluationContext,
-  type Hook,
-  type JsonValue,
-  type Provider,
-  type ProviderMetadata,
-  type ResolutionDetails,
-  type ResolutionReason,
-  StandardResolutionReasons,
+// Only types: TypeScript removes this import, so the provider does not
+// need @openfeature/server-sdk at runtime. An application which uses the
+// provider with the Flags SDK installs no OpenFeature package.
+import type {
+  ErrorCode as ErrorCodeType,
+  EvaluationContext,
+  Hook,
+  JsonValue,
+  Provider,
+  ProviderMetadata,
+  ResolutionDetails,
+  ResolutionReason,
 } from '@openfeature/server-sdk';
 import { internalReportValue } from './lib/report-value';
 import { type FlagsClient, ResolutionReason as Reason } from './types';
@@ -27,6 +29,22 @@ import { type FlagsClient, ResolutionReason as Reason } from './types';
  * without the provider, but runs the hooks of the provider.
  */
 const OVERRIDE_REASON = 'OVERRIDE';
+
+// The standard resolution reasons and error codes of OpenFeature, with
+// the same values as StandardResolutionReasons and ErrorCode of
+// @openfeature/server-sdk, so that the provider does not import them
+const StandardResolutionReasons = {
+  STATIC: 'STATIC',
+  DEFAULT: 'DEFAULT',
+  TARGETING_MATCH: 'TARGETING_MATCH',
+  ERROR: 'ERROR',
+  UNKNOWN: 'UNKNOWN',
+} as const satisfies Record<string, ResolutionReason>;
+
+const ErrorCode = {
+  GENERAL: 'GENERAL' as ErrorCodeType.GENERAL,
+  TYPE_MISMATCH: 'TYPE_MISMATCH' as ErrorCodeType.TYPE_MISMATCH,
+} as const;
 
 function mapReason(reason: Reason): ResolutionReason {
   switch (reason) {

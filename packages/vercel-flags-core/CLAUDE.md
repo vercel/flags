@@ -445,5 +445,5 @@ value; the controller logger and the ingest debug header both use it.
 - `js-xxhash` - Hash function for consistent splits
 
 Peer dependencies:
-- `@openfeature/server-sdk` (optional) - For OpenFeature provider
+- `@openfeature/server-sdk` (optional) - Only the types of the OpenFeature provider. The provider imports no value of it, so it works without the package at runtime
 - `flags` (workspace) - Type definitions

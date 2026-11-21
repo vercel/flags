@@ -49,7 +49,7 @@ To try the SDK without an account, export `new TypedInMemoryProvider({...})` of 
 Next.js 15.4 or newer, App Router, Turbopack. Node.js 20.19, or 22.12 or newer.
 
 ```sh
-pnpm add flags @flags-sdk/next @vercel/flags-core @openfeature/server-sdk
+pnpm add flags @flags-sdk/next @vercel/flags-core
 ```
 
 ```ts
@@ -210,7 +210,7 @@ export async function register() {
 SvelteKit 2.20 or newer, Vite 6 or newer.
 
 ```sh
-pnpm add flags @flags-sdk/sveltekit @vercel/flags-core @openfeature/server-sdk
+pnpm add flags @flags-sdk/sveltekit @vercel/flags-core
 ```
 
 ```ts
@@ -262,7 +262,7 @@ Manifest: `vite dev` serves `/.well-known/flags/manifest.json`. `vite build` wri
 Nuxt 4 with Nitro 2.
 
 ```sh
-pnpm add flags @flags-sdk/nuxt @vercel/flags-core @openfeature/server-sdk
+pnpm add flags @flags-sdk/nuxt @vercel/flags-core
 ```
 
 ```ts
@@ -309,7 +309,7 @@ Manifest: `nuxt dev` serves `/.well-known/flags/manifest.json`. `nuxt build` wri
 TanStack Start 1 with Vite 6 or newer, React or Solid.
 
 ```sh
-pnpm add flags @flags-sdk/tanstack-start @vercel/flags-core @openfeature/server-sdk
+pnpm add flags @flags-sdk/tanstack-start @vercel/flags-core
 ```
 
 ```ts
@@ -377,7 +377,7 @@ Manifest: `vite dev` serves `/.well-known/flags/manifest.json`. `vite build` wri
 Hono 4 or newer. There is no bundler, so write the source by hand (or use `flags sync` and import `./.flags/self.ts` by its path).
 
 ```sh
-pnpm add flags @flags-sdk/hono @vercel/flags-core @openfeature/server-sdk
+pnpm add flags @flags-sdk/hono @vercel/flags-core
 ```
 
 ```ts
@@ -456,7 +456,7 @@ process.on('SIGTERM', () => {
 Express 4 or newer. Write the source and the flags by hand, as for Hono.
 
 ```sh
-pnpm add flags @flags-sdk/express @vercel/flags-core @openfeature/server-sdk
+pnpm add flags @flags-sdk/express @vercel/flags-core
 ```
 
 ```ts

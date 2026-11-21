@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@flags-sdk/next": "workspace:*",
-    "@openfeature/server-sdk": "1.23.0",
     "@vercel/flags-core": "workspace:*",
     "@vercel/toolbar": "0.2.7",
     "flags": "workspace:*",

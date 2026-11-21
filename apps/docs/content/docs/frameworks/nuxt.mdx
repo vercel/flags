@@ -12,10 +12,10 @@ description: Set up the Flags SDK in Nuxt with one module.
 ### 1. Install the packages
 
 ```sh title="Terminal"
-npm install flags @flags-sdk/nuxt @vercel/flags-core @openfeature/server-sdk
+npm install flags @flags-sdk/nuxt @vercel/flags-core
 ```
 
-`@vercel/flags-core` has the provider and the catalog of [Vercel Flags](/docs/providers/vercel), and `@openfeature/server-sdk` is its peer dependency. Use the provider of your flag management system instead, if you have a different one.
+`@vercel/flags-core` has the provider and the catalog of [Vercel Flags](/docs/providers/vercel). It needs no OpenFeature package. Use the provider of your flag management system instead, if you have a different one.
 
 ### 2. Add the module
 

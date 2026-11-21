@@ -19,8 +19,8 @@ Pick your framework in the tabs. The setup is the same in each framework.
   [Express](/docs/frameworks/express) or [no framework](/docs/frameworks/node).
 </Callout>
 
-<CopyPrompt text="Add the Flags SDK (the `flags` package, version 5) to my application with Vercel Flags. Detect the framework (Next.js, SvelteKit, Nuxt or TanStack Start), install `flags`, the matching framework package, `@vercel/flags-core` and `@openfeature/server-sdk`, and add the plugin. Do not create `flags/sources/self`: with `@vercel/flags-core`, the source `self` is the default. Run `vercel link` and `vercel env pull`, and create a boolean flag `enableSale` with `vercel flags create enableSale --kind boolean`. Use the flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow https://flags-sdk.dev/docs/getting-started/quickstart, then run the type check and the build.">
-  Add the Flags SDK (the `flags` package, version 5) to my application with Vercel Flags. Detect the framework, install `flags`, the matching framework package, `@vercel/flags-core` and `@openfeature/server-sdk`, and add the plugin. Link the Vercel project, pull its environment variables, and create a boolean flag `enableSale`. Use the flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow this quickstart, then run the type check and the build.
+<CopyPrompt text="Add the Flags SDK (the `flags` package, version 5) to my application with Vercel Flags. Detect the framework (Next.js, SvelteKit, Nuxt or TanStack Start), install `flags`, the matching framework package and `@vercel/flags-core`, and add the plugin. Do not create `flags/sources/self`: with `@vercel/flags-core`, the source `self` is the default. Run `vercel link` and `vercel env pull`, and create a boolean flag `enableSale` with `vercel flags create enableSale --kind boolean`. Use the flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow https://flags-sdk.dev/docs/getting-started/quickstart, then run the type check and the build.">
+  Add the Flags SDK (the `flags` package, version 5) to my application with Vercel Flags. Detect the framework, install `flags`, the matching framework package and `@vercel/flags-core`, and add the plugin. Link the Vercel project, pull its environment variables, and create a boolean flag `enableSale`. Use the flag with `import { enableSale } from 'flags:self'` in a server-rendered page or route. Follow this quickstart, then run the type check and the build.
 </CopyPrompt>
 
 ### 1. Install the packages
@@ -28,19 +28,19 @@ Pick your framework in the tabs. The setup is the same in each framework.
 Install `flags`, the package of your framework, and the OpenFeature provider of Vercel Flags. For another flag management system, see [Use another provider](#use-another-provider).
 
 ```sh tab="Next.js" title="Terminal"
-npm install flags @flags-sdk/next @vercel/flags-core @openfeature/server-sdk
+npm install flags @flags-sdk/next @vercel/flags-core
 ```
 
 ```sh tab="SvelteKit" title="Terminal"
-npm install flags @flags-sdk/sveltekit @vercel/flags-core @openfeature/server-sdk
+npm install flags @flags-sdk/sveltekit @vercel/flags-core
 ```
 
 ```sh tab="Nuxt" title="Terminal"
-npm install flags @flags-sdk/nuxt @vercel/flags-core @openfeature/server-sdk
+npm install flags @flags-sdk/nuxt @vercel/flags-core
 ```
 
 ```sh tab="TanStack Start" title="Terminal"
-npm install flags @flags-sdk/tanstack-start @vercel/flags-core @openfeature/server-sdk
+npm install flags @flags-sdk/tanstack-start @vercel/flags-core
 ```
 
 ### 2. Add the plugin

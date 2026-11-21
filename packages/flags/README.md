@@ -113,7 +113,7 @@ A source connects flags to an OpenFeature provider, and creates the
 evaluation context from the request:
 
 ```sh
-pnpm add @vercel/flags-core @openfeature/server-sdk
+pnpm add @vercel/flags-core
 ```
 
 ### 3️⃣ Define your flags

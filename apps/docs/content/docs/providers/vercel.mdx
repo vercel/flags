@@ -9,8 +9,8 @@ The Flags SDK uses Vercel Flags through `VercelProvider`, the OpenFeature server
 
 With `@vercel/flags-core` in your dependencies, you need no setup for the source: the framework plugin gives you `flags:self`, with the flags of your Vercel project. You add a file only to replace a part, e.g. the evaluation context.
 
-<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, and add the plugin of my framework. Do not create `provider.ts` or `catalog.ts`: with `@vercel/flags-core` in my dependencies, the source `self` has the flags of my Vercel project by default. If my targeting rules use entities, add only `flags/sources/self/context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie. Import the flags from `flags:self`, and run the type check when finished.">
-  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core` and `@openfeature/server-sdk`, run `vercel link` and `vercel env pull`, and add the plugin of my framework. Do not create `provider.ts` or `catalog.ts`: with `@vercel/flags-core` in my dependencies, the source `self` has the flags of my Vercel project by default. If my targeting rules use entities, add only `flags/sources/self/context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie. Import the flags from `flags:self`, and run the type check when finished.
+<CopyPrompt text="Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core`, run `vercel link` and `vercel env pull`, and add the plugin of my framework. Do not create `provider.ts` or `catalog.ts`: with `@vercel/flags-core` in my dependencies, the source `self` has the flags of my Vercel project by default. If my targeting rules use entities, add only `flags/sources/self/context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie. Import the flags from `flags:self`, and run the type check when finished.">
+  Connect my Flags SDK v5 app to Vercel Flags. Install `@vercel/flags-core`, run `vercel link` and `vercel env pull`, and add the plugin of my framework. Do not create `provider.ts` or `catalog.ts`: with `@vercel/flags-core` in my dependencies, the source `self` has the flags of my Vercel project by default. If my targeting rules use entities, add only `flags/sources/self/context.ts` with a default export `getEvaluationContext(request)` which returns the user from a cookie. Import the flags from `flags:self`, and run the type check when finished.
 </CopyPrompt>
 
 <LearnMore icon="arrow" href="https://vercel.com/docs/flags/vercel-flags" target="_blank">
@@ -24,10 +24,10 @@ This quickstart assumes that your framework is set up already, e.g. with `withFl
 ### 1. Install the packages
 
 ```bash
-npm install flags @vercel/flags-core @openfeature/server-sdk
+npm install flags @vercel/flags-core
 ```
 
-`@openfeature/server-sdk` is a peer dependency of `VercelProvider`, as for most OpenFeature providers. Your code does not import it.
+`VercelProvider` does not need `@openfeature/server-sdk` at runtime, so you do not install it. With `"skipLibCheck": false` in `tsconfig.json`, install it as a dev dependency for its types.
 
 ### 2. Create a flag in Vercel
 

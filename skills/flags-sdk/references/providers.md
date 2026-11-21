@@ -33,11 +33,11 @@ Do not call `OpenFeature.setProvider()` or `OpenFeature.getClient()`. The SDK ca
 
 ## Vercel Flags
 
-Package: `@vercel/flags-core`. Provider: `VercelProvider` of `@vercel/flags-core/openfeature`. Catalog: `@vercel/flags-core/catalog`. `@openfeature/server-sdk` is a peer dependency.
+Package: `@vercel/flags-core`. Provider: `VercelProvider` of `@vercel/flags-core/openfeature`. Catalog: `@vercel/flags-core/catalog`. `VercelProvider` does not need `@openfeature/server-sdk` at runtime, so you do not install it. With `"skipLibCheck": false` in `tsconfig.json`, install it as a dev dependency for its types.
 
 ### Setup
 
-1. Install: `pnpm add flags @vercel/flags-core @openfeature/server-sdk` plus the framework package.
+1. Install: `pnpm add flags @vercel/flags-core` plus the framework package.
 2. Credentials: `vercel link`, then `vercel env pull`. `VercelProvider` uses the OIDC token of the project. Deployments on Vercel get it automatically.
 3. The source: none to create. With `@vercel/flags-core` in `package.json`, the plugin gives the default source `self`: provider `new VercelProvider()`, catalog `@vercel/flags-core/catalog`, no context. Do not write `provider.ts` or `catalog.ts` for it. Add only `flags/sources/self/context.ts` when targeting rules use entities (see [Targeting](#targeting)). The default provider and catalog stay. See [code-generation.md](code-generation.md#the-default-source-self).
 4. Add the framework plugin. Import the flags from `flags:self`:
