@@ -126,8 +126,8 @@ describe('setupFramework', () => {
     await setupFramework(runtime as never);
     expect(runtime.setGetRequest).toHaveBeenCalledWith(getRequest);
     expect(runtime.setRethrow).toHaveBeenCalledTimes(1);
-    // Without the plugin, flags/config has no configuration
+    // Without the plugin, flags/config loads the defaults of flags
     const source = runtime.setLoadConfig.mock.calls[0]?.[0];
-    await expect(source()).resolves.toBeUndefined();
+    await expect(source()).resolves.toEqual({ hooks: [], settings: {} });
   });
 });

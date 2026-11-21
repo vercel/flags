@@ -45,7 +45,7 @@ export default function getEvaluationContext(
 By hand, it is the option `getEvaluationContext` of `defineSource`:
 
 ```ts title="flags/self.ts"
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { provider } from './provider';
 
 export const self = defineSource({
@@ -56,7 +56,7 @@ export const self = defineSource({
   }),
 });
 
-export const summerSale = bindFlag({ key: 'summer-sale', source: self });
+export const summerSale = self.bindFlag('summerSale');
 ```
 
 The step receives `request` first, and the input of the step before as the second argument. Leave out the second argument if you do not need it.
@@ -104,7 +104,7 @@ const teams = defineSource({
   }),
 });
 
-export const teamInsights = bindFlag({ key: 'team-insights', source: teams });
+export const teamInsights = teams.bindFlag('teamInsights');
 ```
 
 ```ts title="app/api/teams/[teamId]/insights/route.ts"
@@ -116,9 +116,7 @@ const enabled = await teamInsights({ evaluationContext: { teamId } });
 A flag can convert the context between the call side and the source, e.g. when the call side knows the slug of a team, but the source needs its ID:
 
 ```ts title="flags.ts"
-export const teamInsights = bindFlag({
-  key: 'team-insights',
-  source: teams,
+export const teamInsights = teams.bindFlag('teamInsights', {
   // The call side gives a slug, the source gets a teamId
   getEvaluationContext: (_request, context: { slug: string }) => ({
     teamId: idOfSlug(context.slug),

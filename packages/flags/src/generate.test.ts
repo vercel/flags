@@ -9,7 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runCommand } from './commands';
 import { generateFlags, watchFlags } from './generate';
 
@@ -85,7 +85,9 @@ describe('generateFlags', () => {
 
     await generateFlags(directory);
 
-    expect(await read(directory, 'site.ts')).toContain('key: "fromImport"');
+    expect(await read(directory, 'site.ts')).toContain(
+      'source.bindFlag("fromImport"',
+    );
   });
 
   it('writes one module for each source, from its catalog only', async () => {
@@ -104,7 +106,7 @@ describe('generateFlags', () => {
     expect(await read(directory, '.gitignore')).toBe('*\n');
     const site = await read(directory, 'site.ts');
     expect(site).toContain("'use flags';");
-    expect(site).toContain('key: "enabled"');
+    expect(site).toContain('source.bindFlag("enabled"');
     expect(site).toContain('A demo flag');
   });
 
@@ -229,7 +231,9 @@ describe('watchFlags', () => {
     await generateFlags(directory);
 
     expect(site.state.closed).toBe(true);
-    expect(await read(directory, 'site.ts')).toContain('key: "enabled"');
+    expect(await read(directory, 'site.ts')).toContain(
+      'source.bindFlag("enabled"',
+    );
   });
 
   it('writes the modules again after each change of a catalog', async () => {
@@ -253,9 +257,11 @@ describe('watchFlags', () => {
       () => site.state.delivered === 1 && billing.state.delivered === 1,
     );
     const module = await read(directory, 'site.ts');
-    expect(module).not.toContain('key: "enabled"');
+    expect(module).not.toContain('source.bindFlag("enabled"');
     expect(module).toContain('options: ["small","large"] as const');
-    expect(await read(directory, 'billing.ts')).toContain('key: "price"');
+    expect(await read(directory, 'billing.ts')).toContain(
+      'source.bindFlag("price"',
+    );
     expect(JSON.parse(await read(directory, 'catalog.json'))).toEqual({
       billing: { revision: 2, flags: 1 },
       site: { revision: 2, flags: 1 },
@@ -325,6 +331,279 @@ describe('flags sync', () => {
     await expect(runCommand(['sync', directory])).resolves.toBe(
       'flags: Wrote the modules of flags:site.',
     );
-    expect(await read(directory, 'site.ts')).toContain('key: "from-env"');
+    expect(await read(directory, 'site.ts')).toContain(
+      'source.bindFlag("from-env"',
+    );
+  });
+});
+
+describe('the default source self', () => {
+  // An application which depends on @vercel/flags-core, with a fake package
+  // in its node_modules
+  async function vercelApp(
+    options: { dependency?: boolean; catalog?: string } = {},
+  ): Promise<string> {
+    const directory = await app();
+    await writeFile(
+      path.join(directory, 'package.json'),
+      JSON.stringify({
+        name: 'app',
+        dependencies:
+          options.dependency === false ? {} : { '@vercel/flags-core': '1.0.0' },
+      }),
+    );
+    const core = path.join(directory, 'node_modules/@vercel/flags-core');
+    await mkdir(core, { recursive: true });
+    await writeFile(
+      path.join(core, 'package.json'),
+      JSON.stringify({
+        name: '@vercel/flags-core',
+        type: 'module',
+        exports: {
+          './catalog': './catalog.js',
+          './openfeature': './openfeature.js',
+        },
+      }),
+    );
+    await writeFile(
+      path.join(core, 'catalog.js'),
+      options.catalog ??
+        `export const loadCatalog = async () => ({
+          project: { system: 'vercel-flags', projectId: 'prj_1' },
+          flags: { enableSale: { variants: [false, true] } },
+        });`,
+    );
+    await writeFile(
+      path.join(core, 'openfeature.js'),
+      `throw new Error('The provider must only run in the application');`,
+    );
+    return directory;
+  }
+
+  it('generates flags:self from Vercel Flags, without a flags folder', async () => {
+    const directory = await vercelApp();
+
+    const aliases = await generateFlags(directory);
+
+    expect(aliases).toEqual({ 'flags:self': './.flags/self.ts' });
+    const self = await read(directory, 'self.ts');
+    expect(self).toContain(
+      "import { VercelProvider } from '@vercel/flags-core/openfeature';",
+    );
+    expect(self).toContain('const provider = new VercelProvider();');
+    expect(self).toContain('source.bindFlag("enableSale"');
+    expect(self).not.toContain('context.ts');
+    const declarations = await readFile(
+      path.join(directory, 'flags/generated.d.ts'),
+      'utf8',
+    );
+    expect(declarations).toContain("declare module 'flags:self'");
+    expect(declarations).toContain(
+      "import('@vercel/flags-core/openfeature').VercelProvider",
+    );
+  });
+
+  it('writes the types into src/flags if the application has src', async () => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, 'src'));
+
+    await generateFlags(directory);
+
+    expect(
+      await stat(path.join(directory, 'src/flags/generated.d.ts')),
+    ).toBeTruthy();
+    await expect(stat(path.join(directory, 'flags'))).rejects.toThrow();
+  });
+
+  it('writes the types next to an existing folder flags, e.g. with config.ts', async () => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, 'src'));
+    await mkdir(path.join(directory, 'flags'));
+    await writeFile(
+      path.join(directory, 'flags/config.ts'),
+      'export const config = {};',
+    );
+
+    await generateFlags(directory);
+
+    expect(
+      await stat(path.join(directory, 'flags/generated.d.ts')),
+    ).toBeTruthy();
+    await expect(stat(path.join(directory, 'src/flags'))).rejects.toThrow();
+  });
+
+  it('removes the old types when the folder flags moves', async () => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, 'src'));
+    await generateFlags(directory);
+    expect(
+      await stat(path.join(directory, 'src/flags/generated.d.ts')),
+    ).toBeTruthy();
+
+    // The application adds flags/sources/self/context.ts in the root
+    const self = path.join(directory, 'flags/sources/self');
+    await mkdir(self, { recursive: true });
+    await writeFile(
+      path.join(self, 'context.ts'),
+      'export default () => ({});',
+    );
+    await generateFlags(directory);
+
+    expect(
+      await stat(path.join(directory, 'flags/generated.d.ts')),
+    ).toBeTruthy();
+    await expect(
+      stat(path.join(directory, 'src/flags/generated.d.ts')),
+    ).rejects.toThrow();
+  });
+
+  it('keeps a generated.d.ts which the SDK did not write', async () => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, 'src/flags'), { recursive: true });
+    await writeFile(
+      path.join(directory, 'src/flags/generated.d.ts'),
+      'declare const own: string;',
+    );
+    await mkdir(path.join(directory, 'flags'));
+
+    await generateFlags(directory);
+
+    expect(
+      await readFile(path.join(directory, 'src/flags/generated.d.ts'), 'utf8'),
+    ).toBe('declare const own: string;');
+  });
+
+  it('takes each file which flags/sources/self has not from Vercel Flags', async () => {
+    const directory = await vercelApp();
+    const self = path.join(directory, 'flags/sources/self');
+    await mkdir(self, { recursive: true });
+    await writeFile(
+      path.join(self, 'context.ts'),
+      "throw new Error('context.ts must only run in the application');",
+    );
+
+    await generateFlags(directory);
+
+    const module = await read(directory, 'self.ts');
+    expect(module).toContain(
+      "import getEvaluationContext from '../flags/sources/self/context.ts';",
+    );
+    expect(module).toContain('const provider = new VercelProvider();');
+    expect(module).toContain('source.bindFlag("enableSale"');
+  });
+
+  it('uses provider.ts and catalog.ts of flags/sources/self if they exist', async () => {
+    const directory = await vercelApp();
+    await addSource(directory, 'self');
+
+    await generateFlags(directory);
+
+    const module = await read(directory, 'self.ts');
+    expect(module).toContain(
+      "import provider from '../flags/sources/self/provider.ts';",
+    );
+    expect(module).not.toContain('VercelProvider');
+    expect(module).toContain('source.bindFlag("enabled"');
+  });
+
+  it.each([
+    'flags',
+    'src/flags',
+  ])('has no default source with "selfSource": false in %s/config.json', async (folder) => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, folder), { recursive: true });
+    await writeFile(
+      path.join(directory, folder, 'config.json'),
+      JSON.stringify({ selfSource: false }),
+    );
+
+    await expect(generateFlags(directory)).resolves.toEqual({});
+    await expect(stat(path.join(directory, '.flags'))).rejects.toThrow();
+  });
+
+  it('fails for an unknown setting in flags/config.json', async () => {
+    const directory = await vercelApp();
+    await mkdir(path.join(directory, 'flags'));
+    await writeFile(
+      path.join(directory, 'flags/config.json'),
+      JSON.stringify({ selfsource: false }),
+    );
+
+    await expect(generateFlags(directory)).rejects.toThrow(
+      'has the unknown setting "selfsource"',
+    );
+  });
+
+  it('passes flags/sources/<source>/hooks.ts to the source', async () => {
+    const directory = await vercelApp();
+    const self = path.join(directory, 'flags/sources/self');
+    await mkdir(self, { recursive: true });
+    await writeFile(
+      path.join(self, 'hooks.ts'),
+      "throw new Error('hooks.ts must only run in the application');",
+    );
+
+    await generateFlags(directory);
+
+    const module = await read(directory, 'self.ts');
+    expect(module).toContain(
+      "import hooks from '../flags/sources/self/hooks.ts';",
+    );
+    expect(module).toContain('  hooks,');
+  });
+
+  it('has no default source without the dependency on @vercel/flags-core', async () => {
+    const directory = await vercelApp({ dependency: false });
+
+    await expect(generateFlags(directory)).resolves.toEqual({});
+    await expect(stat(path.join(directory, '.flags'))).rejects.toThrow();
+  });
+
+  it('still needs provider.ts for the source self without the dependency', async () => {
+    const directory = await vercelApp({ dependency: false });
+    const self = path.join(directory, 'flags/sources/self');
+    await mkdir(self, { recursive: true });
+    await writeFile(
+      path.join(self, 'context.ts'),
+      'export default () => ({});',
+    );
+
+    await expect(generateFlags(directory)).rejects.toThrow(
+      'needs flags/sources/self/catalog.ts',
+    );
+  });
+
+  it('warns, and generates no flags, if Vercel Flags can not be loaded', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const directory = await vercelApp({
+      catalog: `export const loadCatalog = async function* () {
+        throw new Error('unauthorized (401)');
+      };`,
+    });
+
+    const aliases = await generateFlags(directory);
+
+    expect(aliases).toEqual({ 'flags:self': './.flags/self.ts' });
+    expect(JSON.parse(await read(directory, 'catalog.json'))).toEqual({
+      self: { flags: 0 },
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: unauthorized (401)',
+      ),
+    );
+    warn.mockRestore();
+  });
+
+  it('fails for an error of the catalog of the application', async () => {
+    const directory = await vercelApp();
+    const self = path.join(directory, 'flags/sources/self');
+    await mkdir(self, { recursive: true });
+    await writeFile(
+      path.join(self, 'catalog.ts'),
+      "export default () => { throw new Error('broken catalog'); };",
+    );
+
+    await expect(generateFlags(directory)).rejects.toThrow('broken catalog');
   });
 });

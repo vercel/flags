@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 import { FLAGS_SECRET } from '../playwright.config';
 
 test('evaluates the flags in a server route', async ({ request }) => {
@@ -85,7 +85,7 @@ test('writes the manifest of the flags into the server output', () => {
   });
 });
 
-test('uses flags/config.ts and the request without onInvoke', async ({
+test('uses flags/hooks.ts and the request without onInvoke', async ({
   request,
 }) => {
   const [anonymous, alice] = await Promise.all([
@@ -95,7 +95,7 @@ test('uses flags/config.ts and the request without onInvoke', async ({
 
   expect(await anonymous.json()).toEqual({
     checkout: false,
-    text: 'Hello from flags/config.ts',
+    text: 'Hello from flags/hooks.ts',
   });
   expect(await alice.json()).toMatchObject({ checkout: true });
 });

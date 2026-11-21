@@ -3,7 +3,7 @@
 > **Status (2026-11):** `packages/flags-protocol` is joined into `packages/flags`
 > (milestones M0 to M7 in "The move to sources" of
 > [the SPEC](../packages/flags/SPEC.md)). "Connection" is now "source"
-> (`defineSource`), flags of a source use `bindFlag`, inline flags use
+> (`defineSource`), flags of a source use `source.bindFlag(key)`, inline flags use
 > `defineFlag` with `decide`, and code generation is in `flags/tooling` and
 > in the framework plugins (on by default, `disableCodeGeneration` turns it
 > off). "Current implementation" and "Code reading
@@ -73,9 +73,10 @@ application modules import `provider.ts` and `context.ts`. Shared project settin
 must be safe to load in build tooling. Catalog code must not import runtime
 providers or request APIs. Credentials must never enter generated files.
 
-Manual connections need neither this directory layout nor `catalog.ts`. A central
-`flags/config.ts` is not required by the proposed source model. The final API for
-global runtime policy, such as hooks and overrides, is still open.
+Manual connections need neither this directory layout nor `catalog.ts`. The
+global runtime policy has optional files in the folder `flags`: `hooks.ts` (hooks)
+and `config.json` (static settings, e.g. `selfSource` and the override
+options `overrides`).
 
 ## Types and evaluation context
 

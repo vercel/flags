@@ -7,12 +7,17 @@
  */
 export { MANIFEST_FILE, writeManifestFromBuild } from './build-manifest';
 export { renderSourceModule, type SourceFiles } from './codegen';
-export { findConfigFile } from './config-file';
+export {
+  type ConfigModule,
+  findConfigModules,
+  readSettings,
+} from './config-file';
 export { hasUseFlagsDirective } from './directive';
 export { findFlagsModules } from './find-flags-modules';
 export {
   type FlagsAliases,
   findFlagsDirectory,
+  findGeneratedDeclarations,
   GENERATED_DECLARATIONS,
   GENERATED_DIRECTORY,
   generateFlags,

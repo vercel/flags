@@ -2,13 +2,12 @@ import { conformanceResult } from '@flags-sdk/conformance';
 import { flags } from '@flags-sdk/express';
 import express from 'express';
 import { evaluate } from 'flags';
-import { config } from './flags/config.ts';
 import { greeting, newCheckout } from './flags.ts';
 
 const app = express();
 
-// Each request runs in runtime.onInvoke, and the SDK uses flags/config.ts
-app.use(flags({ config }));
+// Each request runs in runtime.onInvoke
+app.use(flags());
 
 app.get('/', async (_request, response) => {
   const [checkout, text] = await evaluate([newCheckout, greeting]);

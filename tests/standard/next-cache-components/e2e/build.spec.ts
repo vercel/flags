@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { decryptFlagValues } from 'flags';
+import { decryptFlagValues } from 'flags/explorer';
 
 // A build with Cache Components: a page with only known values, e.g. of
 // getPrecomputed, must stay fully static, with the encrypted flag values in

@@ -18,7 +18,6 @@ import {
   it,
   vi,
 } from 'vitest';
-import { bindFlag } from '../flag';
 import { runtime } from '../runtime';
 import { defineSource } from '../source';
 import type { Provider } from '../types';
@@ -44,7 +43,7 @@ function createFlag(key = 'new-checkout') {
     provider,
     project: { system: 'in-memory' },
   });
-  return { flag: bindFlag({ key, source }), provider };
+  return { flag: source.bindFlag(key), provider };
 }
 
 function withCookie(cookie: string) {
@@ -141,17 +140,6 @@ describe('overrides with the shared secret', () => {
     expect(provider.resolveBooleanEvaluation).toHaveBeenCalled();
   });
 
-  it('accepts an explicit secret', async () => {
-    vi.stubEnv('FLAGS_SECRET', '');
-    runtime.configure({ overrides: { secret: otherSecret } });
-    const { flag } = createFlag();
-    const token = await encryptOverrides({ 'new-checkout': true }, otherSecret);
-
-    await expect(
-      runtime.onInvoke(withCookie(`flag-overrides=${token}`), () => flag()),
-    ).resolves.toBe(true);
-  });
-
   it('accepts a FLAGS_SECRET in standard base64, as v4 did', async () => {
     // The same bytes, with + / and =, e.g. from `openssl rand -base64 32`
     const standard = Buffer.from(base64url.decode(secret)).toString('base64');
@@ -165,7 +153,7 @@ describe('overrides with the shared secret', () => {
   });
 
   it('accepts no tokens of the shared secret with secret false', async () => {
-    runtime.configure({ overrides: { secret: false } });
+    runtime.configure({ settings: { overrides: { secret: false } } });
     const { flag } = createFlag();
     const token = await encryptOverrides({ 'new-checkout': true });
 
@@ -177,11 +165,21 @@ describe('overrides with the shared secret', () => {
     ]);
   });
 
-  it('throws for an explicit secret which is not valid', () => {
+  it('takes no secret in the settings', () => {
     expect(() =>
-      runtime.configure({ overrides: { secret: 'too-short' } }),
+      runtime.configure({
+        settings: { overrides: { secret: 'too-short' as unknown as false } },
+      }),
     ).toThrow(
-      'flags: Invalid FLAGS_SECRET. It must be 32 random bytes, encoded as base64url or base64.',
+      'flags: overrides.secret in flags/config.json can only be false. Set the secret with the environment variable FLAGS_SECRET.',
+    );
+  });
+
+  it('points from the old option overrides to the settings', () => {
+    expect(() =>
+      runtime.configure({ overrides: { secret: false } } as never),
+    ).toThrow(
+      'flags: The overrides are a setting of flags/config.json. Use runtime.configure({ settings: { overrides } }).',
     );
   });
 
@@ -354,10 +352,15 @@ describe('overrides which Vercel signs', () => {
     );
   }
 
-  function configure(options: Partial<VercelOverridesOptions> = {}) {
-    const fetch = keyServer();
+  function configure({
+    fetch = keyServer(),
+    ...options
+  }: Partial<VercelOverridesOptions> & {
+    fetch?: ReturnType<typeof keyServer>;
+  } = {}) {
+    vi.stubGlobal('fetch', fetch);
     runtime.configure({
-      overrides: { vercel: { issuer, project, fetch, ...options } },
+      settings: { overrides: { vercel: { issuer, project, ...options } } },
     });
     return fetch;
   }
@@ -639,11 +642,9 @@ describe('overrides which Vercel signs', () => {
 
     it('loads the keys again for a new key after the cooldown', async () => {
       let keys = [publicJwk];
-      const fetch = keyServer(() => keys);
-      runtime.configure({
-        overrides: {
-          vercel: { issuer, project, fetch, cooldownMs: 1 },
-        },
+      const fetch = configure({
+        fetch: keyServer(() => keys),
+        cooldownMs: 1,
       });
       await evaluateWith(await sign());
 
@@ -657,8 +658,7 @@ describe('overrides which Vercel signs', () => {
 
     it('does not load the keys more often than the cooldown', async () => {
       let keys = [publicJwk];
-      const fetch = keyServer(() => keys);
-      runtime.configure({ overrides: { vercel: { issuer, project, fetch } } });
+      const fetch = configure({ fetch: keyServer(() => keys) });
       await evaluateWith(await sign());
 
       const { jwk, token } = await rotate();
@@ -928,7 +928,7 @@ describe('overrides which Vercel signs', () => {
 
     it('can be turned off with vercel false', async () => {
       onVercel();
-      runtime.configure({ overrides: { vercel: false } });
+      runtime.configure({ settings: { overrides: { vercel: false } } });
 
       expect((await evaluateWith(await sign())).value).toBe(false);
       expect(warnings[0]).toContain('untrusted-jws');
@@ -939,8 +939,10 @@ describe('overrides which Vercel signs', () => {
     it('require HTTPS', () => {
       expect(() =>
         runtime.configure({
-          overrides: {
-            vercel: { issuer: 'http://kms.example', project },
+          settings: {
+            overrides: {
+              vercel: { issuer: 'http://kms.example', project },
+            },
           },
         }),
       ).toThrow('flags: The issuer of the Vercel overrides must use HTTPS.');
@@ -949,11 +951,13 @@ describe('overrides which Vercel signs', () => {
     it('allow http://localhost for a local test issuer', () => {
       expect(() =>
         runtime.configure({
-          overrides: {
-            vercel: {
-              issuer: 'http://localhost:3000/issuer',
-              project,
-              allowInsecureLocalhost: true,
+          settings: {
+            overrides: {
+              vercel: {
+                issuer: 'http://localhost:3000/issuer',
+                project,
+                allowInsecureLocalhost: true,
+              },
             },
           },
         }),
@@ -964,8 +968,10 @@ describe('overrides which Vercel signs', () => {
       vi.spyOn(process, 'cwd').mockReturnValue(tmpdir());
       expect(() =>
         runtime.configure({
-          overrides: {
-            vercel: { issuer, project: { projectId: 'prj_1' } },
+          settings: {
+            overrides: {
+              vercel: { issuer, project: { projectId: 'prj_1' } },
+            },
           },
         }),
       ).toThrow('flags: The Vercel project for the overrides is not known.');
@@ -973,7 +979,8 @@ describe('overrides which Vercel signs', () => {
 
     it('use the issuer of the Vercel Toolbar by default', async () => {
       const fetch = keyServer();
-      runtime.configure({ overrides: { vercel: { project, fetch } } });
+      vi.stubGlobal('fetch', fetch);
+      runtime.configure({ settings: { overrides: { vercel: { project } } } });
       await evaluateWith(await sign({}, { issuer: VERCEL_TOOLBAR_ISSUER }));
 
       expect(String(fetch.mock.calls[0]?.[0])).toBe(
@@ -984,8 +991,10 @@ describe('overrides which Vercel signs', () => {
     it('require a positive lifetime', () => {
       expect(() =>
         runtime.configure({
-          overrides: {
-            vercel: { issuer, project, maxLifetimeSeconds: 0 },
+          settings: {
+            overrides: {
+              vercel: { issuer, project, maxLifetimeSeconds: 0 },
+            },
           },
         }),
       ).toThrow(

@@ -1,6 +1,8 @@
+import { type BindFlagOptions, bindFlagTo, type Flag } from './flag';
 import { sharedState } from './shared-state';
 import { isSafeUrl } from './system-manifest';
 import type { EvaluationContext, FlagsRequest, Hook, Provider } from './types';
+import type { FlagOptionsOf, FlagType, FlagValueFrom } from './value-types';
 
 /**
  * The fields of the flag project which each supported flag management
@@ -153,9 +155,53 @@ export interface Source<
 }
 
 /**
+ * Any source, whatever its input. `getEvaluationContext` is a method, so a
+ * source with any input fits.
+ */
+export type AnySource = Source<
+  Provider,
+  FlagManagementSystem,
+  EvaluationContext,
+  unknown
+>;
+
+/**
+ * A source of `defineSource`, with `bindFlag` to declare its flags.
+ */
+export interface BindableSource<
+  P extends Provider = Provider,
+  N extends FlagManagementSystem = FlagManagementSystem,
+  C extends EvaluationContext = EvaluationContext,
+  In = DefaultSourceInput,
+> extends Source<P, N, C, In> {
+  /**
+   * Declares a flag of this source: the provider of the source decides its
+   * value. Call the returned function to evaluate it. For an inline flag,
+   * use `defineFlag`.
+   *
+   * @example
+   * ```ts
+   * export const enableDashboard = self.bindFlag('enableDashboard', {
+   *   options: [false, true], // optional
+   * });
+   * await enableDashboard();
+   * ```
+   */
+  bindFlag<
+    const K extends string,
+    const T extends FlagType = 'boolean',
+    const O extends FlagOptionsOf<T> = FlagOptionsOf<T>,
+    FlagIn = In,
+  >(
+    key: K,
+    options?: BindFlagOptions<this, FlagIn, T, O>,
+  ): Flag<this, K, FlagIn, FlagValueFrom<T, O>>;
+}
+
+/**
  * The context which the flags of a source must give.
  */
-export type SourceInput<C extends Source> =
+export type SourceInput<C> =
   C extends Source<Provider, FlagManagementSystem, EvaluationContext, infer In>
     ? In
     : never;
@@ -170,7 +216,7 @@ export function defineSource<
   N extends FlagManagementSystem,
   C extends EvaluationContext = EvaluationContext,
   In = DefaultSourceInput,
->(options: SourceOptions<P, N, C, In>): Source<P, N, C, In> {
+>(options: SourceOptions<P, N, C, In>): BindableSource<P, N, C, In> {
   const { project } = options;
   if (project !== undefined) {
     if (Object.hasOwn(project, 'platform')) {
@@ -185,7 +231,7 @@ export function defineSource<
       );
     }
   }
-  const source: Source<P, N, C, In> = Object.freeze({
+  const source: BindableSource<P, N, C, In> = Object.freeze({
     provider: options.provider,
     project:
       project === undefined
@@ -193,7 +239,10 @@ export function defineSource<
         : (Object.freeze({ ...project }) as unknown as Project<N>),
     getEvaluationContext: options.getEvaluationContext,
     hooks: options.hooks ? Object.freeze([...options.hooks]) : undefined,
-  });
+    bindFlag(key: string, flagOptions?: object) {
+      return bindFlagTo(source as unknown as AnySource, key, flagOptions);
+    },
+  }) as BindableSource<P, N, C, In>;
   sources.add(source);
   return source;
 }

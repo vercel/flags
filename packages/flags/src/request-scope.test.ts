@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bindFlag } from './flag';
+
 import { logger } from './logger';
 import { runtime } from './runtime';
 import { defineSource, type GetEvaluationContext } from './source';
@@ -65,7 +65,7 @@ describe('request scope', () => {
 
     it('keeps the scope for work which next starts', async () => {
       const { source, provider } = createSource(getUserContext);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       // Like Express: next returns at once, the work continues later
       const evaluation = await new Promise<Promise<boolean>>((resolve) => {
@@ -101,7 +101,7 @@ describe('request scope', () => {
         received = incoming;
         return {};
       });
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
       await runtime.onInvoke(init, () => flag());
       return received;
     }
@@ -151,7 +151,7 @@ describe('request scope', () => {
       const current = { headers: new Headers({ 'x-user': 'alice' }) };
       runtime.setGetRequest(() => current);
       const { source, provider } = createSource(getUserContext);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await flag();
       expect(getUserContext).toHaveBeenCalledWith(
@@ -171,7 +171,7 @@ describe('request scope', () => {
       runtime.setGetRequest(async () => current);
       const { source } = createSource(getUserContext);
 
-      await bindFlag({ key: 'a', source })();
+      await source.bindFlag('a')();
       expect(getUserContext).toHaveBeenCalledWith(
         expect.objectContaining({ headers: current.headers }),
         undefined,
@@ -182,8 +182,8 @@ describe('request scope', () => {
       const current = { headers: new Headers({ 'x-user': 'alice' }) };
       runtime.setGetRequest(() => current);
       const { source } = createSource(getUserContext);
-      const a = bindFlag({ key: 'a', source });
-      const b = bindFlag({ key: 'b', source });
+      const a = source.bindFlag('a');
+      const b = source.bindFlag('b');
 
       await a();
       await b();
@@ -195,8 +195,8 @@ describe('request scope', () => {
       const headers = new Headers({ 'x-user': 'alice' });
       runtime.setGetRequest(() => ({ headers }));
       const { source } = createSource(getUserContext);
-      const a = bindFlag({ key: 'a', source });
-      const b = bindFlag({ key: 'b', source });
+      const a = source.bindFlag('a');
+      const b = source.bindFlag('b');
 
       await a();
       await b();
@@ -208,7 +208,7 @@ describe('request scope', () => {
       runtime.setGetRequest(() => init);
       const step = vi.fn(() => ({}));
       const { source } = createSource(step);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await flag();
       await flag();
@@ -223,7 +223,7 @@ describe('request scope', () => {
       let current = { headers: new Headers({ 'x-user': 'alice' }) };
       runtime.setGetRequest(() => current);
       const { source } = createSource(getUserContext);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await flag();
       current = { headers: new Headers({ 'x-user': 'bob' }) };
@@ -235,7 +235,7 @@ describe('request scope', () => {
       runtime.setGetRequest(() => undefined);
       const { source } = createSource(getUserContext);
 
-      await bindFlag({ key: 'a', source })();
+      await source.bindFlag('a')();
       expect(getUserContext).toHaveBeenCalledWith(undefined, undefined);
     });
 
@@ -243,7 +243,7 @@ describe('request scope', () => {
       const getRequest = vi.fn(() => ({ headers: new Headers() }));
       runtime.setGetRequest(getRequest);
       const { source } = createSource(getUserContext);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await runtime.onInvoke(request('alice'), () => flag());
       expect(getRequest).not.toHaveBeenCalled();
@@ -254,7 +254,7 @@ describe('request scope', () => {
         throw new Error('No request');
       });
       const { source } = createSource(getUserContext);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await expect(flag()).rejects.toMatchObject({
         message: 'flags: Could not evaluate flag "a": No request',
@@ -265,7 +265,7 @@ describe('request scope', () => {
   describe('getEvaluationContext', () => {
     it('passes the context to the provider', async () => {
       const { source, provider } = createSource(getUserContext);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await runtime.onInvoke(request('alice'), () => flag());
       expect(getUserContext).toHaveBeenCalledWith(
@@ -282,8 +282,8 @@ describe('request scope', () => {
 
     it('is called once per request and source', async () => {
       const { source } = createSource(getUserContext);
-      const a = bindFlag({ key: 'a', source });
-      const b = bindFlag({ key: 'b', source });
+      const a = source.bindFlag('a');
+      const b = source.bindFlag('b');
 
       await runtime.onInvoke(request('alice'), async () => {
         await Promise.all([a(), b(), a()]);
@@ -294,7 +294,7 @@ describe('request scope', () => {
 
     it('is called again for the next request', async () => {
       const { source } = createSource(getUserContext);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await runtime.onInvoke(request('alice'), () => flag());
       await runtime.onInvoke(request('bob'), () => flag());
@@ -310,7 +310,7 @@ describe('request scope', () => {
 
     it('keeps concurrent requests apart', async () => {
       const { source, provider } = createSource(getUserContext);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
       const gate = deferred();
 
       await Promise.all([
@@ -343,8 +343,8 @@ describe('request scope', () => {
         project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
         getEvaluationContext: () => ({ targetingKey: 'b' }),
       });
-      const flagA = bindFlag({ key: 'a', source: a });
-      const flagB = bindFlag({ key: 'b', source: b });
+      const flagA = a.bindFlag('a');
+      const flagB = b.bindFlag('b');
 
       await runtime.onInvoke(request('alice'), async () => {
         await flagA();
@@ -370,7 +370,7 @@ describe('request scope', () => {
       const { source, provider } = createSource(async () => ({
         targetingKey: 'async',
       }));
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await runtime.onInvoke(request('alice'), () => flag());
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
@@ -383,7 +383,7 @@ describe('request scope', () => {
 
     it('uses an empty context without getEvaluationContext', async () => {
       const { source, provider } = createSource();
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await runtime.onInvoke(request('alice'), () => flag());
       expect(provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
@@ -396,7 +396,7 @@ describe('request scope', () => {
 
     it('is called without a request outside of a request', async () => {
       const { source, provider } = createSource(getUserContext);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await flag();
       expect(getUserContext).toHaveBeenCalledWith(undefined, undefined);
@@ -421,7 +421,7 @@ describe('request scope', () => {
 
       it('throws without a default value', async () => {
         const { source, provider } = createSource(failing);
-        const flag = bindFlag({ key: 'a', source });
+        const flag = source.bindFlag('a');
 
         await expect(
           runtime.onInvoke(request('alice'), () => flag()),
@@ -434,7 +434,7 @@ describe('request scope', () => {
 
       it('returns the default value and logs the error', async () => {
         const { source } = createSource(failing);
-        const flag = bindFlag({ key: 'a', defaultValue: false, source });
+        const flag = source.bindFlag('a', { defaultValue: false });
 
         await expect(
           runtime.onInvoke(request('alice'), () => flag()),
@@ -446,7 +446,7 @@ describe('request scope', () => {
 
       it('is not called again in the same request', async () => {
         const { source } = createSource(failing);
-        const flag = bindFlag({ key: 'a', defaultValue: false, source });
+        const flag = source.bindFlag('a', { defaultValue: false });
 
         await runtime.onInvoke(request('alice'), async () => {
           await flag();

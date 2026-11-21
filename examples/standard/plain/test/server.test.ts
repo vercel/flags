@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import { after, before, test } from 'node:test';
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { createServer } from '../src/server.ts';
 
 let base: string;

@@ -18,11 +18,11 @@
 import { createHash } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { runtime } from 'flags';
 import { createManifest } from 'flags/manifest';
+import { runtime } from 'flags/runtime';
 import {
   addSelfRegistration,
-  findConfigFile,
+  findConfigModules,
   findFlagsModules,
   hasUseFlagsDirective,
   MANIFEST_FILE,
@@ -190,7 +190,7 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
         aliases = resolveAliases(dir, await generation.ready);
       }
       if (!options.binding && Object.keys(aliases).length === 0) return;
-      const configFile = options.binding ? findConfigFile(dir) : undefined;
+      const configModules = options.binding ? findConfigModules(dir) : {};
       // The modules behind the aliases only reach the SDK when it is bundled
       // into the server code, not when Node.js loads it from node_modules.
       // The optimizer of dependencies must not bundle these packages in
@@ -200,9 +200,11 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       return {
         resolve: {
           alias: [
-            ...(configFile
-              ? [{ find: /^flags\/config$/, replacement: configFile }]
-              : []),
+            // flags/hooks.ts and flags/config.json
+            ...Object.entries(configModules).map(([module, file]) => ({
+              find: new RegExp(`^${module}$`),
+              replacement: file,
+            })),
             ...Object.entries(aliases).map(([find, replacement]) => ({
               find,
               replacement,
@@ -306,7 +308,7 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
             load.refresh?.();
             if (options.binding) {
               // The SDK in the server code has the framework binding, so the
-              // runtime can load flags/config.ts
+              // runtime can load flags/hooks.ts and flags/config.json
               await load.import('flags');
               await runtime.prepare();
             }

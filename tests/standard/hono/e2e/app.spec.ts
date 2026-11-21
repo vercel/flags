@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 import { FLAGS_SECRET } from '../playwright.config';
 
 test('evaluates the flags in a handler', async ({ request }) => {
@@ -48,7 +48,7 @@ test('the script writes the manifest of the flags', () => {
   });
 });
 
-test('uses flags/config.ts with the middleware', async ({ request }) => {
+test('evaluates the flags with the middleware', async ({ request }) => {
   const [anonymous, alice] = await Promise.all([
     request.get('/config'),
     request.get('/config', { headers: { cookie: 'user=alice' } }),

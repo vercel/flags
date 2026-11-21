@@ -1,17 +1,12 @@
 'use flags';
 
-import { bindFlag } from 'flags';
 import { launchdarkly } from './flags/launchdarkly';
 
-export const welcomeMessage = bindFlag({
-  key: 'welcome_message',
-  source: launchdarkly,
+export const welcomeMessage = launchdarkly.bindFlag('welcome_message', {
   type: 'string',
   defaultValue: 'Welcome to the LaunchDarkly example',
 });
 
-export const showBanner = bindFlag({
-  key: 'show_banner',
-  source: launchdarkly,
+export const showBanner = launchdarkly.bindFlag('show_banner', {
   defaultValue: false,
 });

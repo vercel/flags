@@ -11,27 +11,27 @@ import { pathToFileURL } from 'node:url';
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { decryptOverrides, encryptOverrides } from './explorer';
 import { generateFlags } from './generate';
 import {
-  bindFlag,
-  decryptOverrides,
-  defineConfig,
   defineFlag,
   defineSource,
-  encryptOverrides,
   evaluate,
   FlagEvaluationError,
   type Hook,
   OVERRIDE_REASON,
   type Provider,
-  registerFlags,
-  registerSources,
-  runtime,
   track,
 } from './index';
 import { createManifest, resolveFlagLinks } from './manifest';
 // Only to sign tokens like the Vercel Toolbar: the issuer which the SDK trusts
 import { VERCEL_TOOLBAR_ISSUER } from './overrides/vercel';
+import {
+  type Config,
+  registerFlags,
+  registerSources,
+  runtime,
+} from './runtime-module';
 
 // A provider with some flags. In an application, this is the OpenFeature
 // provider of a platform, e.g. LaunchDarkly.
@@ -115,10 +115,7 @@ describe('1. Sources and flags', () => {
       project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
 
-    const summerSale = bindFlag({
-      key: 'summer-sale',
-      source: launchdarkly,
-    });
+    const summerSale = launchdarkly.bindFlag('summer-sale');
 
     expect(await summerSale()).toBe(true);
   });
@@ -128,10 +125,7 @@ describe('1. Sources and flags', () => {
       provider: createProvider(),
       project: { system: 'launchdarkly', projectId: 'shop', teamId: 'acme' },
     });
-    const summerSale = bindFlag({
-      key: 'summer-sale',
-      source: launchdarkly,
-    });
+    const summerSale = launchdarkly.bindFlag('summer-sale');
 
     expect(summerSale.key).toBe('summer-sale');
     expect(summerSale.source.project).toEqual({
@@ -181,10 +175,8 @@ describe('2. Default values and errors', () => {
     });
 
   it('returns the default value and logs one line when a flag fails', async () => {
-    const missing = bindFlag({
-      key: 'does-not-exist',
+    const missing = source().bindFlag('does-not-exist', {
       defaultValue: false,
-      source: source(),
     });
 
     expect(await missing()).toBe(false);
@@ -194,10 +186,7 @@ describe('2. Default values and errors', () => {
   });
 
   it('throws when a flag without a default value fails', async () => {
-    const missing = bindFlag({
-      key: 'does-not-exist',
-      source: source(),
-    });
+    const missing = source().bindFlag('does-not-exist');
 
     const error = await missing().catch((e: unknown) => e);
     expect(error).toBeInstanceOf(FlagEvaluationError);
@@ -214,8 +203,8 @@ describe('3. Several flags at once', () => {
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
-    const summerSale = bindFlag({ key: 'summer-sale', source });
-    const newCheckout = bindFlag({ key: 'new-checkout', source });
+    const summerSale = source.bindFlag('summer-sale');
+    const newCheckout = source.bindFlag('new-checkout');
 
     const [sale, checkout] = await evaluate([summerSale, newCheckout]);
 
@@ -247,7 +236,7 @@ describe('4. The evaluation context chain', () => {
         user: context.user,
       }),
     });
-    const newCheckout = bindFlag({ key: 'new-checkout', source });
+    const newCheckout = source.bindFlag('new-checkout');
 
     expect(await newCheckout({ evaluationContext: { user: 'alice' } })).toBe(
       true,
@@ -276,7 +265,7 @@ describe('4. The evaluation context chain', () => {
         team: teams[context.teamId],
       }),
     });
-    const teamInsights = bindFlag({ key: 'team-insights', source });
+    const teamInsights = source.bindFlag('team-insights');
 
     // e.g. GET /api/teams/team-1/insights
     expect(
@@ -297,9 +286,7 @@ describe('4. The evaluation context chain', () => {
     });
 
     // The call side knows the slug, the source needs the id
-    const teamInsights = bindFlag({
-      key: 'team-insights',
-      source,
+    const teamInsights = source.bindFlag('team-insights', {
       getEvaluationContext: (_request, context: { slug: string }) => ({
         teamId: `id-of-${context.slug}`,
       }),
@@ -318,7 +305,7 @@ describe('4. The evaluation context chain', () => {
         team: context.teamId,
       }),
     });
-    const teamInsights = bindFlag({ key: 'team-insights', source });
+    const teamInsights = source.bindFlag('team-insights');
 
     void (() => {
       teamInsights({ evaluationContext: { teamId: 'team-1' } });
@@ -347,7 +334,7 @@ describe('5. Requests', () => {
 
   it('gives each step the request of a middleware', async () => {
     const { source } = cookieSource();
-    const newCheckout = bindFlag({ key: 'new-checkout', source });
+    const newCheckout = source.bindFlag('new-checkout');
 
     // e.g. in Hono: app.use((c, next) => runtime.onInvoke(c.req.raw, next))
     const request = new Request('https://shop.example/checkout', {
@@ -372,7 +359,7 @@ describe('5. Requests', () => {
         return {};
       },
     });
-    const summerSale = bindFlag({ key: 'summer-sale', source });
+    const summerSale = source.bindFlag('summer-sale');
 
     const request = new Request('https://shop.example/teams/acme', {
       headers: { 'accept-language': 'de-CH', cookie: 'user=alice' },
@@ -388,8 +375,8 @@ describe('5. Requests', () => {
 
   it('creates the context once per request', async () => {
     const { source, calls } = cookieSource();
-    const summerSale = bindFlag({ key: 'summer-sale', source });
-    const newCheckout = bindFlag({ key: 'new-checkout', source });
+    const summerSale = source.bindFlag('summer-sale');
+    const newCheckout = source.bindFlag('new-checkout');
 
     const request = new Request('https://shop.example', {
       headers: { cookie: 'user=alice' },
@@ -406,13 +393,10 @@ describe('5. Requests', () => {
   it('evaluates each flag once per request, so the page is consistent', async () => {
     const provider = createProvider();
     const resolve = vi.spyOn(provider, 'resolveBooleanEvaluation');
-    const summerSale = bindFlag({
-      key: 'summer-sale',
-      source: defineSource({
-        provider,
-        project: { system: 'in-memory' },
-      }),
-    });
+    const summerSale = defineSource({
+      provider,
+      project: { system: 'in-memory' },
+    }).bindFlag('summer-sale');
 
     // e.g. a header and a footer which both use the flag
     await runtime.onInvoke(new Request('https://shop.example'), async () => {
@@ -424,7 +408,7 @@ describe('5. Requests', () => {
 
   it('works like Next.js, which gives only headers() and cookies()', async () => {
     const { source, calls } = cookieSource();
-    const newCheckout = bindFlag({ key: 'new-checkout', source });
+    const newCheckout = source.bindFlag('new-checkout');
 
     // Next.js: headers() returns the same object during one request, so the
     // SDK can identify the request without a middleware
@@ -438,7 +422,7 @@ describe('5. Requests', () => {
 
   it('uses no request outside of a request, e.g. in a script', async () => {
     const { source } = cookieSource();
-    const newCheckout = bindFlag({ key: 'new-checkout', source });
+    const newCheckout = source.bindFlag('new-checkout');
 
     expect(await newCheckout()).toBe(false); // user is "anonymous"
   });
@@ -447,7 +431,7 @@ describe('5. Requests', () => {
 describe('6. Runtime lifecycle', () => {
   it('initializes the providers before the first request', async () => {
     const { source, steps } = lifecycleSource();
-    const summerSale = bindFlag({ key: 'summer-sale', source });
+    const summerSale = source.bindFlag('summer-sale');
 
     // e.g. in the AWS Lambda init phase
     await runtime.onInit();
@@ -463,7 +447,7 @@ describe('6. Runtime lifecycle', () => {
 
   it('initializes a provider on its first evaluation without onInit', async () => {
     const { source, steps } = lifecycleSource();
-    const summerSale = bindFlag({ key: 'summer-sale', source });
+    const summerSale = source.bindFlag('summer-sale');
 
     await summerSale();
 
@@ -479,8 +463,8 @@ describe('6. Runtime lifecycle', () => {
       provider: createProvider(),
       project: { system: 'in-memory' },
     });
-    bindFlag({ key: 'summer-sale', source: slow.source });
-    const summerSale = bindFlag({ key: 'summer-sale', source: fast });
+    slow.source.bindFlag('summer-sale');
+    const summerSale = fast.bindFlag('summer-sale');
 
     // onInvoke starts the initialization of "slow", but does not wait for it
     const value = await runtime.onInvoke(
@@ -495,7 +479,7 @@ describe('6. Runtime lifecycle', () => {
 
   it('closes the providers on shutdown', async () => {
     const { source, steps } = lifecycleSource();
-    bindFlag({ key: 'summer-sale', source });
+    source.bindFlag('summer-sale');
 
     await runtime.onInit();
     await runtime.onShutdown();
@@ -524,8 +508,8 @@ describe('7. Registration', () => {
     // The framework plugins append this to each 'use flags' module:
     // import * as self from './flags'; registerFlags(self);
     const flagsModule = {
-      summerSale: bindFlag({ key: 'summer-sale', source }),
-      newCheckout: bindFlag({ key: 'new-checkout', source }),
+      summerSale: source.bindFlag('summer-sale'),
+      newCheckout: source.bindFlag('new-checkout'),
     };
 
     expect(() => registerFlags(flagsModule)).not.toThrow();
@@ -540,7 +524,9 @@ describe('8. One runtime for each process', () => {
     // Next.js can bundle instrumentation.ts and the pages separately, so
     // each bundle can have its own copy of the package
     vi.resetModules();
-    const instrumentation: typeof import('./index') = await import('./index');
+    const instrumentation: typeof import('./runtime-module') = await import(
+      './runtime-module'
+    );
 
     // instrumentation.ts, register(): one time for each process
     const headers = new Headers({ cookie: 'user=alice' });
@@ -554,9 +540,8 @@ describe('8. One runtime for each process', () => {
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
     });
-    const newCheckout = bindFlag({ key: 'new-checkout', source });
+    const newCheckout = source.bindFlag('new-checkout');
 
-    expect(instrumentation.defineFlag).not.toBe(defineFlag);
     expect(instrumentation.runtime).toBe(runtime);
     expect(await newCheckout()).toBe(true);
   });
@@ -582,10 +567,7 @@ describe('9. Overrides', () => {
         'base64url',
       ),
     );
-    const newCheckout = bindFlag({
-      key: 'new-checkout',
-      source: source(),
-    });
+    const newCheckout = source().bindFlag('new-checkout');
 
     // e.g. in a test or in CI
     const token = await encryptOverrides({ 'new-checkout': true });
@@ -599,15 +581,18 @@ describe('9. Overrides', () => {
   });
 
   it('accepts longer lifetimes of signed cookies when configured', () => {
-    // flags/config.ts. The default is 24 hours.
-    const config = defineConfig({
-      overrides: {
-        vercel: {
-          project: { projectId: 'prj_shop', environment: 'preview' },
-          maxLifetimeSeconds: 7 * 24 * 60 * 60,
+    // flags/config.json: { "overrides": { "vercel": { ... } } }. The
+    // default is 7 days.
+    const config: Config = {
+      settings: {
+        overrides: {
+          vercel: {
+            project: { projectId: 'prj_shop', environment: 'preview' },
+            maxLifetimeSeconds: 30 * 24 * 60 * 60,
+          },
         },
       },
-    });
+    };
 
     expect(() => runtime.configure(config)).not.toThrow();
   });
@@ -627,10 +612,7 @@ describe('9. Overrides', () => {
     };
     vi.stubGlobal('fetch', async () => Response.json(publicKeys));
 
-    const newCheckout = bindFlag({
-      key: 'new-checkout',
-      source: source(),
-    });
+    const newCheckout = source().bindFlag('new-checkout');
 
     // What the Vercel Toolbar does: sign the override for this project
     const token = await new SignJWT({
@@ -672,10 +654,7 @@ describe('9. Overrides', () => {
     };
     vi.stubGlobal('fetch', async () => Response.json(publicKeys));
 
-    const newCheckout = bindFlag({
-      key: 'new-checkout',
-      source: source(),
-    });
+    const newCheckout = source().bindFlag('new-checkout');
 
     // What Flags Explorer does in local development
     const token = await new SignJWT({
@@ -702,10 +681,7 @@ describe('9. Overrides', () => {
   });
 
   it('ignores a cookie which is not trusted', async () => {
-    const newCheckout = bindFlag({
-      key: 'new-checkout',
-      source: source(),
-    });
+    const newCheckout = source().bindFlag('new-checkout');
     const request = new Request('https://shop.example', {
       headers: { cookie: 'flag-overrides=I-want-the-new-checkout' },
     });
@@ -726,13 +702,6 @@ describe('10. Explicit sources and the optional flags/config.ts', () => {
   // configuration is optional. flags/config.ts only adds settings for all
   // flags, e.g. hooks and overrides.
 
-  it('needs a source for each flag of a provider', () => {
-    expect(() =>
-      // @ts-expect-error bindFlag needs the source of the provider
-      bindFlag({ key: 'summer-sale' }),
-    ).toThrow('flags: Flag "summer-sale" has no source.');
-  });
-
   it('adds hooks for all flags in flags/config.ts', async () => {
     // flags/sources/shop.ts: a source with an evaluation context from a cookie
     const shop = defineSource({
@@ -742,12 +711,12 @@ describe('10. Explicit sources and the optional flags/config.ts', () => {
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
     });
-    const newCheckout = bindFlag({ key: 'new-checkout', source: shop });
-    const summerSale = bindFlag({ key: 'summer-sale', source: shop });
+    const newCheckout = shop.bindFlag('new-checkout');
+    const summerSale = shop.bindFlag('summer-sale');
 
-    // flags/config.ts: a hook which logs each evaluation
+    // flags/hooks.ts: a hook which logs each evaluation
     const evaluated: string[] = [];
-    const config = defineConfig({
+    const config: Config = {
       hooks: [
         {
           after: (hookContext, details) => {
@@ -755,7 +724,7 @@ describe('10. Explicit sources and the optional flags/config.ts', () => {
           },
         },
       ],
-    });
+    };
     // The framework binding does this
     runtime.configure(config);
 
@@ -817,17 +786,13 @@ describe('11. Flag value types', () => {
 
   it('evaluates strings, numbers and objects', async () => {
     const c = source();
-    const bannerText = bindFlag({
-      key: 'banner-text',
+    const bannerText = c.bindFlag('banner-text', {
       type: 'string',
-      source: c,
     });
-    const maxItems = bindFlag({
-      key: 'max-items',
+    const maxItems = c.bindFlag('max-items', {
       type: 'number',
-      source: c,
     });
-    const theme = bindFlag({ key: 'theme', type: 'object', source: c });
+    const theme = c.bindFlag('theme', { type: 'object' });
 
     expect(await evaluate([bannerText, maxItems, theme])).toEqual([
       'Summer sale!',
@@ -837,8 +802,7 @@ describe('11. Flag value types', () => {
   });
 
   it('lists the options of a flag, e.g. for Flags Explorer', async () => {
-    const checkout = bindFlag({
-      key: 'checkout',
+    const checkout = source().bindFlag('checkout', {
       type: 'string',
       // The editor suggests 'control' and 'express'. The provider can also
       // return a value which the code does not know yet, so the type is
@@ -848,7 +812,6 @@ describe('11. Flag value types', () => {
         { value: 'express', label: 'Express checkout' },
       ],
       defaultValue: 'control',
-      source: source(),
     });
 
     expect(await checkout()).toBe('express');
@@ -861,18 +824,14 @@ describe('11. Flag value types', () => {
   it('shows a type error for a value which does not fit the type', () => {
     const c = source();
     void (() => {
-      bindFlag({
-        key: 'banner-text',
+      c.bindFlag('banner-text', {
         // @ts-expect-error without a type, a flag is a boolean
         defaultValue: 'Welcome',
-        source: c,
       });
-      bindFlag({
-        key: 'max-items',
+      c.bindFlag('max-items', {
         type: 'number',
         // @ts-expect-error a number flag needs a number
         defaultValue: 'many',
-        source: c,
       });
     });
   });
@@ -890,10 +849,10 @@ describe('12. What a framework binding does', () => {
 
     // Next.js: headers() and cookies() of the current request
     runtime.setGetRequest(async () => ({ headers }));
-    // flags/config.ts. In development, the runtime loads it again.
+    // flags/hooks.ts. In development, the runtime loads it again.
     const evaluated: string[] = [];
-    runtime.setLoadConfig(() =>
-      defineConfig({
+    runtime.setLoadConfig(
+      (): Config => ({
         hooks: [
           {
             after: (hookContext) => {
@@ -908,16 +867,13 @@ describe('12. What a framework binding does', () => {
       if (error instanceof RenderSignal) throw error;
     });
 
-    const newCheckout = bindFlag({
-      key: 'new-checkout',
-      source: defineSource({
-        provider: createProvider(),
-        project: { system: 'in-memory' },
-        getEvaluationContext: (request) => ({
-          user: request?.cookies?.get('user')?.value ?? 'anonymous',
-        }),
+    const newCheckout = defineSource({
+      provider: createProvider(),
+      project: { system: 'in-memory' },
+      getEvaluationContext: (request) => ({
+        user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
-    });
+    }).bindFlag('new-checkout');
     expect(await newCheckout()).toBe(true);
     expect(evaluated).toEqual(['new-checkout']);
   });
@@ -936,16 +892,13 @@ describe('13. Hooks, events and tracking', () => {
         );
       },
     };
-    // flags/config.ts: hooks for all flags. A source and the call side
+    // flags/hooks.ts: hooks for all flags. A source and the call side
     // can add more.
-    runtime.configure(defineConfig({ hooks: [logEvaluations] }));
-    const newCheckout = bindFlag({
-      key: 'new-checkout',
-      source: defineSource({
-        provider: createProvider(),
-        project: { system: 'in-memory' },
-      }),
-    });
+    runtime.configure({ hooks: [logEvaluations] });
+    const newCheckout = defineSource({
+      provider: createProvider(),
+      project: { system: 'in-memory' },
+    }).bindFlag('new-checkout');
 
     await newCheckout({ evaluationContext: { user: 'alice' } });
     expect(logs).toEqual(['new-checkout=true (TARGETING_MATCH)']);
@@ -970,13 +923,10 @@ describe('13. Hooks, events and tracking', () => {
         },
       ],
     });
-    const newCheckout = bindFlag({
-      key: 'new-checkout',
-      source: defineSource({
-        provider: createProvider(),
-        project: { system: 'in-memory' },
-      }),
-    });
+    const newCheckout = defineSource({
+      provider: createProvider(),
+      project: { system: 'in-memory' },
+    }).bindFlag('new-checkout');
     const token = await encryptOverrides({ 'new-checkout': true });
     const request = new Request('https://shop.example', {
       headers: { cookie: `flag-overrides=${token}` },
@@ -992,7 +942,7 @@ describe('13. Hooks, events and tracking', () => {
       events.push(`${details.providerName} is ready`);
     });
     const { source } = lifecycleSource('remote');
-    bindFlag({ key: 'summer-sale', source });
+    source.bindFlag('summer-sale');
 
     await runtime.onInit();
     expect(events).toEqual(['remote is ready']);
@@ -1032,9 +982,7 @@ describe('14. Discovery for Flags Explorer', () => {
       project: { system: 'vercel-flags' },
     });
     const flagsModule = {
-      checkout: bindFlag({
-        key: 'checkout',
-        source: vercel,
+      checkout: vercel.bindFlag('checkout', {
         type: 'string',
         options: ['control', 'express'],
         defaultValue: 'control',
@@ -1069,7 +1017,7 @@ describe('14. Discovery for Flags Explorer', () => {
       {
         id: 'flags.ts',
         exports: {
-          summerSale: bindFlag({ key: 'summer-sale', source: launchdarkly }),
+          summerSale: launchdarkly.bindFlag('summer-sale'),
         },
       },
     ]);

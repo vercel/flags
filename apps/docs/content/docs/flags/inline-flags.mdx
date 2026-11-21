@@ -9,7 +9,7 @@ An inline flag decides its value in your code, with a `decide` function. It need
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   description: 'Shows the beta banner to testers',
 });
@@ -43,7 +43,7 @@ import { defineFlag } from 'flags';
 import { db } from './db';
 
 export const teamInsights = defineFlag({
-  key: 'team-insights',
+  key: 'teamInsights',
   decide: async (_request, context: { teamId: string }) => {
     const team = await db.teams.find(context.teamId);
     return team?.plan === 'enterprise';
@@ -109,11 +109,11 @@ import { defineFlag } from 'flags';
 import { db } from './db';
 
 export const newSearch = defineFlag({
-  key: 'new-search',
+  key: 'newSearch',
   defaultValue: false,
   decide: async () => {
     // If the database is down, the flag returns false
-    return (await db.settings.get('new-search')) === 'on';
+    return (await db.settings.get('newSearch')) === 'on';
   },
 });
 ```
@@ -122,25 +122,23 @@ See [Errors and default values](/docs/flags/errors-and-default-values).
 
 ## Rules
 
-- `defineFlag` needs `decide`. For a flag of a provider, use [`bindFlag`](/docs/flags/provider-flags).
+- `defineFlag` needs `decide`. For a flag of a provider, use [`source.bindFlag`](/docs/flags/provider-flags).
 - An inline flag has no `source` and no `getEvaluationContext`. `decide` receives the context of the call side directly.
 - Like all flags, inline flags run only on the server.
 
 ## From an inline flag to a provider
 
-When a flag outgrows your code, e.g. because a product manager wants to change it without a deployment, replace `defineFlag` with `bindFlag` and keep the key:
+When a flag outgrows your code, e.g. because a product manager wants to change it without a deployment, replace `defineFlag` with `source.bindFlag` and keep the key:
 
 ```ts title="flags.ts"
 // Before
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
 });
 
 // After: the provider of the source decides
-export const betaBanner = bindFlag({
-  key: 'beta-banner',
-  source: self,
+export const betaBanner = self.bindFlag('betaBanner', {
   defaultValue: false,
 });
 ```

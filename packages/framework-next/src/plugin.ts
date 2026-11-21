@@ -18,9 +18,9 @@ import { join, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
 import type { NextConfig } from 'next';
 
-export { findConfigFile };
+export { findConfigModules };
 
-import { findConfigFile, MANIFEST_FILE } from 'flags/tooling';
+import { findConfigModules, MANIFEST_FILE } from 'flags/tooling';
 import { prepareCodeGeneration, readAliases } from './code-generation';
 
 export interface FlagsPluginOptions {
@@ -271,7 +271,7 @@ export function withFlags<T extends object>(
 function addFlags<T extends object>(config: T, dir: string): T {
   // Typed loosely, so a `next` version other than ours does not clash.
   const nextConfig: NextConfig = config;
-  const configFile = findConfigFile(dir);
+  const configModules = findConfigModules(dir);
 
   const turbopackAliases: Record<string, string> = {
     // The generated modules of flags:<source>, relative to the project
@@ -288,10 +288,11 @@ function addFlags<T extends object>(config: T, dir: string): T {
     turbopackAliases['@flags-sdk/next/verify-code'] =
       '@flags-sdk/next/verify-code-cached';
   }
-  if (configFile) {
-    // Turbopack resolves a relative path from the directory of the project
-    turbopackAliases['flags/config'] =
-      `./${relative(dir, configFile).split(sep).join('/')}`;
+  // flags/hooks.ts and flags/config.json, for the
+  // binding. Turbopack resolves a relative path from the directory of the
+  // project.
+  for (const [module, file] of Object.entries(configModules)) {
+    turbopackAliases[module] = `./${relative(dir, file).split(sep).join('/')}`;
   }
 
   const result: NextConfig = {

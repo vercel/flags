@@ -19,8 +19,8 @@ import {
   type FlagsRequestInit,
   type FlagValue,
   type FlagValueOfFlag,
-  runtime,
 } from 'flags';
+import { runtime } from 'flags/runtime';
 import { optionIndex } from 'flags/tooling';
 import { CompactSign } from 'jose';
 import { decodeSecret } from './secret';

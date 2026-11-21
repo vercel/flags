@@ -10,7 +10,7 @@ import {
 } from 'vitest';
 import { getDecideSource } from './decide';
 import { evaluate } from './evaluate';
-import { bindFlag, defineFlag } from './flag';
+import { defineFlag } from './flag';
 import { DECIDE_REASON } from './hooks';
 import { createManifest } from './manifest';
 import { encryptOverrides } from './overrides';
@@ -204,7 +204,7 @@ describe('defineFlag with decide', () => {
       // @ts-expect-error an inline flag needs decide
       defineFlag({ key: 'a' }),
     ).toThrow(
-      'flags: Flag "a" has no decide. Use bindFlag for the flag of a source.',
+      'flags: Flag "a" has no decide. Use source.bindFlag(key) for the flag of a source.',
     );
   });
 
@@ -258,9 +258,7 @@ describe('bindFlag', () => {
       provider: provider(),
       project: { system: 'in-memory' },
     });
-    const enableDashboard = bindFlag({
-      key: 'enable-dashboard',
-      source,
+    const enableDashboard = source.bindFlag('enable-dashboard', {
       options: [false, true] as const,
     });
 
@@ -270,19 +268,12 @@ describe('bindFlag', () => {
     expectTypeOf(enableDashboard).returns.resolves.toEqualTypeOf<boolean>();
   });
 
-  it('needs a source', () => {
-    expect(() =>
-      // @ts-expect-error a flag of a source needs its source
-      bindFlag({ key: 'a' }),
-    ).toThrow(
-      'flags: Flag "a" has no source. Pass the source of its provider, e.g. of flags/sources/self.',
-    );
-  });
-
   it('rejects decide', () => {
     expect(() =>
-      // @ts-expect-error decide is for inline flags
-      bindFlag({ key: 'a', decide: () => true }),
+      defineSource({ provider: new TypedInMemoryProvider({}) }).bindFlag('a', {
+        // @ts-expect-error decide is for inline flags
+        decide: () => true,
+      }),
     ).toThrow('flags: Flag "a" has decide. Use defineFlag for inline flags.');
   });
 });

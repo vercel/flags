@@ -9,12 +9,8 @@ import {
   type EncryptValuesOptions,
   encryptValues,
 } from '@flags-sdk/next/encrypt-values';
-import {
-  evaluate,
-  type FlagDefinition,
-  type FlagValuesType,
-  serializeFlagValues,
-} from 'flags';
+import { evaluate, type FlagDefinition } from 'flags';
+import { type FlagValuesType, serializeFlagValues } from 'flags/explorer';
 import { createElement, type ReactElement, Suspense } from 'react';
 
 export interface FlagValuesProps {

@@ -25,7 +25,7 @@ By hand, pass it to `defineSource`:
 
 ```ts title="flags/self.ts"
 import { FlagdProvider } from '@openfeature/flagd-provider';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
 export const self = defineSource({
   provider: new FlagdProvider(),
@@ -34,9 +34,7 @@ export const self = defineSource({
   }),
 });
 
-export const newCheckout = bindFlag({
-  key: 'new-checkout',
-  source: self,
+export const newCheckout = self.bindFlag('newCheckout', {
   defaultValue: false,
 });
 ```
@@ -55,7 +53,7 @@ Without an OpenFeature client, the SDK takes over the client's part of the contr
 | `provider.initialize()` | Called once before the first evaluation, or by `runtime.onInit()`. Shared by all sources of the provider. Retried after a failure. |
 | `provider.onClose()` | Called by `runtime.onShutdown()`. The next use initializes the provider again. |
 | `client.getBooleanValue(key, default, context)` | `await flag()`. The `type` of the flag selects `resolveBooleanEvaluation`, `resolveStringEvaluation`, `resolveNumberEvaluation` or `resolveObjectEvaluation`. |
-| API, client and invocation hooks | Hooks of `flags/config.ts`, of the source and of the call |
+| API, client and invocation hooks | Hooks of `flags/hooks.ts`, of the source and of the call |
 | Provider hooks (`provider.hooks`) | Run as in OpenFeature |
 | `OpenFeature.addHandler(event, handler)` | `runtime.addHandler(event, handler)` |
 | `client.track(name, context, details)` | `track(source, name, options)` |
@@ -69,13 +67,13 @@ Hooks come from four places, and run in the order of OpenFeature:
 
 | OpenFeature | Flags SDK | Where |
 | --- | --- | --- |
-| API | `hooks` of the configuration | `defineConfig({ hooks })` in `flags/config.ts` |
-| Client | `hooks` of the source | `defineSource({ hooks })` |
+| API | `hooks` of the configuration | The default export of [`flags/hooks.ts`](/docs/flags/configuration#flagshooksts) |
+| Client | `hooks` of the source | `defineSource({ hooks })`, or the default export of `flags/sources/<source>/hooks.ts` |
 | Invocation | `hooks` of the call | `flag({ hooks, hookHints })`, `evaluate(flags, { hooks })` |
-| Provider | `provider.hooks` | the provider |
+| Provider | `provider.hooks` | The provider sets them. Your application does not. |
 
-```ts title="flags/config.ts"
-import { defineConfig, type Hook } from 'flags';
+```ts title="flags/hooks.ts"
+import type { Hook } from 'flags';
 
 const timing: Hook = {
   before(hookContext) {
@@ -87,7 +85,9 @@ const timing: Hook = {
   },
 };
 
-export const config = defineConfig({ hooks: [timing] });
+const hooks: Hook[] = [timing];
+
+export default hooks;
 ```
 
 - `before` runs from the first hook to the last. `after`, `error` and `finally` run from the last hook to the first.
@@ -102,20 +102,20 @@ export const config = defineConfig({ hooks: [timing] });
 
 An override from Flags Explorer does not call the provider, but all hooks run, also the hooks of the provider. The evaluation details have the reason `OVERRIDE`. Thus, a hook can leave overrides out of the exposures of an experiment, or report them:
 
-```ts title="flags/config.ts"
-import { defineConfig, OVERRIDE_REASON } from 'flags';
+```ts title="flags/hooks.ts"
+import { type Hook, OVERRIDE_REASON } from 'flags';
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after(hookContext, details) {
-        if (details.reason === OVERRIDE_REASON) {
-          reportOverride(hookContext.flagKey, details.value);
-        }
-      },
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      if (details.reason === OVERRIDE_REASON) {
+        reportOverride(hookContext.flagKey, details.value);
+      }
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
 A hook that does not check the reason counts an override as a usual evaluation.
@@ -137,7 +137,7 @@ The error codes are those of OpenFeature, e.g. `FLAG_NOT_FOUND`, `TYPE_MISMATCH`
 The runtime listens to the events of each provider (`provider.events`), from its first initialization until the shutdown:
 
 ```ts title="startup.ts"
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 
 runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', (details) => {
   console.log(`${details.providerName} changed: ${details.flagsChanged}`);

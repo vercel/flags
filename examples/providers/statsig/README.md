@@ -28,7 +28,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 For a linked Vercel project, `vercel env pull` can populate `.env.local`.
 
-`flags.ts` defines a source with `StatsigProvider`, the OpenFeature provider of `@flags-sdk/statsig/openfeature`, and binds both flags to it with `bindFlag`. The provider uses the Statsig Server Core SDK (`@statsig/statsig-node-core`). Creating the provider does not open a connection, so the build can import `flags.ts` without the key. The provider fetches the rules before the first evaluation, and syncs them in the background.
+`flags.ts` defines a source with `StatsigProvider`, the OpenFeature provider of `@flags-sdk/statsig/openfeature`, and binds both flags to it with `source.bindFlag`. The provider uses the Statsig Server Core SDK (`@statsig/statsig-node-core`). Creating the provider does not open a connection, so the build can import `flags.ts` without the key. The provider fetches the rules before the first evaluation, and syncs them in the background.
 
 The flag key selects the Statsig entity. A plain key, such as `show_banner`, is a feature gate. The prefixes `config:`, `experiment:` and `layer:` select a dynamic config, an experiment or a layer. The suffix `.text` reads the `text` parameter of the dynamic config.
 

@@ -10,13 +10,14 @@ Version 5 turns the Flags SDK from a Next.js and SvelteKit library into a standa
 | v4                                                         | v5                                                                                                   |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `flag({ key, decide })` from `flags/next` or `flags/sveltekit` | `defineFlag({ key, decide })` from `flags`, for an [inline flag](/docs/flags/inline-flags)            |
-| `flag({ key, adapter })` with an adapter of `@flags-sdk/*` | `bindFlag({ key, source })` with a source of an [OpenFeature provider](/docs/providers)                 |
+| `flag({ key, adapter })` with an adapter of `@flags-sdk/*` | `source.bindFlag(key)` on a source of an [OpenFeature provider](/docs/providers)                         |
 | `identify` of each flag                                    | `getEvaluationContext` of the source, and of the flag if needed ([evaluation context](/docs/flags/evaluation-context)) |
 | `dedupe`                                                    | Built in: each flag and each step of the context runs once per request                              |
 | `evaluate` from `flags/next`                               | `evaluate` from `flags`                                                                              |
 | Framework-specific imports (`flags/next`, `flags/sveltekit`) | Your code imports only `flags`. Frameworks have a package for the setup: `@flags-sdk/next`, `@flags-sdk/sveltekit`, … |
 | `precompute`, `generatePermutations` from `flags/next`     | The same API in [`@flags-sdk/next/precompute`](/docs/frameworks/next/precompute)                      |
 | A flag called as `flag(code, group)` on a precomputed page | `getPrecomputed(flag, group, code)`                                                                  |
+| `encryptOverrides`, `decryptOverrides`, `encryptFlagValues`, `decryptFlagValues` from `flags` | The same functions from `flags/explorer` |
 | `FlagValues` from `flags/react`                            | [`FlagValues`](/docs/frameworks/next/flag-values) from `@flags-sdk/next/flag-values`, encrypted by default |
 | The endpoint `/.well-known/vercel/flags` with `getProviderData` | The [flags manifest](/docs/tooling/flags-manifest) of `'use flags'` modules                         |
 | Next.js and SvelteKit                                      | Next.js, SvelteKit, Nuxt, TanStack Start, Hono, Express, and [no framework](/docs/frameworks/node)    |
@@ -31,7 +32,7 @@ A v4 flag with `decide` becomes an inline flag. `decide` now receives the reques
 import { flag } from 'flags/next';
 
 export const betaBanner = flag<boolean>({
-  key: 'beta-banner',
+  key: 'betaBanner',
   options: [false, true],
   decide({ cookies }) {
     return cookies.get('beta')?.value === '1';
@@ -45,7 +46,7 @@ export const betaBanner = flag<boolean>({
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   options: [false, true] as const,
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
 });
@@ -53,14 +54,14 @@ export const betaBanner = defineFlag({
 
 ## Flags of a provider
 
-In v4, each provider had an adapter. In v5, a provider is an OpenFeature provider, and a source connects it to your flags. `identify` moves to the source, where it runs once per request for all its flags. Each flag of a provider names its source: there is no default source.
+In v4, each provider had an adapter. In v5, a provider is an OpenFeature provider, and a source connects it to your flags. `identify` moves to the source, where it runs once per request for all its flags. Each flag of a provider is declared on its source, with `source.bindFlag(key)`. With code generation, the default source `self` of Vercel Flags needs no declaration.
 
 ```ts tab="v4" title="flags.ts"
 import { flag } from 'flags/next';
 import { vercelAdapter } from '@flags-sdk/vercel';
 
 export const summerSale = flag<boolean, { user: { id: string } }>({
-  key: 'summer-sale',
+  key: 'summerSale',
   adapter: vercelAdapter(),
   identify({ cookies }) {
     return { user: { id: cookies.get('user-id')?.value ?? 'anonymous' } };
@@ -71,7 +72,7 @@ export const summerSale = flag<boolean, { user: { id: string } }>({
 ```ts tab="v5" title="flags.ts"
 'use flags';
 
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
 const self = defineSource({
@@ -82,7 +83,7 @@ const self = defineSource({
   }),
 });
 
-export const summerSale = bindFlag({ key: 'summer-sale', source: self });
+export const summerSale = self.bindFlag('summerSale');
 ```
 
 With a framework with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), you can skip the hand-written code and use the file system API instead: put the provider into `flags/sources/self/provider.ts`, the old `identify` into `flags/sources/self/context.ts`, list the flags in `flags/sources/self/catalog.ts`, and import them with `import { summerSale } from 'flags:self'`. See [Code generation](/docs/flags/code-generation).
@@ -118,7 +119,7 @@ See [Flags Explorer](/docs/tooling/flags-explorer).
 1. Install `flags@5` and the package of your framework.
 2. Add the framework setup, e.g. `withFlags` in `next.config.ts`.
 3. Replace each provider adapter with a source of its OpenFeature provider: a folder `flags/sources/<source>/` with code generation, or `defineSource` by hand.
-4. Replace `flag()` with `defineFlag()` for flags with `decide`, and with `bindFlag({ key, source })` (or the generated flags of `flags:<source>`) for flags of a provider. Set `type` for each flag that is not a boolean.
+4. Replace `flag()` with `defineFlag()` for flags with `decide`, and with `source.bindFlag(key)` (or the generated flags of `flags:<source>`) for flags of a provider. Set `type` for each flag that is not a boolean.
 5. Move `identify` to `getEvaluationContext(request, input)` of the source, or to the default export of `context.ts`.
 6. Add `'use flags'` to your flags modules, and replace the discovery endpoint with the manifest route.
 7. Move precompute imports to `@flags-sdk/next/precompute`, and read values with `getPrecomputed`.

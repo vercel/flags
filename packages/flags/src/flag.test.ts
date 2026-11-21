@@ -9,7 +9,7 @@ import {
   vi,
 } from 'vitest';
 import { FlagEvaluationError } from './errors';
-import { bindFlag } from './flag';
+
 import { logger } from './logger';
 import { runtime } from './runtime';
 import { defineSource } from './source';
@@ -52,10 +52,7 @@ describe('bindFlag', () => {
   });
 
   it('evaluates the flag with the provider', async () => {
-    const flag = bindFlag({
-      key: 'v2_enabled',
-      source: inMemorySource(),
-    });
+    const flag = inMemorySource().bindFlag('v2_enabled');
 
     await expect(flag()).resolves.toBe(true);
     expect(console.error).not.toHaveBeenCalled();
@@ -67,10 +64,8 @@ describe('bindFlag', () => {
       provider: new TypedInMemoryProvider(myFlags),
       project: { system: 'launchdarkly', projectId: 'x', teamId: 'y' },
     });
-    const flag = bindFlag({
-      key: 'v2_enabled',
+    const flag = source.bindFlag('v2_enabled', {
       defaultValue: false,
-      source,
     });
 
     expect(flag.key).toBe('v2_enabled');
@@ -89,7 +84,7 @@ describe('bindFlag', () => {
 
   it('passes an empty context and a logger to the provider', async () => {
     const source = customSource(async () => ({ value: true }));
-    await bindFlag({ key: 'a', source })();
+    await source.bindFlag('a')();
 
     expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
       'a',
@@ -101,7 +96,7 @@ describe('bindFlag', () => {
 
   it('passes the default value to the provider', async () => {
     const source = customSource(async () => ({ value: true }));
-    await bindFlag({ key: 'a', defaultValue: true, source })();
+    await source.bindFlag('a', { defaultValue: true })();
 
     expect(source.provider.resolveBooleanEvaluation).toHaveBeenCalledWith(
       'a',
@@ -115,37 +110,14 @@ describe('bindFlag', () => {
     const source = inMemorySource();
     expect(runtime.sources).not.toContain(source);
 
-    bindFlag({ key: 'v2_enabled', source });
+    source.bindFlag('v2_enabled');
     expect(runtime.sources).toContain(source);
-  });
-
-  it('requires a source returned by defineSource', () => {
-    const source = {
-      provider: new TypedInMemoryProvider(myFlags),
-      project: { system: 'in-memory' as const },
-    };
-
-    expect(() => bindFlag({ key: 'v2_enabled', source })).toThrow(
-      'flags: The source of flag "v2_enabled" must be returned by defineSource.',
-    );
-  });
-
-  it('requires a source, not a provider', () => {
-    const provider = new TypedInMemoryProvider(myFlags);
-    const options = { key: 'v2_enabled', source: provider };
-
-    // @ts-expect-error a provider is not a source
-    expect(() => bindFlag(options)).toThrow(
-      'flags: The source of flag "v2_enabled" must be returned by defineSource.',
-    );
   });
 
   describe('when the provider throws', () => {
     it('returns the default value', async () => {
-      const flag = bindFlag({
-        key: 'missing',
+      const flag = inMemorySource().bindFlag('missing', {
         defaultValue: true,
-        source: inMemorySource(),
       });
 
       await expect(flag()).resolves.toBe(true);
@@ -155,10 +127,7 @@ describe('bindFlag', () => {
     });
 
     it('throws without a default value', async () => {
-      const flag = bindFlag({
-        key: 'missing',
-        source: inMemorySource(),
-      });
+      const flag = inMemorySource().bindFlag('missing');
 
       const error = await flag().catch((e: unknown) => e);
       expect(error).toBeInstanceOf(FlagEvaluationError);
@@ -177,7 +146,7 @@ describe('bindFlag', () => {
         throw 'oops';
       });
 
-      await expect(bindFlag({ key: 'a', source })()).rejects.toMatchObject({
+      await expect(source.bindFlag('a')()).rejects.toMatchObject({
         code: 'GENERAL',
         message: 'flags: Could not evaluate flag "a": oops',
         cause: 'oops',
@@ -193,10 +162,8 @@ describe('bindFlag', () => {
     });
 
     it('returns the default value', async () => {
-      const flag = bindFlag({
-        key: 'a',
+      const flag = customSource(resolve).bindFlag('a', {
         defaultValue: true,
-        source: customSource(resolve),
       });
 
       await expect(flag()).resolves.toBe(true);
@@ -206,10 +173,7 @@ describe('bindFlag', () => {
     });
 
     it('throws without a default value', async () => {
-      const flag = bindFlag({
-        key: 'a',
-        source: customSource(resolve),
-      });
+      const flag = customSource(resolve).bindFlag('a');
 
       await expect(flag()).rejects.toMatchObject({
         name: 'FlagEvaluationError',
@@ -223,7 +187,7 @@ describe('bindFlag', () => {
   it('throws when the provider returns a non-boolean value', async () => {
     const source = customSource(async () => ({ value: 'on' }));
 
-    await expect(bindFlag({ key: 'a', source })()).rejects.toMatchObject({
+    await expect(source.bindFlag('a')()).rejects.toMatchObject({
       code: 'TYPE_MISMATCH',
       message:
         'flags: Could not evaluate flag "a": Expected a boolean, got string',
@@ -234,8 +198,8 @@ describe('bindFlag', () => {
     it('initializes the provider once', async () => {
       const initialize = vi.fn(async () => {});
       const source = customSource(async () => ({ value: true }), initialize);
-      const a = bindFlag({ key: 'a', source });
-      const b = bindFlag({ key: 'b', source });
+      const a = source.bindFlag('a');
+      const b = source.bindFlag('b');
 
       expect(initialize).not.toHaveBeenCalled();
       await Promise.all([a(), b(), a()]);
@@ -256,7 +220,7 @@ describe('bindFlag', () => {
         },
       );
 
-      await bindFlag({ key: 'a', source })();
+      await source.bindFlag('a')();
       expect(order).toEqual(['initialize', 'resolve']);
     });
 
@@ -266,7 +230,7 @@ describe('bindFlag', () => {
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValue(undefined);
       const source = customSource(async () => ({ value: true }), initialize);
-      const flag = bindFlag({ key: 'a', source });
+      const flag = source.bindFlag('a');
 
       await expect(flag()).rejects.toMatchObject({
         code: 'GENERAL',
@@ -281,7 +245,7 @@ describe('bindFlag', () => {
         throw new Error('Sync error');
       }) as () => Promise<void>);
 
-      await expect(bindFlag({ key: 'a', source })()).rejects.toMatchObject({
+      await expect(source.bindFlag('a')()).rejects.toMatchObject({
         message: 'flags: Could not evaluate flag "a": Sync error',
       });
     });
@@ -295,7 +259,7 @@ describe('bindFlag', () => {
       );
 
       await expect(
-        bindFlag({ key: 'a', defaultValue: true, source })(),
+        source.bindFlag('a', { defaultValue: true })(),
       ).resolves.toBe(true);
       expect(console.error).toHaveBeenCalledWith(
         'flags: Could not evaluate flag "a": Network error. Returned the default value: true.',
@@ -304,10 +268,7 @@ describe('bindFlag', () => {
   });
 
   it('keeps the literal type of the key', () => {
-    const flag = bindFlag({
-      key: 'anything',
-      source: inMemorySource(),
-    });
+    const flag = inMemorySource().bindFlag('anything');
     expectTypeOf(flag.key).toEqualTypeOf<'anything'>();
   });
 });

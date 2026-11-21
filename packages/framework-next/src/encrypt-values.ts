@@ -10,7 +10,7 @@ import {
   type EncryptFlagValuesOptions,
   encryptFlagValues,
   type FlagValuesType,
-} from 'flags';
+} from 'flags/explorer';
 
 /**
  * The options of `encryptFlagValues` which can be the arguments of a

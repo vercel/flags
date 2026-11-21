@@ -1,4 +1,5 @@
-import { evaluate, runtime } from 'flags';
+import { evaluate } from 'flags';
+import { runtime } from 'flags/runtime';
 import { bannerText, summerSale } from '../../lib/flags';
 
 export default defineEventHandler((event) =>

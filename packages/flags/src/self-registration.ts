@@ -10,7 +10,7 @@ export function addSelfRegistration(source: string, fileName: string): string {
   const self = JSON.stringify(`./${fileName}`);
   return `${source}
 ;import * as __flagsSelf from ${self};
-import { registerFlags as __flagsRegisterFlags } from 'flags';
+import { registerFlags as __flagsRegisterFlags } from 'flags/runtime';
 __flagsRegisterFlags(__flagsSelf);
 `;
 }

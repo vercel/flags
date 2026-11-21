@@ -1,7 +1,7 @@
 # @flags-sdk/next
 
 The Next.js package of the [Flags SDK](../flags). It connects the SDK to
-Next.js: the request of each page, `flags/config.ts`, the signals of
+Next.js: the request of each page, the configuration files, the signals of
 Next.js, discovery for Flags Explorer, and precompute.
 
 ```ts
@@ -38,7 +38,7 @@ For fast evaluations of Vercel Flags, also on your own computer, install
 the OpenFeature provider of Vercel Flags:
 
 ```sh
-pnpm add @vercel/flags-core @openfeature/server-sdk
+pnpm add @vercel/flags-core
 ```
 
 ## Setup
@@ -55,7 +55,7 @@ export default withFlags({
 ```
 
 That is the only required step. `withFlags` keeps your configuration, also
-your aliases and rules of Turbopack. If `flags/config.ts` is not in the
+your aliases and rules of Turbopack. If the folder `flags` is not in the
 directory of the application or in its `src`, give the directory:
 `withFlags({}, { dir: '/path/to/the/app' })`.
 
@@ -84,13 +84,13 @@ object, and run `flags sync` before `next build`.
 
 ### 2️⃣ Give the flags a source
 
-Each flag of a provider names its source:
+Each flag of a provider is declared on its source:
 
 ```ts
 // flags.ts
 'use flags';
 
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { VercelProvider } from '@vercel/flags-core/openfeature';
 
 // The main source of the application
@@ -102,38 +102,48 @@ const self = defineSource({
   }),
 });
 
-export const summerSale = bindFlag({ key: 'summer-sale', source: self });
+export const summerSale = self.bindFlag('summerSale');
 ```
 
-There is no default source. Code generation can write the sources and
-flags for you (see "Code generation").
+The runtime has no global source. Code generation can write the sources
+and flags for you (see "Code generation"). With `@vercel/flags-core`, it
+does so by default: `flags:self` has the flags of your Vercel project, and
+you do not write the code above. If you write the source by hand, set
+`"selfSource": false` in `flags/config.json`.
 
-### 3️⃣ Optional: `flags/config.ts`
+### 3️⃣ Optional: the configuration files
 
-You do not need a configuration file. Add `flags/config.ts` (or
-`src/flags/config.ts`), next to `flags/sources`, for settings of all flags:
-OpenFeature `hooks`, and the options of `overrides`. It has no source.
-`withFlags` loads it automatically. The file must
-export `config`. In development, a change applies without a restart.
+You do not need a configuration file. The folder `flags` (or `src/flags`),
+next to `flags/sources`, can have one file for each part of the
+configuration of all flags. None of them has a source:
+
+- `flags/hooks.ts`: the OpenFeature hooks for all flags, as the default
+  export.
+- `flags/config.json`: the static settings, e.g. `"selfSource": false`, or
+  `overrides`: which override cookies the SDK accepts.
+
+`withFlags` loads them automatically. In development, a change applies without a restart.
 
 ```ts
-// flags/config.ts
-import { defineConfig } from 'flags';
+// flags/hooks.ts
+import type { Hook } from 'flags';
 
-export const config = defineConfig({
-  hooks: [myLoggingHook],
-});
+const hooks: Hook[] = [myLoggingHook];
+
+export default hooks;
 ```
+
+See [Configuration](https://flags-sdk.dev/docs/flags/configuration).
 
 ## Usage
 
 ```tsx
 // app/page.tsx
-import { evaluate } from 'flags';
 import { bannerText, summerSale } from '../flags';
 
 export default async function Page() {
-  const [sale, banner] = await evaluate([summerSale, bannerText]);
+  const sale = await summerSale();
+  const banner = await bannerText();
   return <h1>{sale ? banner : 'Welcome'}</h1>;
 }
 ```
@@ -302,8 +312,9 @@ export default async function Page({
 By default, `withFlags` writes the modules of `flags:<source>`
 from the catalogs of `flags/sources/<source>` (see the SPEC of `flags`,
 "Code generation"). By convention, the main source of the application is
-`flags/sources/self` (`catalog.ts`, `provider.ts` and an optional
-`context.ts`):
+`flags/sources/self` (`catalog.ts`, `provider.ts`, and an optional
+`context.ts` and `hooks.ts`). With `@vercel/flags-core` in the dependencies, the source
+`self` is the default source of Vercel Flags, also without the folder:
 
 ```ts
 // next.config.ts
@@ -314,7 +325,7 @@ export default withFlags({});
 
 ```ts
 // app/page.tsx
-import { checkout, 'summer-sale' as summerSale } from 'flags:self';
+import { checkout, summerSale } from 'flags:self';
 ```
 
 - `withFlags` returns a function of the phase. `next build` generates
@@ -323,9 +334,18 @@ import { checkout, 'summer-sale' as summerSale } from 'flags:self';
 - Next.js loads the configuration more than once, also in its workers. One
   process owns the generation, and the others see its PID in the
   environment.
+- The default source `self` uses `new VercelProvider()` and the catalog of
+  `@vercel/flags-core/catalog`. Each file in `flags/sources/self` replaces
+  its part, e.g. `context.ts` adds an evaluation context. If the flags can
+  not be loaded, e.g. without `vercel env pull`, `flags:self` has no flags
+  and the SDK warns. `"selfSource": false` in `flags/config.json` turns
+  the default source off.
 - The folder `flags` is in the directory of the application or in its
-  `src`. Without `flags/sources`, `withFlags` writes nothing.
-- For the types, `withFlags` writes `flags/generated.d.ts`. TypeScript
+  `src`. Without `flags/sources` and without the default source,
+  `withFlags` writes nothing.
+- For the types, `withFlags` writes `flags/generated.d.ts` (without
+  `flags/sources`: `src/flags/generated.d.ts` if the application has
+  `src`). TypeScript
   finds it with its default `include`, so `tsconfig.json` needs no change.
   Commit the file, or ignore it and run `flags sync` before `tsc`.
 - `.flags` has its own `.gitignore`, so `.gitignore` needs no change.
@@ -353,12 +373,15 @@ export { GET } from '@flags-sdk/next/manifest';
 
 ## How it works
 
-`withFlags` sets two aliases of Turbopack (`turbopack.resolveAlias`):
+`withFlags` sets these aliases of Turbopack (`turbopack.resolveAlias`):
 
-| Alias               | Points to          | Default without the plugin |
-| ------------------- | ------------------ | -------------------------- |
-| `flags/framework` | `@flags-sdk/next/binding`       | no framework binding       |
-| `flags/config`      | `flags/config.ts`  | no configuration           |
+| Alias             | Points to                 | Default without the plugin |
+| ----------------- | ------------------------- | -------------------------- |
+| `flags/framework` | `@flags-sdk/next/binding` | no framework binding       |
+| `flags/hooks`     | `flags/hooks.ts`          | no hooks                   |
+| `flags/settings`  | `flags/config.json`       | the default settings       |
+
+`withFlags` sets the alias of a file only if the file exists.
 
 The SDK imports `flags/framework` itself, so the binding works in each
 bundle that uses `flags`. The application never imports `@flags-sdk/next/binding`.
@@ -380,10 +403,12 @@ Before the first evaluation, the SDK calls `setupFramework` of
    such errors to `unstable_rethrow`, so that they reach Next.js unchanged.
    It also throws a `FlagInCacheError` again, so that a flag in a cache
    scope does not return its default value.
-3. **The config source.** It loads `flags/config.ts` with
-   `import('flags/config')`. In production, the SDK loads it one time. In
-   development, it loads it again before each evaluation, so a change of
-   `flags/config.ts` applies without a restart.
+3. **The config source.** It imports `flags/hooks` and `flags/settings`,
+   and builds the configuration with `configFromModules`
+   of `flags/config`. In
+   production, the SDK loads the configuration one time. In development, it
+   loads it again before each evaluation, so a change of a configuration
+   file applies without a restart.
 
 Next.js can put more than one copy of the SDK into one process, e.g. one for
 each layer. All copies share one runtime through `globalThis`, so they share
@@ -409,9 +434,9 @@ the configuration, the providers and their clients.
   the route with its own error.
 - **No `'use client'`.** The SDK uses `node:async_hooks`, and it is only for
   the server.
-- **The export must be `config`.** A default export of `flags/config.ts` is
-  not read.
-- **In production, a change of `flags/config.ts` needs a new build**, as
+- **Use a default export.** `flags/hooks.ts` must export its value as the
+  default export.
+- **In production, a change of a configuration file needs a new build**, as
   with each other source file. Only development loads it again without a
   restart.
 - **Without `defaultValue`, each issue throws a `FlagEvaluationError`**: a

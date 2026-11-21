@@ -1,10 +1,7 @@
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
+export const summerSale = self.bindFlag('summer-sale', {
   defaultValue: false,
 });

@@ -25,14 +25,9 @@
  * It is a plain function and uses only hooks of Nuxt, so that the SDK does
  * not depend on `@nuxt/kit`.
  */
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { flags, resolveAliases, startCodeGeneration } from '@flags-sdk/vite';
-import {
-  findConfigFile,
-  findFlagsDirectory,
-  GENERATED_DECLARATIONS,
-} from 'flags/tooling';
+import { findConfigModules, findGeneratedDeclarations } from 'flags/tooling';
 
 type Plugins = unknown[] | unknown;
 
@@ -124,9 +119,8 @@ export default async function flagsNuxtModule(
     // The types of flags:<source>: the declarations in the folder flags,
     // as a reference of the types of Nuxt. Not an alias of Nuxt, which
     // would point TypeScript to the generated module instead.
-    const flagsDirectory = await findFlagsDirectory(root);
-    if (flagsDirectory) {
-      const declarations = join(flagsDirectory, GENERATED_DECLARATIONS);
+    const declarations = await findGeneratedDeclarations(root);
+    if (declarations) {
       nuxt.hook('prepare:types', ({ references }) => {
         references.push({ path: declarations });
       });
@@ -144,7 +138,8 @@ export default async function flagsNuxtModule(
       alias: withAliases(config.resolve?.alias, aliases),
     };
   });
-  const configFile = findConfigFile(root);
+  // flags/hooks.ts and flags/config.json, for the binding
+  const configModules = findConfigModules(root);
   nuxt.hook('nitro:config', (config) => {
     // useEvent() of the binding needs the async context of Nitro
     config.experimental = { ...config.experimental, asyncContext: true };
@@ -156,7 +151,7 @@ export default async function flagsNuxtModule(
     config.alias = {
       ...config.alias,
       'flags/framework': ownModule('binding'),
-      ...(configFile ? { 'flags/config': configFile } : {}),
+      ...configModules,
       ...aliases,
     };
     config.plugins = [...(config.plugins ?? []), ownModule('plugin')];

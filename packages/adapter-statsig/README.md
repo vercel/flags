@@ -42,16 +42,14 @@ pnpm i @flags-sdk/statsig @statsig/statsig-node-core @openfeature/server-sdk
 'use flags';
 
 import { StatsigProvider } from "@flags-sdk/statsig/openfeature";
-import { bindFlag, defineSource } from "flags";
+import { defineSource } from "flags";
 
 const statsig = defineSource({
   provider: new StatsigProvider(process.env.STATSIG_SERVER_API_KEY ?? ""),
   getEvaluationContext: () => ({ targetingKey: "user-1" }),
 });
 
-export const marketingGate = bindFlag({
-  key: "marketing_gate",
-  source: statsig,
+export const marketingGate = statsig.bindFlag("marketingGate", {
   defaultValue: false,
 });
 ```

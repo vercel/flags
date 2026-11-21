@@ -8,14 +8,18 @@ uses the plugin of its framework package, not this one.
 
 ## Features
 
-- **The framework binding** behind `flags/framework`, and `flags/config.ts`
-  behind `flags/config`.
+- **The framework binding** behind `flags/framework`, and the configuration
+  files behind `flags/hooks` (`flags/hooks.ts`) and `flags/settings`
+  (`flags/config.json`).
 - **`'use flags'` modules** register their flags.
 - **The manifest of the flags:** at `/.well-known/flags/manifest.json` in
   development, and as `flags-manifest.json` in the server output.
 - **Code generation** of `flags:<source>` from the catalogs of
   `flags/sources/<source>`, by default, with the types in
   `flags/generated.d.ts`. The option `disableCodeGeneration` turns it off.
+  An application which depends on `@vercel/flags-core` also gets the
+  default source `self`, with the flags of its Vercel project. `"selfSource": false` in
+  `flags/config.json` turns it off.
 - **A Rollup plugin too**, e.g. for the server build of Nitro.
 
 ## Installation

@@ -30,7 +30,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 For a linked Vercel project, `vercel env pull` can populate `.env.local`.
 
-`flags/launchdarkly.ts` defines a source with `LaunchDarklyProvider`, the OpenFeature provider of `@launchdarkly/openfeature-node-server`, and `flags.ts` binds both flags to it with `bindFlag`. The source creates the provider on the first evaluation, because `new LaunchDarklyProvider()` opens a stream connection to LaunchDarkly at once, and the build imports `flags.ts` to write the flags manifest.
+`flags/launchdarkly.ts` defines a source with `LaunchDarklyProvider`, the OpenFeature provider of `@launchdarkly/openfeature-node-server`, and `flags.ts` binds both flags to it with `source.bindFlag`. The source creates the provider on the first evaluation, because `new LaunchDarklyProvider()` opens a stream connection to LaunchDarkly at once, and the build imports `flags.ts` to write the flags manifest.
 
 The home page uses `evaluate()` from `flags` to evaluate both flags. Change their values in LaunchDarkly and refresh the page. Every visitor uses the same `demo-user` context of kind `user`; change `getEvaluationContext` in `flags/launchdarkly.ts` to add user targeting. It runs once per request for all flags of the source. The provider reads `kind` as the LaunchDarkly context kind and `targetingKey` as its key.
 

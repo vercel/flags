@@ -16,13 +16,15 @@ them in the same way as the `@flags-sdk/*` packages. See
 ```ts
 import {
   addSelfRegistration,
-  findConfigFile,
+  findConfigModules,
   findFlagsModules,
+  findGeneratedDeclarations,
   generateFlags,
   GENERATED_DIRECTORY,
   hasUseFlagsDirective,
   MANIFEST_FILE,
   optionIndex,
+  readSettings,
   registerFramework,
   renderSourceModule,
   watchFlags,
@@ -48,14 +50,41 @@ import { setupFramework } from './binding';
 registerFramework(setupFramework);
 ```
 
-### `findConfigFile`
+### `findConfigModules`
 
 ```ts
-function findConfigFile(dir: string): string | undefined;
+function findConfigModules(dir: string): Partial<Record<ConfigModule, string>>;
 ```
 
-Returns the path of `flags/config.ts`, `.mts`, `.js` or `.mjs` in `dir` or in
-`dir/src`, or `undefined`.
+Finds the files of the [configuration](/docs/flags/configuration) in the
+folder `flags` of `dir`, then of `dir/src`. Returns the path of each file
+which exists, by the module that a plugin replaces with it:
+
+| Module            | File                                                    |
+| ----------------- | ------------------------------------------------------- |
+| `flags/hooks`     | `flags/hooks.ts`, `.mts`, `.js` or `.mjs`               |
+| `flags/settings`  | `flags/config.json`                                     |
+
+A plugin sets a bundler alias for each entry. Without a file, it sets no
+alias, and `flags` gives an empty default module.
+
+```ts
+import { findConfigModules } from 'flags/tooling';
+
+// e.g. { 'flags/hooks': '/app/flags/hooks.ts' }
+const aliases = findConfigModules(process.cwd());
+```
+
+### `readSettings`
+
+```ts
+function readSettings(dir: string): Settings;
+```
+
+Reads `flags/config.json` in `dir` or in `dir/src`. Without the file, it
+returns the defaults (`{}`). Throws if the file is not valid JSON, has an
+unknown key, or has a value of the wrong type. See
+[`Settings`](/docs/api-reference/flags#settings).
 
 ### `hasUseFlagsDirective`
 
@@ -74,7 +103,7 @@ function addSelfRegistration(source: string, fileName: string): string;
 ```
 
 Appends code to a `'use flags'` module that imports the module itself and
-passes its exports to `registerFlags`. A build plugin calls it in its
+passes its exports to `registerFlags` of `flags/runtime`. A build plugin calls it in its
 transform step, so nobody has to call `registerFlags` by hand. `fileName` is
 the file name of the module, for the self import.
 
@@ -121,6 +150,19 @@ the catalogs, and returns the aliases, e.g.
 `{ 'flags:self': './.flags/self.ts' }`. The default directory is the current
 directory. See [Code generation](/docs/flags/code-generation).
 
+If the `package.json` of the directory has `@vercel/flags-core` in a
+dependency field, it also generates the default source `self`. Each part
+that `flags/sources/self/` does not have comes from `@vercel/flags-core`:
+the provider `new VercelProvider()`, and the catalog of
+`@vercel/flags-core/catalog`, resolved from the application. Without a folder
+`flags/sources`, it writes the types into a folder `flags` which exists (in
+the directory or in `src`), else into `src/flags/generated.d.ts` if the
+directory has `src`, otherwise into `flags/generated.d.ts`. It removes a
+`generated.d.ts` which it wrote before in the other place. With
+`"selfSource": false` in `flags/config.json`, it does not generate the default
+source. See
+[The default source `self`](/docs/flags/code-generation#the-default-source-self).
+
 ### `watchFlags`
 
 ```ts
@@ -138,6 +180,19 @@ exist, with `WatchResult`:
 - `done: Promise<void>`: resolves when all catalogs end or the signal aborts.
   Rejects when a catalog fails. The files of the last good catalogs stay.
 
+### `findGeneratedDeclarations`
+
+```ts
+function findGeneratedDeclarations(directory: string): Promise<string | undefined>;
+```
+
+Finds `flags/generated.d.ts`, the types of `flags:<source>`, in the directory
+or in its `src` directory. Returns the absolute path, or `undefined` if the
+code generation did not write the file. Use it instead of
+`findFlagsDirectory`, since the default source `self` writes the types also
+without a folder `flags/sources`. The Nuxt module uses it to add the types to
+Nuxt.
+
 ### `renderSourceModule`
 
 ```ts
@@ -150,7 +205,7 @@ function renderSourceModule(
 ```
 
 Returns the source code of the generated module of one source: a `'use flags'`
-module with one `defineSource` and one `bindFlag` per flag of the catalog. The
+module with one `defineSource` and one `source.bindFlag` per flag of the catalog. The
 type of each flag comes from its variants (mixed types become `object`), the
 variants become its `options`, and the `defaultValue` of the catalog becomes
 its `defaultValue`. Throws for a source name that is not
@@ -159,7 +214,10 @@ its `defaultValue`. Throws for a source name that is not
 `sourcesPath` is the path from the generated module to `flags/sources`. The
 default is `'../flags/sources'`. `files` tells which optional files the source
 has. With `{ context: false }`, the module does not import `context.ts`, and
-the source has no `getEvaluationContext`. The default is `{ context: true }`.
+the source has no `getEvaluationContext`. With `{ provider: 'vercel' }`, the
+module creates `new VercelProvider()` of `@vercel/flags-core/openfeature`
+instead of the import of `provider.ts`, as for the default source `self`. The
+default is `{ context: true, provider: 'file' }`.
 
 ### `GENERATED_DIRECTORY`
 
@@ -181,9 +239,14 @@ their content. Precompute uses it to encode values.
 - `FlagsAliases`: `Record<string, string>`, e.g.
   `{ 'flags:self': './.flags/self.ts' }`, relative to the application.
 - `WatchResult`: the result of `watchFlags`.
-- `SourceFiles`: `{ context?: boolean }`, the optional files of a source, for
-  `renderSourceModule`. `context` is `true` if the source has `context.ts`.
-  The default is `true`.
+- `ConfigModule`: `'flags/hooks' | 'flags/settings'`,
+  the modules which a plugin replaces with the files of the configuration.
+- `SourceFiles`: `{ context?: boolean; provider?: 'file' | 'vercel'; hooks?: boolean }`,
+  the files of a source, for `renderSourceModule`. `context` is `true` if the
+  source has `context.ts`. The default is `true`. `provider` is `'file'` for
+  `provider.ts`, and `'vercel'` for `new VercelProvider()`. The default is
+  `'file'`. `hooks` is `true` if the source has `hooks.ts`. The default is
+  `false`.
 
 ## `flags/manifest`
 
@@ -296,7 +359,9 @@ See [CLI](/docs/tooling/cli) for a guide.
 
 Writes the modules of `flags:<source>` from the catalogs in
 `flags/sources/<source>/` once, into `.flags/<source>.ts`. Loads the `.env`
-files of the directory first, for the credentials of the catalogs.
+files of the directory first, for the credentials of the catalogs. Reads
+`flags/config.json`, e.g. `"selfSource": false` to turn off the default source
+`self`.
 
 | Argument       | Description                                                                                           |
 | -------------- | ----------------------------------------------------------------------------------------------------- |
@@ -321,8 +386,9 @@ flags watch -- vite dev
 
 Writes the flags manifest for applications without a framework plugin, e.g.
 Hono or Express on Node.js. It imports the `'use flags'` modules in `dir`
-with Node.js, loads `flags/config.ts` if it finds one (in `dir`, its `src`,
-or the current directory), and writes the manifest.
+with Node.js, loads `flags/hooks.ts` and `flags/config.json` if it finds
+them (in `dir` or its `src`), and writes the
+manifest.
 
 | Argument       | Description                                                                 |
 | -------------- | --------------------------------------------------------------------------- |

@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:http';
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   conformanceChecks,

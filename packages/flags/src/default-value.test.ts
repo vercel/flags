@@ -1,6 +1,6 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bindFlag } from './flag';
+
 import { runtime } from './runtime';
 import { defineSource } from './source';
 
@@ -36,30 +36,23 @@ describe('a flag without defaultValue', () => {
         async (_key: string, _defaultValue: boolean) => ({ value: true }),
       ),
     };
-    const flag = bindFlag({
-      key: 'a',
-      source: defineSource({
-        provider,
-        project: { system: 'in-memory' },
-      }),
-    });
+    const flag = defineSource({
+      provider,
+      project: { system: 'in-memory' },
+    }).bindFlag('a');
 
     await flag();
     expect(provider.resolveBooleanEvaluation.mock.calls[0]?.[1]).toBe(false);
   });
 
   it('returns false when the provider returns the default, e.g. for a disabled flag', async () => {
-    await expect(
-      bindFlag({ key: 'old-checkout', source: source() })(),
-    ).resolves.toBe(false);
+    await expect(source().bindFlag('old-checkout')()).resolves.toBe(false);
   });
 
   it('returns the defaultValue when the provider returns the default', async () => {
     await expect(
-      bindFlag({
-        key: 'old-checkout',
+      source().bindFlag('old-checkout', {
         defaultValue: true,
-        source: source(),
       })(),
     ).resolves.toBe(true);
   });
@@ -89,9 +82,7 @@ describe('a provider which reports an issue', () => {
     });
 
   it('throws for the reason ERROR without an errorCode', async () => {
-    await expect(
-      bindFlag({ key: 'a', source: reportsError() })(),
-    ).rejects.toMatchObject({
+    await expect(reportsError().bindFlag('a')()).rejects.toMatchObject({
       code: 'GENERAL',
       message:
         'flags: Could not evaluate flag "a": The provider reported an error.',
@@ -100,10 +91,8 @@ describe('a provider which reports an issue', () => {
 
   it('returns the defaultValue for the reason ERROR', async () => {
     await expect(
-      bindFlag({
-        key: 'a',
+      reportsError().bindFlag('a', {
         defaultValue: true,
-        source: reportsError(),
       })(),
     ).resolves.toBe(true);
   });

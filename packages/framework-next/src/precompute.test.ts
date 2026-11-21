@@ -1,10 +1,7 @@
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-import {
-  bindFlag,
-  defineSource,
-  encryptOverrides,
-  runtime as publicRuntime,
-} from 'flags';
+import { defineSource } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
+import { runtime as publicRuntime } from 'flags/runtime';
 import {
   afterEach,
   beforeEach,
@@ -58,14 +55,12 @@ function createSource() {
 
 function createFlags() {
   const source = createSource();
-  const summerSale = bindFlag({ key: 'summer-sale', source });
-  const checkout = bindFlag({
-    key: 'checkout',
+  const summerSale = source.bindFlag('summer-sale');
+  const checkout = source.bindFlag('checkout', {
     type: 'string',
     options: ['control', 'express'],
-    source,
   });
-  const banner = bindFlag({ key: 'banner', type: 'string', source });
+  const banner = source.bindFlag('banner', { type: 'string' });
   return {
     summerSale,
     checkout,
@@ -217,7 +212,7 @@ describe('precompute', () => {
 
   it('keeps object values which are not one of the options', async () => {
     const source = createSource();
-    const theme = bindFlag({ key: 'theme', type: 'object', source });
+    const theme = source.bindFlag('theme', { type: 'object' });
     const code = await serialize([theme], [{ color: 'blue' }]);
 
     await expect(getPrecomputed(theme, [theme], code)).resolves.toEqual({
@@ -227,11 +222,9 @@ describe('precompute', () => {
 
   it('keeps a value of the provider which is not one of the options', async () => {
     // e.g. a variant which the system added after the deployment
-    const checkout = bindFlag({
-      key: 'checkout',
+    const checkout = createSource().bindFlag('checkout', {
       type: 'string',
       options: ['control', 'one-click'],
-      source: createSource(),
     });
     const code = await precompute([checkout]);
 

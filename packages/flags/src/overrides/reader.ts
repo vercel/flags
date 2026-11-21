@@ -14,13 +14,17 @@ import {
   type VerifyResult,
 } from './vercel';
 
+/**
+ * Which override tokens the SDK accepts: the setting `overrides` of
+ * `flags/config.json`.
+ */
 export interface OverridesOptions {
   /**
-   * The shared secret for override tokens which tests, CI or the Vercel
-   * Toolbar create with `FLAGS_SECRET`. The default is the environment
-   * variable `FLAGS_SECRET`. Use `false` to accept no such tokens.
+   * The SDK accepts override tokens of the shared secret in the environment
+   * variable `FLAGS_SECRET`, e.g. from tests, CI or the Vercel Toolbar. Use
+   * `false` to accept no such tokens. The secret itself is never in the file.
    */
-  readonly secret?: string | false;
+  readonly secret?: false;
   /**
    * Accepts override tokens which Vercel signs. The default is `true` on
    * Vercel or with a linked project (when `VERCEL` or the OIDC token is set),
@@ -59,10 +63,6 @@ const noOverrides: ReadonlyMap<string, JsonValue> = new Map();
 export function createOverridesReader(
   options: OverridesOptions = {},
 ): OverridesReader {
-  const explicitKey =
-    typeof options.secret === 'string'
-      ? decodeSecret(options.secret)
-      : undefined;
   let explicitVercel: Verify | undefined;
   if (typeof options.vercel === 'object') {
     explicitVercel = createVercelVerifier(options.vercel);
@@ -74,7 +74,6 @@ export function createOverridesReader(
   function sharedSecret():
     | { readonly key: Uint8Array }
     | { readonly rejection: OverrideRejection } {
-    if (explicitKey) return { key: explicitKey };
     const secret = options.secret === false ? '' : process.env.FLAGS_SECRET;
     if (!secret) return { rejection: 'missing-secret' };
     try {

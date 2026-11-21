@@ -7,7 +7,7 @@
  * - It initializes the providers when the server starts, and closes them
  *   when it stops.
  */
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { registerFramework } from 'flags/tooling';
 import { defineNitroPlugin } from '#imports';
 import { setupFramework } from './binding';

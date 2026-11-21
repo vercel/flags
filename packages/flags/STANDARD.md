@@ -88,13 +88,20 @@ time for each request and input.
 
 ## 4. The replaceable modules
 
-The runtime imports two modules through the name of its own package. A
+The runtime imports these modules through the name of its own package. A
 build plugin replaces them.
 
 | Module | Default | Replaced by |
 | --- | --- | --- |
 | `flags/framework` | no binding | the framework binding (section 5) |
-| `flags/config` | no configuration | `flags/config.ts` of the application (section 6) |
+| `flags/hooks` | no hooks | `flags/hooks.ts` of the application (section 6) |
+| `flags/settings` | the defaults | `flags/config.json` of the application (section 6) |
+
+The module `flags/config` exports `configFromModules`. It builds the
+`Config` object `{ hooks?, settings? }` from the modules `flags/hooks` and
+`flags/settings`. A build plugin MUST NOT replace it. The binding MUST
+import the two modules itself, so that
+the aliases apply to the imports of bundled code.
 
 ### 4.1 Replacement
 
@@ -164,7 +171,19 @@ redirect. These are **signals**.
 ### 5.3 The config source
 
 A framework with a bundler MUST call `runtime.setLoadConfig(source)`,
-where `source` returns the export `config` of `flags/config`.
+where `source` imports the three modules and returns the result of
+`configFromModules` of `flags/config`:
+
+```ts
+runtime.setLoadConfig(async () => {
+  // Import the files in the binding, which the bundler builds, so that
+  // the aliases of the plugin apply
+  const { configFromModules } = await import('flags/config');
+  return configFromModules(
+    await Promise.all([import('flags/hooks'), import('flags/settings')]),
+  );
+});
+```
 
 - In development, the runtime calls the source before each evaluation, and
   applies a new configuration. In production, it calls it one time.
@@ -185,15 +204,26 @@ evaluation belongs to the request.
   application evaluates the flag outside, and passes the value into the
   cache scope.
 
-## 6. `flags/config.ts`
+## 6. The configuration files
 
-- The file is OPTIONAL. It has the settings for all flags: `hooks` and
-  `overrides`. It has no source.
-- The file MUST be named `flags/config.ts`, `flags/config.mts`,
-  `flags/config.js` or `flags/config.mjs`, in the directory of the
-  application or in its `src` directory.
-- The configuration MUST be the named export `config`. A default export
-  MUST NOT be read.
+The folder `flags` of the application has one OPTIONAL file for each part
+of the configuration. The configuration has no source.
+
+| File | Contains | Module |
+| --- | --- | --- |
+| `flags/hooks.ts` | The default export: the hooks for all flags | `flags/hooks` |
+| `flags/config.json` | The static settings (`Settings`), e.g. the override options `overrides` (`OverridesOptions`) | `flags/settings` |
+
+- The folder `flags` MUST be in the directory of the application or in its
+  `src` directory. An implementation MUST look in the directory first.
+- `flags/hooks.ts` MAY also end in `.mts`, `.js` or `.mjs`.
+- A build plugin MUST set the alias of a module only if its file exists
+  (`findConfigModules` of `flags/tooling`). Without the file, the module of
+  `flags` is empty.
+- `flags/config.json` is static. The build plugins, the CLI and the runtime
+  MUST read the same file. An unknown key or a value of the wrong type MUST
+  be an error. The key `$schema` is allowed. The JSON Schema is
+  `https://flags-sdk.dev/schemas/config.v1.json`.
 - A framework without a bundler MUST let the application give the
   configuration, e.g. as an option of a middleware, and give it to
   `runtime.configure(config)`.
@@ -211,7 +241,7 @@ directive prologue.
   definition of flags and sources. It MUST NOT open network
   connections.
 - A build plugin SHOULD append a registration to each flags module, which
-  calls `registerFlags` with the exports of the module
+  calls `registerFlags` of `flags/runtime` with the exports of the module
   (`addSelfRegistration` of `flags/tooling`).
 - A build plugin MUST NOT examine more than the directive prologue to find
   the directive.
@@ -251,7 +281,7 @@ The manifest MUST conform to the JSON Schema
     }
   },
   "definitions": {
-    "summer-sale": {
+    "summerSale": {
       "type": "boolean",
       "defaultValue": false,
       "description": "The summer sale",
@@ -271,7 +301,7 @@ The manifest MUST conform to the JSON Schema
 ## 8. Deployment platforms
 
 - This version of the standard has no default provider. Each flag of a
-  provider names its source, and the configuration has no source.
+  provider is declared on its source, and the configuration has no source.
 - A platform SHOULD put `flags-manifest.json` of the build into its build
   output, so that tools can read it.
 - A platform which signs override tokens MUST follow section 10.
@@ -313,8 +343,10 @@ An override sets the value of a flag for one browser, with a cookie.
   base64 (with `+`, `/` and `=`), as v4 of the SDK did.
 - The payload MUST have the claim `pur` with the value `overrides`, the
   claim `o` with an object of flag keys and values, and MAY have `exp`.
-- If `FLAGS_SECRET` is set, the runtime MUST accept this kind. On the
-  platform, it MUST also accept the kind of 10.2.
+- If `FLAGS_SECRET` is set, the runtime MUST accept this kind, unless the
+  setting `overrides` of `flags/config.json` has `"secret": false`. On the
+  platform, it MUST also accept the kind of 10.2. The secret MUST come only
+  from the environment, never from `flags/config.json`.
 
 ### 10.2 Signed by the platform
 
@@ -360,7 +392,7 @@ e.g. Flags Explorer, or send them to an analytics service of the platform.
 - The content MUST be JSON: an object of flag keys and values (the plain
   form), or a string, which is a token of section 11.2 or 11.3.
 - The content MUST have each `<` escaped as `\u003c`. Thus, the content
-  can not end the element. `serializeFlagValues` of `flags` does this.
+  can not end the element. `serializeFlagValues` of `flags/explorer` does this.
 - A page MAY have more than one element. A tool MUST merge them in the
   order of the document. A later value of a flag replaces an earlier one.
 - The plain form shows the values to each visitor. An implementation MUST

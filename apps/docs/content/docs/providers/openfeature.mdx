@@ -105,17 +105,14 @@ export const self = defineSource({
 });
 ```
 
-Name the source in each flag. `bindFlag` requires it:
+Declare each flag on the source, with `self.bindFlag(key)`:
 
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: self,
+export const checkout = self.bindFlag('checkout', {
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -486,7 +483,7 @@ export const statsig = defineSource({
 });
 ```
 
-The flag key selects the Statsig entity. A plain key, e.g. `show_banner`, is a feature gate. The prefixes `config:`, `experiment:` and `layer:` select a dynamic config, an experiment or a layer, e.g. `config:welcome`. Without a parameter, an object flag reads the whole value of a config or an experiment. A layer key needs a parameter. Add `.<param>` to read one parameter, e.g. `experiment:pricing.price`; string and number flags need a parameter. The `targetingKey` of the evaluation context is the `userID`. Fields such as `email`, `country`, `custom` and `customIDs` go to the fields of the `StatsigUser` with the same name.
+The flag key selects the Statsig entity. A plain key, e.g. `showBanner`, is a feature gate. The prefixes `config:`, `experiment:` and `layer:` select a dynamic config, an experiment or a layer, e.g. `config:welcome`. Without a parameter, an object flag reads the whole value of a config or an experiment. A layer key needs a parameter. Add `.<param>` to read one parameter, e.g. `experiment:pricing.price`; string and number flags need a parameter. The `targetingKey` of the evaluation context is the `userID`. Fields such as `email`, `country`, `custom` and `customIDs` go to the fields of the `StatsigUser` with the same name.
 
 [Statsig provider documentation](https://github.com/vercel/flags/tree/main/packages/adapter-statsig#openfeature-provider)
 

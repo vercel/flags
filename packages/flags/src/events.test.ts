@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bindFlag } from './flag';
+
 import { runtime } from './runtime';
 import { defineSource } from './source';
 import type { EventDetails, Provider, ProviderEventDetails } from './types';
@@ -62,7 +62,7 @@ describe('events', () => {
     const ready = vi.fn();
     runtime.addHandler('PROVIDER_READY', ready);
 
-    await bindFlag({ key: 'a', source })();
+    await source.bindFlag('a')();
     expect(ready).toHaveBeenCalledWith({ providerName: 'events' });
   });
 
@@ -72,7 +72,7 @@ describe('events', () => {
     });
     const error = vi.fn();
     runtime.addHandler('PROVIDER_ERROR', error);
-    const flag = bindFlag({ key: 'a', source });
+    const flag = source.bindFlag('a');
 
     await expect(flag()).rejects.toThrow('Offline');
     expect(error).toHaveBeenCalledWith({
@@ -88,7 +88,7 @@ describe('events', () => {
     const { source, events } = createSource();
     const changed = vi.fn<(details: EventDetails) => void>();
     runtime.addHandler('PROVIDER_CONFIGURATION_CHANGED', changed);
-    await bindFlag({ key: 'a', source })();
+    await source.bindFlag('a')();
 
     events.emit('PROVIDER_CONFIGURATION_CHANGED', { flagsChanged: ['a'] });
     expect(changed).toHaveBeenCalledWith({
@@ -103,7 +103,7 @@ describe('events', () => {
 
   it('runs a handler at once if the provider already has the status', async () => {
     const { source, events } = createSource();
-    await bindFlag({ key: 'a', source })();
+    await source.bindFlag('a')();
 
     const ready = vi.fn();
     runtime.addHandler('PROVIDER_READY', ready);
@@ -117,7 +117,7 @@ describe('events', () => {
 
   it('stops evaluations after a fatal error, without retries', async () => {
     const { source, events, provider } = createSource();
-    const flag = bindFlag({ key: 'a', source });
+    const flag = source.bindFlag('a');
     await flag();
 
     events.emit('PROVIDER_ERROR', {
@@ -138,7 +138,7 @@ describe('events', () => {
     const { source, provider } = createSource(async () => {
       throw Object.assign(new Error('Wrong key'), { code: 'PROVIDER_FATAL' });
     });
-    const flag = bindFlag({ key: 'a', source, defaultValue: false });
+    const flag = source.bindFlag('a', { defaultValue: false });
 
     await expect(flag()).resolves.toBe(false);
     await expect(flag()).resolves.toBe(false);
@@ -150,14 +150,14 @@ describe('events', () => {
 
   it('removes its handlers from the provider on shutdown', async () => {
     const { source, events } = createSource();
-    await bindFlag({ key: 'a', source })();
+    await source.bindFlag('a')();
     expect(events.count()).toBe(4);
 
     await runtime.onShutdown();
     expect(events.count()).toBe(0);
 
     // The next use listens again
-    await bindFlag({ key: 'b', source })();
+    await source.bindFlag('b')();
     expect(events.count()).toBe(4);
   });
 
@@ -167,7 +167,7 @@ describe('events', () => {
       throw new Error('Oops');
     });
 
-    await bindFlag({ key: 'a', source })();
+    await source.bindFlag('a')();
     await vi.waitFor(() =>
       expect(console.error).toHaveBeenCalledWith(
         'flags: An event handler failed.',

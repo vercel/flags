@@ -1,5 +1,5 @@
 import { error, redirect } from '@sveltejs/kit';
-import type { Runtime } from 'flags';
+import type { Runtime } from 'flags/runtime';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as svelteKit from '$app/server';
 import { getRequest, rethrowSignal, setupFramework } from './binding';

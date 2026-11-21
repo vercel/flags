@@ -3,7 +3,7 @@ title: Express
 description: Use the Flags SDK in an Express app with one middleware.
 ---
 
-`@flags-sdk/express` is an Express middleware. It runs each request in `runtime.onInvoke`, so that flags know the request, and it configures the SDK with your optional `flags/config.ts`. Your route handlers import only `flags`.
+`@flags-sdk/express` is an Express middleware. It runs each request in `runtime.onInvoke`, so that flags know the request, and it configures the SDK with your optional configuration, e.g. the hooks of `flags/hooks.ts`. Your route handlers import only `flags`.
 
 ## Setup
 
@@ -48,20 +48,18 @@ Then create `src/flags.ts` with the flags. It is the same file as in the [other 
 ```ts title="src/flags.ts"
 'use flags';
 
-import { bindFlag, defineFlag } from 'flags';
+import { defineFlag } from 'flags';
 import { self } from './flags/self.ts';
 
 // A flag of the source: the provider decides the value
-export const enableSale = bindFlag({
-  key: 'enableSale',
-  source: self,
+export const enableSale = self.bindFlag('enableSale', {
   defaultValue: false,
   description: 'Shows the summer sale',
 });
 
 // An inline flag: your code decides the value
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
   description: 'Shows the beta banner to testers',
@@ -79,7 +77,6 @@ export const betaBanner = defineFlag({
 ```ts title="src/server.ts"
 import { flags } from '@flags-sdk/express';
 import express from 'express';
-import { evaluate } from 'flags';
 import { betaBanner, enableSale } from './flags.ts';
 
 const app = express();
@@ -88,7 +85,8 @@ const app = express();
 app.use(flags());
 
 app.get('/', async (_request, response) => {
-  const [sale, beta] = await evaluate([enableSale, betaBanner]);
+  const sale = await enableSale();
+  const beta = await betaBanner();
   response.json({ sale, beta });
 });
 
@@ -99,24 +97,39 @@ Send the cookie `user=alice` to see the sale, and `beta=1` to see the beta banne
 
 The middleware converts the Node.js headers into Web `Headers` and builds the URL from the `Host` header and `originalUrl`, so `getEvaluationContext` gets the same `FlagsRequest` as in every other framework. Node.js 22.18 or newer runs the TypeScript source directly with `node src/server.ts`.
 
-## Optional: `flags/config.ts`
+## Optional: the configuration files
 
-You do not need a configuration file. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without one.
+You do not need configuration files. Your flags name their source, e.g. `self`, and [overrides](/docs/tooling/overrides) work with `FLAGS_SECRET`, or on Vercel, without them.
 
-Add `flags/config.ts` when you want settings for all flags: OpenFeature hooks for every flag, or the options of overrides. Express often runs without a bundler, so nothing loads the file for you. Pass the configuration to the middleware: `app.use(flags({ config }))`.
+Add `flags/hooks.ts` when you want OpenFeature hooks for every flag. It has a default export. Add `flags/config.json` for the static settings, e.g. the setting `overrides`. Express often runs without a bundler, so nothing loads the files for you. Pass them to the middleware: `app.use(flags({ config: { hooks, settings } }))`.
 
-```ts title="flags/config.ts"
-import { defineConfig } from 'flags';
+```ts title="src/flags/hooks.ts"
+import type { Hook } from 'flags';
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after: (context, details) => {
-        console.log(`${context.flagKey} = ${JSON.stringify(details.value)}`);
-      },
+const hooks: Hook[] = [
+  {
+    after: (context, details) => {
+      console.log(`${context.flagKey} = ${JSON.stringify(details.value)}`);
     },
-  ],
-});
+  },
+];
+
+export default hooks;
+```
+
+```ts title="src/server.ts"
+import hooks from './flags/hooks.ts';
+
+app.use(flags({ config: { hooks } }));
+```
+
+The static settings are in `flags/config.json`, e.g. `"selfSource": false` or `overrides`. `flags sync` and `flags watch` read it. The middleware does not read it. To use a setting at runtime, e.g. `overrides`, import the file and pass it as `settings`:
+
+```ts title="src/server.ts"
+import settings from './flags/config.json' with { type: 'json' };
+import hooks from './flags/hooks.ts';
+
+app.use(flags({ config: { hooks, settings } }));
 ```
 
 See [Configuration](/docs/flags/configuration) for all options.
@@ -126,7 +139,7 @@ See [Configuration](/docs/flags/configuration) for all options.
 Without extra code, a provider initializes on its first evaluation. To initialize the providers before the first request, and to close them when the process stops, call the runtime yourself:
 
 ```ts title="src/server.ts"
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 
 await runtime.onInit();
 const server = app.listen(3000);
@@ -145,12 +158,12 @@ Without a bundler, no plugin serves the manifest in development. Write it with t
 npx flags manifest
 ```
 
-- It imports the modules that start with `'use flags'` in the directory (`flags manifest [dir]`, the current directory by default) with Node.js, and writes `flags-manifest.json` into it. It loads `flags/config.ts` if it finds one.
+- It imports the modules that start with `'use flags'` in the directory (`flags manifest [dir]`, the current directory by default) with Node.js, and writes `flags-manifest.json` into it. It loads `flags/hooks.ts` and `flags/config.json` if it finds them.
 - Run it on the source if Node.js can run it (TypeScript with type stripping, Node.js 22.18 or newer), or on the output of `tsc`, which keeps the directive. A bundled output loses the directive.
 - `--out <file>` sets the output file.
 
 Overrides of Flags Explorer work as in every framework: the SDK reads the `flag-overrides` cookie of each request. See [Flags manifest](/docs/tooling/flags-manifest), [CLI](/docs/tooling/cli) and [Overrides](/docs/tooling/overrides).
 
 <Callout type="info">
-  Without a bundler, nothing appends the self-registration of `'use flags'` modules. Flags created with `bindFlag` register their source themselves. If a module exports plain flag objects with a source, call `registerFlags` with its exports.
+  Without a bundler, nothing appends the self-registration of `'use flags'` modules. Flags created with `source.bindFlag` register their source themselves. If a module exports plain flag objects with a source, call `registerFlags` with its exports.
 </Callout>

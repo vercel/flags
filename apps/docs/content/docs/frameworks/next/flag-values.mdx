@@ -74,14 +74,15 @@ With Cache Components, `FlagValues` encrypts in `'use cache'` (`cacheLife('max')
 
 ## Other frameworks
 
-`FlagValues` is a React server component for Next.js. In other frameworks, write the same element yourself on the server with `encryptFlagValues` and `serializeFlagValues` of `flags`:
+`FlagValues` is a React server component for Next.js. In other frameworks, write the same element yourself on the server with `encryptFlagValues` and `serializeFlagValues` of `flags/explorer`:
 
 ```ts
-import { encryptFlagValues, evaluate, serializeFlagValues } from 'flags';
+import { evaluate } from 'flags';
+import { encryptFlagValues, serializeFlagValues } from 'flags/explorer';
 import { checkout, summerSale } from './flags';
 
 const [sale, flow] = await evaluate([summerSale, checkout]);
-const token = await encryptFlagValues({ 'summer-sale': sale, checkout: flow });
+const token = await encryptFlagValues({ summerSale: sale, checkout: flow });
 
 // serializeFlagValues escapes the content, so it can not end the element
 const html = `<script type="application/json" data-flag-values>${serializeFlagValues(token)}</script>`;

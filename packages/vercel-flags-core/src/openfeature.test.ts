@@ -1,4 +1,7 @@
-import { StandardResolutionReasons } from '@openfeature/server-sdk';
+import {
+  type Provider,
+  StandardResolutionReasons,
+} from '@openfeature/server-sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fns from './controller-fns';
 import { createCreateRawClient } from './create-raw-client';
@@ -33,6 +36,21 @@ function createStaticController(opts: {
 const createRawClient = createCreateRawClient(fns);
 
 describe('VercelProvider', () => {
+  it('is an OpenFeature provider', () => {
+    // The type check fails if the provider does not match the Provider of
+    // OpenFeature, e.g. for OpenFeature.setProvider()
+    const provider: Provider = new VercelProvider(
+      createRawClient({
+        controller: createStaticController({
+          data: { definitions: {}, segments: {} },
+          projectId: 'test',
+          environment: 'production',
+        }),
+      }),
+    );
+    expect(provider.metadata.name).toBe('vercel-nodejs-provider');
+  });
+
   describe('constructor', () => {
     it('should accept a FlagsClient', () => {
       const controller = createStaticController({

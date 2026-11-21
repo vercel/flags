@@ -28,7 +28,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { MANIFEST_FILE } from './build-manifest';
 import type { Config } from './config';
-import { findConfigFile } from './config-file';
+import { findConfigModules, readSettings } from './config-file';
 import { loadEnvFiles } from './env-files';
 import { findFlagsModules } from './find-flags-modules';
 import { type FlagsAliases, generateFlags, watchFlags } from './generate';
@@ -63,13 +63,7 @@ export async function manifest(args: string[]): Promise<string> {
     modules.push({ id, exports: { ...exports } });
   }
   // The configuration of the project, if it has one
-  const configFile = findConfigFile(root) ?? findConfigFile(process.cwd());
-  if (configFile) {
-    const { config } = (await import(pathToFileURL(configFile).href)) as {
-      config?: Config;
-    };
-    if (config) runtime.configure(config);
-  }
+  runtime.configure(await importConfig(root));
   const result = createManifest(modules);
   writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`);
   return `flags: Wrote ${output} with ${Object.keys(result.definitions).length} flags from ${modules.length} modules.`;
@@ -129,7 +123,7 @@ function prepareGenerate(args: string[], allowCommand: boolean): GenerateArgs {
 function describeAliases(aliases: FlagsAliases): string {
   const names = Object.keys(aliases);
   if (names.length === 0) {
-    return 'flags: No sources in flags/sources.';
+    return 'flags: No sources in flags/sources, and no default source self.';
   }
   return `flags: Wrote the modules of ${names.join(', ')}.`;
 }
@@ -213,4 +207,22 @@ export async function watch(args: string[]): Promise<string> {
     process.removeListener('SIGINT', interrupt);
     process.removeListener('SIGTERM', terminate);
   }
+}
+
+/**
+ * Imports the files of the configuration of the application, as the
+ * framework bindings do with `flags/config`.
+ */
+async function importConfig(root: string): Promise<Config> {
+  const files = findConfigModules(root);
+  const load = async (file: string | undefined) =>
+    file === undefined
+      ? undefined
+      : ((await import(pathToFileURL(file).href)) as { default?: unknown })
+          .default;
+  const hooks = (await load(files['flags/hooks'])) as Config['hooks'];
+  return {
+    ...(hooks ? { hooks } : {}),
+    settings: readSettings(root),
+  };
 }

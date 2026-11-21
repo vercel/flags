@@ -21,7 +21,7 @@ Copy `.env.example` to `.env.local` and set `GROWTHBOOK_CLIENT_KEY` to your SDK 
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-`flags.ts` defines a source with `GrowthbookProvider`, the OpenFeature provider of `@openfeature/growthbook-provider`, and binds both flags to it with `bindFlag`. The provider creates the GrowthBook client of `@growthbook/growthbook` and loads the features before the first evaluation, then refreshes them every 60 seconds (`pollingInterval`). For self-hosted GrowthBook, set `GROWTHBOOK_API_HOST`.
+`flags.ts` defines a source with `GrowthbookProvider`, the OpenFeature provider of `@openfeature/growthbook-provider`, and binds both flags to it with `source.bindFlag`. The provider creates the GrowthBook client of `@growthbook/growthbook` and loads the features before the first evaluation, then refreshes them every 60 seconds (`pollingInterval`). For self-hosted GrowthBook, set `GROWTHBOOK_API_HOST`.
 
 The home page uses `evaluate()` from `flags` to evaluate both flags. Change their values in GrowthBook and refresh the page after the provider has refreshed the features. Every visitor uses the same `demo-user` context; change `getEvaluationContext` in `flags.ts` to add user targeting. It runs once per request for all flags of the source, and the provider gives its result to GrowthBook as the attributes.
 

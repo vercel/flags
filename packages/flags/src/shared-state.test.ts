@@ -1,14 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-type Flags = typeof import('./index');
+type Flags = typeof import('./index') & typeof import('./runtime-module');
 
 /**
- * Loads a new copy of the package, as a bundler can do for each layer of an
- * application.
+ * Loads a new copy of the package (`flags` and `flags/runtime`), as a
+ * bundler can do for each layer of an application.
  */
 async function loadCopy(): Promise<Flags> {
   vi.resetModules();
-  return import('./index');
+  return {
+    ...(await import('./index')),
+    ...(await import('./runtime-module')),
+  };
 }
 
 const provider = {
@@ -27,7 +30,7 @@ describe('shared state', () => {
     const a = await loadCopy();
     const b = await loadCopy();
 
-    expect(a.bindFlag).not.toBe(b.bindFlag);
+    expect(a.defineSource).not.toBe(b.defineSource);
     expect(a.runtime).toBe(b.runtime);
   });
 
@@ -48,8 +51,9 @@ describe('shared state', () => {
       project: { system: 'in-memory' },
     });
 
-    const flag = b.bindFlag({ key: 'a', source });
-    await expect(flag()).resolves.toBe(true);
+    // The flag of copy a, evaluated by copy b
+    const flag = source.bindFlag('a');
+    await expect(b.evaluate(flag)).resolves.toBe(true);
     await expect(b.evaluate({ key: 'a', source })).resolves.toBe(true);
   });
 
@@ -60,7 +64,7 @@ describe('shared state', () => {
       provider,
       project: { system: 'in-memory' },
     });
-    const flag = a.bindFlag({ key: 'a', source });
+    const flag = source.bindFlag('a');
 
     expect(() => b.registerFlags({ flag })).not.toThrow();
   });
@@ -87,7 +91,7 @@ describe('shared state', () => {
         user: request?.cookies?.get('user')?.value ?? 'anonymous',
       }),
     });
-    const flag = pages.bindFlag({ key: 'a', source });
+    const flag = source.bindFlag('a');
 
     await flag();
     expect(contexts).toEqual([{ user: 'alice' }]);

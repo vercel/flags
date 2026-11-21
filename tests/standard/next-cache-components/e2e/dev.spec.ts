@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { expect, test } from '@playwright/test';
-import { decryptFlagValues } from 'flags';
+import { decryptFlagValues } from 'flags/explorer';
 
 // 32 bytes as base64url
 const FLAGS_SECRET = 'dGhpcy1pcy1hLXRlc3Qtc2VjcmV0LWZvci1mbGFncyE';

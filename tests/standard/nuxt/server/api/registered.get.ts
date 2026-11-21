@@ -1,4 +1,4 @@
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 
 // The names of the providers of the registered sources, after the import
 // of a 'use flags' module

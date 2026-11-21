@@ -1,16 +1,12 @@
 # Next.js test app of the Flags SDK
 
 Tests the Flags SDK and its framework contract in a real Next.js app: the
-plugin `withFlags`, the loading of `flags/config.ts`, the request source,
-overrides, and the alias of `flags/default-provider` by a deployment adapter.
+plugin `withFlags`, the hooks of `flags/hooks.ts`, the request source, the
+cache of each request, overrides, `FlagValues`, precompute and the proxy.
 
 ```sh
 pnpm test:e2e
 ```
 
-It builds two variants:
-
-- `.next`: the app, with the default connection of `flags/config.ts`.
-- `.next-platform`: without a default connection. The test adapter
-  (`adapter.mjs`, loaded from `NEXT_ADAPTER_PATH`) points
-  `flags/default-provider` to `deployment-provider.mjs`.
+`pnpm test:e2e` builds the app with `next build`, then runs the Playwright
+tests against `next start`.

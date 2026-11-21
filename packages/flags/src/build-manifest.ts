@@ -9,12 +9,12 @@ export const MANIFEST_FILE = 'flags-manifest.json';
 // Imports the built modules, and writes the manifest. `flags/manifest` is
 // resolved from the project, which is the working directory.
 // The built modules contain the SDK with the framework binding, if the
-// build has one. Then runtime.prepare() loads flags/config.ts, if the
-// project has one.
+// build has one. Then runtime.prepare() loads flags/hooks.ts and
+// flags/config.json, if the project has them.
 const script = `
 import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 import { createManifest } from 'flags/manifest';
 const [plan, output] = process.argv.slice(1);
 const modules = [];

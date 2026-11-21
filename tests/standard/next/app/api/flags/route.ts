@@ -1,6 +1,6 @@
 import { evaluate } from 'flags';
 import { bannerText, newCheckout, summerSale } from '../../../flags';
-import { evaluationCount } from '../../../flags/config';
+import { evaluationCount } from '../../../flags/hooks';
 import { contextCalls } from '../../../flags/self';
 
 export async function GET(request: Request) {

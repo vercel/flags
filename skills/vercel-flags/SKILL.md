@@ -7,7 +7,7 @@ description: >
   users, even before a library or provider is chosen. Covers choosing an integration (Flags SDK,
   `@vercel/flags-core`, OpenFeature), the Vercel dashboard, the `vercel flags` CLI (create, inspect,
   set, split, rollout, rules, segments, evaluations, archive, connections), Project Connections, OIDC vs SDK keys, `FLAGS_SECRET`, and
-  Flags Explorer overrides. For Flags SDK v5 code (`defineFlag`, `bindFlag`, `defineSource`,
+  Flags Explorer overrides. For Flags SDK v5 code (`defineFlag`, `defineSource`, `source.bindFlag`,
   `flags/sources` and `flags:<source>`, `VercelProvider`, `withFlags`, precompute, the Flags Explorer
   manifest) in any framework, load the `flags-sdk` skill.
 ---
@@ -48,7 +48,7 @@ Decide these before creating the flag; the kind cannot be changed later.
 
 - **Kind**: `boolean` for on/off and kill switches; `string`, `number`, or `json` when the flag selects a variant or carries configuration ([Flag types](https://vercel.com/docs/flags/vercel-flags/dashboard/feature-flag#flag-types)).
 - **Variants**: name them after the behavior (`control`, `new-checkout`), not after the rollout step.
-- **Key**: kebab-case, stable, and the same string in the CLI, the dashboard, and the code (`key` in `bindFlag()`, the export name in `flags:<source>`, or the first argument of `evaluate()` of `@vercel/flags-core`).
+- **Key**: camelCase (e.g. `summerSale`), stable, and the same string in the CLI, the dashboard, and the code (the first argument of `source.bindFlag(key)`, the export name in `flags:<source>`, or the first argument of `evaluate()` of `@vercel/flags-core`). A camelCase key is a valid JavaScript name, so you import it from `flags:<source>` without an alias.
 - **Environments**: each environment serves its own value or targeting. Plan what Development, Preview, and Production serve at launch.
 - **Targeting**: a percentage rollout or A/B split needs a stable identity to bucket by, such as `user.id`. Define the entity and attribute under Flags → Entities first; the app must return the same names from its evaluation context ([Entities](https://vercel.com/docs/flags/vercel-flags/dashboard/entities)).
 - **Fallback**: the value the app serves when the flag is archived, not yet created, or evaluation fails. This becomes `defaultValue` in code.
@@ -104,7 +104,7 @@ const client = createClient();
 
 // Call from a request handler, not during module loading.
 export async function showNewCheckout(userId: string): Promise<boolean> {
-  const result = await client.evaluate<boolean>("new-checkout", false, {
+  const result = await client.evaluate<boolean>("newCheckout", false, {
     user: { id: userId },
   });
   return result.value;

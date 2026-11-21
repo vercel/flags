@@ -208,9 +208,6 @@ importers:
       '@openfeature/core':
         specifier: 1.12.0
         version: 1.12.0
-      '@openfeature/server-sdk':
-        specifier: 1.23.0
-        version: 1.23.0(@openfeature/core@1.12.0)
       '@vercel/flags-core':
         specifier: workspace:*
         version: link:../../packages/vercel-flags-core
@@ -629,9 +626,6 @@ importers:
       '@flags-sdk/next':
         specifier: workspace:*
         version: link:../../../packages/framework-next
-      '@openfeature/server-sdk':
-        specifier: 1.23.0
-        version: 1.23.0(@openfeature/core@1.12.0)
       '@vercel/flags-core':
         specifier: workspace:*
         version: link:../../../packages/vercel-flags-core
@@ -1675,9 +1669,6 @@ importers:
 
   packages/vercel-flags-core:
     dependencies:
-      '@openfeature/server-sdk':
-        specifier: 1.18.0
-        version: 1.18.0(@openfeature/core@1.12.0)
       '@vercel/functions':
         specifier: ^3.4.3
         version: 3.4.3(@aws-sdk/credential-provider-web-identity@3.972.90)
@@ -1697,6 +1688,9 @@ importers:
       '@arethetypeswrong/cli':
         specifier: 0.18.5
         version: 0.18.5
+      '@openfeature/server-sdk':
+        specifier: 1.18.0
+        version: 1.18.0(@openfeature/core@1.12.0)
       '@types/node':
         specifier: 22.14.0
         version: 22.14.0

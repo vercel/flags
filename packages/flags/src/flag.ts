@@ -2,7 +2,12 @@ import { type DecideSource, getDecideSource } from './decide';
 import { logger } from './logger';
 import { type FlagDefinition, runtime } from './runtime';
 import { sharedState } from './shared-state';
-import { isSource, type Source, type SourceInput } from './source';
+import {
+  type AnySource,
+  isSource,
+  type Source,
+  type SourceInput,
+} from './source';
 import type { FlagsRequest, Hook, HookHints } from './types';
 import {
   type FlagOptionObject,
@@ -58,7 +63,7 @@ export type EvaluationArgs<In> = undefined extends In
   : [options: EvaluationOptions<In>];
 
 export interface FlagOptions<
-  C extends Source,
+  C,
   K extends string,
   In,
   T extends FlagType,
@@ -160,7 +165,7 @@ export interface InlineFlagOptions<
 }
 
 export type Flag<
-  C extends Source = Source,
+  C = Source,
   K extends string = string,
   In = SourceInput<C>,
   V extends FlagValue = boolean,
@@ -183,7 +188,7 @@ export type Flag<
 /**
  * Declares an inline flag, which decides its value in the code with
  * `decide`. Call the returned function to evaluate it. For a flag of a
- * provider, use `bindFlag`.
+ * provider, use `source.bindFlag(key)` of `defineSource`.
  *
  * @example
  * ```ts
@@ -206,7 +211,7 @@ export function defineFlag<
   const checked = checkOptions('defineFlag', options);
   if (checked.decide === undefined) {
     throw new TypeError(
-      `flags: Flag "${String(checked.key)}" has no decide. Use bindFlag for the flag of a source.`,
+      `flags: Flag "${String(checked.key)}" has no decide. Use source.bindFlag(key) for the flag of a source.`,
     );
   }
   return defineFromOptions(checked) as unknown as Flag<
@@ -218,45 +223,39 @@ export function defineFlag<
 }
 
 /**
- * Declares a flag of a source: the provider of the source decides its
- * value. Call the returned function to evaluate it. For an inline flag,
- * use `defineFlag`.
- *
- * @example
- * ```ts
- * export const enableDashboard = bindFlag({
- *   key: 'enable-dashboard',
- *   source,
- *   options: [false, true] as const, // optional
- * });
- * await enableDashboard();
- * await enableDashboard({ evaluationContext: { teamId: 'team-1' } });
- * ```
+ * The options of `source.bindFlag(key, options)`: the options of a flag
+ * without its key and its source.
  */
-export function bindFlag<
-  const K extends string,
-  const T extends FlagType = 'boolean',
-  const O extends FlagOptionsOf<T> = FlagOptionsOf<T>,
-  C extends Source = Source,
-  In = SourceInput<C>,
->(options: FlagOptions<C, K, In, T, O>): Flag<C, K, In, FlagValueFrom<T, O>> {
-  const checked = checkOptions('bindFlag', options);
+export type BindFlagOptions<
+  C,
+  In,
+  T extends FlagType,
+  O extends FlagOptionsOf<T>,
+> = Omit<FlagOptions<C, string, In, T, O>, 'key' | 'source'>;
+
+/**
+ * Declares a flag of a source. `source.bindFlag(key, options)` of
+ * `defineSource` calls it.
+ *
+ * @internal
+ */
+export function bindFlagTo(
+  source: AnySource,
+  key: unknown,
+  options: unknown = {},
+): Flag<Source, string, unknown, FlagValue> {
+  if (typeof options !== 'object' || options === null) {
+    throw new TypeError(
+      `flags: The options of flag ${JSON.stringify(key)} must be an object.`,
+    );
+  }
+  const checked = checkOptions('bindFlag', { ...options, key, source });
   if (checked.decide !== undefined) {
     throw new TypeError(
       `flags: Flag "${String(checked.key)}" has decide. Use defineFlag for inline flags.`,
     );
   }
-  if (checked.source === undefined) {
-    throw new TypeError(
-      `flags: Flag "${String(checked.key)}" has no source. Pass the source of its provider, e.g. of flags/sources/self.`,
-    );
-  }
-  return defineFromOptions(checked) as unknown as Flag<
-    C,
-    K,
-    In,
-    FlagValueFrom<T, O>
-  >;
+  return defineFromOptions(checked);
 }
 
 type AnyFlagOptions = Omit<

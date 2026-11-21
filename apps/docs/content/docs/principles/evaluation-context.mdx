@@ -41,7 +41,7 @@ last step: the source reads the request, and the call site passes nothing.
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 import { provider } from './provider';
 
 const shop = defineSource({
@@ -61,9 +61,7 @@ const teams: Record<string, { plan: string }> = {
 };
 
 // The call side gives a team slug. The flag loads the team.
-export const teamInsights = bindFlag({
-  key: 'team-insights',
-  source: shop,
+export const teamInsights = shop.bindFlag('teamInsights', {
   defaultValue: false,
   getEvaluationContext: (_request, context: { teamSlug: string }) => ({
     team: teams[context.teamSlug] ?? { plan: 'unknown' },
@@ -71,9 +69,7 @@ export const teamInsights = bindFlag({
 });
 
 // No flag step: the source reads the user from the request
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: shop,
+export const summerSale = shop.bindFlag('summerSale', {
   defaultValue: false,
 });
 ```
@@ -114,7 +110,7 @@ the request, and the evaluation context of the call side as it is:
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
 });
 ```

@@ -50,11 +50,11 @@ Absent evidence is not a reason to stop: missing or unlabeled telemetry, unident
 
 ### Generated flags
 
-With the code generation of the Flags SDK (a folder `flags/sources/<source>/` and imports from `flags:<source>`), the flag has no hand-written declaration to delete:
+With the code generation of the Flags SDK (a folder `flags/sources/<source>/`, or the default source `self` of an app with `@vercel/flags-core`, and imports from `flags:<source>`), the flag has no hand-written declaration to delete:
 
 - **Inline** the call sites, and remove the flag from each `import { … } from 'flags:<source>'`.
 - **A static catalog** (a list of flags in `flags/sources/<source>/catalog.ts`): remove the entry of the flag.
-- **A catalog which loads the flags**, e.g. `@vercel/flags-core/catalog`: the generated export stays as long as the flag management system lists the flag, so there is nothing to change in `catalog.ts`. The export disappears later, when the flag leaves the catalog.
+- **A catalog which loads the flags**, e.g. `@vercel/flags-core/catalog` (also the default catalog of `flags:self`): the generated export stays as long as the flag management system lists the flag, so there is nothing to change in `catalog.ts`. The export disappears later, when the flag leaves the catalog.
 - Do not edit `.flags/` or `flags/generated.d.ts` by hand. They are generated: run `flags sync` (or the dev server) after the catalog changes. When the export disappears, the type check fails for each import that is left, so a forgotten call site shows up there.
 
 Preserve production behavior. Do not touch other flags or refactor unrelated code.

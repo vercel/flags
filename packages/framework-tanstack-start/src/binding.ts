@@ -12,7 +12,8 @@
 
 import { isNotFound, isRedirect } from 'flags:tanstack-start/router';
 import { getRequest as currentRequest } from 'flags:tanstack-start/server';
-import type { FlagsRequestInit, SetupFramework } from 'flags';
+import type { FlagsRequestInit } from 'flags';
+import type { SetupFramework } from 'flags/runtime';
 
 /**
  * Gives the runtime the current request of TanStack Start, the errors which
@@ -21,7 +22,14 @@ import type { FlagsRequestInit, SetupFramework } from 'flags';
 export const setupFramework: SetupFramework = (runtime) => {
   runtime.setGetRequest(getRequest);
   runtime.setRethrow(rethrowSignal);
-  runtime.setLoadConfig(async () => (await import('flags/config')).config);
+  runtime.setLoadConfig(async () => {
+    // The binding imports the files itself: it is bundled, so the aliases
+    // of the plugin apply
+    const { configFromModules } = await import('flags/config');
+    return configFromModules(
+      await Promise.all([import('flags/hooks'), import('flags/settings')]),
+    );
+  });
 };
 
 /**

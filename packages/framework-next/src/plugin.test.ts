@@ -7,7 +7,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findConfigFile } from 'flags/tooling';
+import { findConfigModules } from 'flags/tooling';
 import type { NextConfig } from 'next';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { withFlags, writeManifest } from './plugin';
@@ -35,27 +35,33 @@ describe('withFlags', () => {
     });
   });
 
-  it('points flags/config to flags/config.ts', () => {
-    const dir = projectWith('flags/config.ts');
+  it('points flags/hooks and flags/settings to the files', () => {
+    const dir = projectWith('flags/hooks.ts');
+    writeFileSync(join(dir, 'flags/config.json'), '{}');
     const config = withFlags<NextConfig>(
       {},
       { dir, disableCodeGeneration: true },
     );
 
     expect(config.turbopack?.resolveAlias).toMatchObject({
-      'flags/config': './flags/config.ts',
+      'flags/hooks': './flags/hooks.ts',
+      'flags/settings': './flags/config.json',
     });
+    // flags/config is the loader of the SDK, not a file of the app
+    expect(config.turbopack?.resolveAlias).not.toHaveProperty('flags/config');
   });
 
-  it('finds flags/config.ts in src', () => {
-    const dir = projectWith('src/flags/config.ts');
+  it('finds the files in src/flags', () => {
+    const dir = projectWith('src/flags/hooks.ts');
 
-    expect(findConfigFile(dir)).toBe(join(dir, 'src', 'flags/config.ts'));
+    expect(findConfigModules(dir)).toEqual({
+      'flags/hooks': join(dir, 'src', 'flags/hooks.ts'),
+    });
     expect(
       withFlags<NextConfig>({}, { dir, disableCodeGeneration: true }).turbopack
         ?.resolveAlias,
     ).toMatchObject({
-      'flags/config': './src/flags/config.ts',
+      'flags/hooks': './src/flags/hooks.ts',
     });
   });
 
@@ -233,6 +239,53 @@ describe('code generation of flags:<source>', () => {
     return dir;
   }
 
+  // An app which depends on @vercel/flags-core, with a fake package
+  function projectWithVercelFlags() {
+    const dir = projectWith();
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ dependencies: { '@vercel/flags-core': '1.0.0' } }),
+    );
+    const core = join(dir, 'node_modules/@vercel/flags-core');
+    mkdirSync(core, { recursive: true });
+    writeFileSync(
+      join(core, 'package.json'),
+      JSON.stringify({
+        name: '@vercel/flags-core',
+        type: 'module',
+        exports: { './catalog': './catalog.js' },
+      }),
+    );
+    writeFileSync(
+      join(core, 'catalog.js'),
+      "export const loadCatalog = () => ({ flags: { 'summer-sale': { variants: [false, true] } } });",
+    );
+    return dir;
+  }
+
+  it('generates the default source self for an app with @vercel/flags-core', async () => {
+    const dir = projectWithVercelFlags();
+
+    const resolved = await withFlags<NextConfig>(
+      {},
+      { dir },
+    )('phase-production-build');
+
+    expect(resolved.turbopack?.resolveAlias).toMatchObject({
+      'flags:self': './.flags/self.ts',
+    });
+  });
+
+  it('generates no default source with "selfSource": false in flags/config.json', async () => {
+    const dir = projectWithVercelFlags();
+    mkdirSync(join(dir, 'flags'));
+    writeFileSync(join(dir, 'flags/config.json'), '{ "selfSource": false }');
+
+    await withFlags<NextConfig>({}, { dir })('phase-production-build');
+
+    expect(existsSync(join(dir, '.flags'))).toBe(false);
+  });
+
   it('points flags:<source> to the modules of .flags/aliases.json', () => {
     const dir = projectWith();
     mkdirSync(join(dir, '.flags'));
@@ -259,7 +312,7 @@ describe('code generation of flags:<source>', () => {
       'flags/framework': '@flags-sdk/next/binding',
     });
     expect(readFileSync(join(dir, '.flags/shop.ts'), 'utf8')).toContain(
-      'key: "summer-sale"',
+      'source.bindFlag("summer-sale"',
     );
     // The types of flags:shop, without paths in tsconfig.json
     expect(readFileSync(join(dir, 'flags/generated.d.ts'), 'utf8')).toContain(

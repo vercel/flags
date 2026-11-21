@@ -8,13 +8,13 @@ export const self = defineSource({
     resolveBooleanEvaluation: async (_key, _defaultValue, context) => ({
       value: context.user === 'alice',
     }),
-    // The hook of flags/config.ts marks each evaluation, so the tests
+    // The hook of flags/hooks.ts marks each evaluation, so the tests
     // see that the binding loaded it
     resolveStringEvaluation: async (_key, _defaultValue, context) => ({
       value:
         context.fromConfig === true
-          ? 'Hello from flags/config.ts'
-          : 'Without flags/config.ts',
+          ? 'Hello from flags/hooks.ts'
+          : 'Without flags/hooks.ts',
     }),
   },
   project: { system: 'in-memory' },

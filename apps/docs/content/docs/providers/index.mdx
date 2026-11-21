@@ -13,7 +13,7 @@ This means:
 
 ## From a provider to a source
 
-Flags do not use a provider directly. They use a **source**: a provider, plus the function which creates the evaluation context for it, plus an optional description of the flag project for tools. Each flag names its source.
+Flags do not use a provider directly. They use a **source**: a provider, plus the function which creates the evaluation context for it, plus an optional description of the flag project for tools. Each flag is declared on its source.
 
 ### With the file system API
 
@@ -26,7 +26,7 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 export default new VercelProvider();
 ```
 
-Next to it, `catalog.ts` lists the flags of the source, and the optional `context.ts` creates the evaluation context. [Code generation](/docs/flags/code-generation) writes `.flags/self.ts` from the folder, with the source and one flag for each flag of the catalog, and you import the flags:
+Next to it, `catalog.ts` lists the flags of the source, and the optional `context.ts` creates the evaluation context. [Code generation](/docs/flags/code-generation) writes `.flags/self.ts` from the folder, with the source and one flag for each flag of the catalog, and you import the flags. For [Vercel Flags](/docs/providers/vercel), the folder is optional: with `@vercel/flags-core` in your dependencies, the source `self` has the flags of your Vercel project by default:
 
 ```ts
 import { summerSale } from 'flags:self';
@@ -52,22 +52,19 @@ export const self = defineSource({
 });
 ```
 
-A flag names its source with `bindFlag`. The `source` is required:
+Declare each flag on its source, with `source.bindFlag(key)`:
 
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
+export const summerSale = self.bindFlag('summerSale', {
   defaultValue: false,
 });
 ```
 
-The generated code of the file system API is the same as this hand-written code. See [Provider flags](/docs/flags/provider-flags) for all options of `defineSource` and `bindFlag`.
+The generated code of the file system API is the same as this hand-written code. See [Provider flags](/docs/flags/provider-flags) for all options of `defineSource` and `source.bindFlag`.
 
 ## The parts of a source
 
@@ -121,7 +118,7 @@ export const team = defineSource({
 
 TypeScript checks that each flag of `team` gets a `teamId` when you call it: `await teamInsights({ evaluationContext: { teamId } })`. See [Evaluation context](/docs/flags/evaluation-context).
 
-An application can also use more than one flag management system at the same time: each flag names the source it belongs to.
+An application can also use more than one flag management system at the same time: each flag is declared on the source it belongs to.
 
 ## The lifecycle of a provider
 

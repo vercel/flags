@@ -26,7 +26,7 @@ const sale = await summerSale();
 There are two kinds of flags:
 
 - An **inline flag**, defined with `defineFlag`, decides its value in your code with a `decide` function. See [Inline flags](/docs/flags/inline-flags).
-- A **provider flag**, defined with `bindFlag`, asks the provider of a source. See [Provider flags](/docs/flags/provider-flags).
+- A **provider flag**, defined with `source.bindFlag`, asks the provider of a source. See [Provider flags](/docs/flags/provider-flags).
 
 Both kinds get the same features: overrides from Flags Explorer, OpenFeature hooks, one value per request, and type checks.
 
@@ -44,6 +44,8 @@ With a framework with a bundler, a source is a folder. By convention, the main s
 - `catalog.ts` lists the flags of the source,
 - optionally, `context.ts` exports `getEvaluationContext(request, input)`.
 
+With `@vercel/flags-core` in your dependencies, you do not create this folder. The source `self` is then the default source of Vercel Flags: `new VercelProvider()`, and the flags of your Vercel project as the catalog. A file in `flags/sources/self/` replaces its part, e.g. `context.ts` adds the evaluation context.
+
 [Code generation](/docs/flags/code-generation) turns the folder into the module `flags:self`, with the source and one typed flag for each flag of the catalog:
 
 ```ts
@@ -59,10 +61,10 @@ const self = defineSource({
   getEvaluationContext: (request) => ({ user: getUser(request) }),
 });
 
-const summerSale = bindFlag({ key: 'summer-sale', source: self });
+const summerSale = self.bindFlag('summerSale');
 ```
 
-Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Each flag of a provider names its source: there is no default source.
+Many flags share one source, and the source creates the context once per request. You can have several sources, e.g. one for Vercel Flags and one for LaunchDarkly. Each flag of a provider is declared on its source: the runtime has no global source to fall back on.
 
 ## The runtime
 
@@ -83,7 +85,7 @@ There is one runtime for each process, shared by all copies of the `flags` packa
 The runtime needs the current request: its headers, cookies and URL. Each framework gives it in a different way. A framework binding connects the two:
 
 - It gives the runtime the current request, either with a middleware (`runtime.onInvoke(request, next)`) or with a function that reads the request at any time.
-- It loads the optional [`flags/config.ts`](/docs/flags/configuration).
+- It loads the optional [configuration files](/docs/flags/configuration) of the folder `flags`, e.g. `flags/hooks.ts`.
 - It lets the signals of the framework through, e.g. `redirect()` and `notFound()` in Next.js.
 - It registers the modules with the `'use flags'` directive, and writes the [flags manifest](/docs/tooling/flags-manifest) for tools.
 

@@ -16,13 +16,19 @@ Node.js 20.19, or 22.12 or newer. The package runs only on the server.
 
 | Entry point      | For                                                                                  |
 | ---------------- | ------------------------------------------------------------------------------------ |
-| `flags`          | Applications: everything on this page                                                 |
+| `flags`          | Applications: define, evaluate and track flags, the errors, the reasons and the types |
+| `flags/runtime`  | Framework bindings, and applications without a framework plugin (Express, Hono, plain Node.js): [Runtime](#runtime), [Configuration](#configuration) and [Registration](#registration) |
+| `flags/explorer` | The protocol of Flags Explorer, e.g. for tests and CI: [Overrides](#overrides) and [Flag values](#flag-values) |
 | `flags/tooling`  | Framework packages and build tools. See [flags/tooling](/docs/api-reference/flags-tooling) |
 | `flags/manifest` | Tools that create or read the flags manifest. See [flags/manifest](/docs/api-reference/flags-tooling#flagsmanifest) |
 
-The subpaths `flags/framework` and `flags/config` are replaced by bundler
-aliases of framework packages. Your
-application does not import them. See
+All copies of the package share one runtime, so `flags` and `flags/runtime`
+use the same runtime.
+
+The subpaths `flags/framework`, `flags/hooks` and `flags/settings` are
+replaced by bundler aliases of framework packages. The
+framework binding imports `flags/config`, which loads them. Your application
+does not import these subpaths. See
 [Custom frameworks](/docs/frameworks/custom-frameworks).
 
 ## Defining flags
@@ -54,7 +60,7 @@ Throws a `TypeError` without `decide`, or with a `source`.
 import { defineFlag } from 'flags';
 
 export const betaBanner = defineFlag({
-  key: 'beta-banner',
+  key: 'betaBanner',
   decide: (request) => request?.cookies?.get('beta')?.value === '1',
   options: [false, true] as const,
 });
@@ -62,59 +68,10 @@ export const betaBanner = defineFlag({
 await betaBanner(); // boolean
 ```
 
-### `bindFlag`
-
-Declares a **flag of a source**: the provider of the source decides its value.
-With [code generation](/docs/flags/code-generation), the SDK writes these
-calls for you, e.g. in `.flags/self.ts`.
-
-```ts
-function bindFlag<K, T, O, C extends Source, In = SourceInput<C>>(
-  options: FlagOptions<C, K, In, T, O>,
-): Flag<C, K, In, FlagValueFrom<T, O>>;
-```
-
-| Option                 | Type                                                     | Description                                                                                                                                                              |
-| ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `key`                  | `string`                                                 | The key of the flag in the flag management system. Required.                                                                                                             |
-| `source`               | `Source`                                                 | A source of [`defineSource`](#definesource). Required.                                                                                                                   |
-| `type`                 | `'boolean' \| 'string' \| 'number' \| 'object'`           | The type of the value. The default is `'boolean'`. Selects the resolve method of the provider.                                                                            |
-| `options`              | `readonly (V \| { value: V; label?: string })[]`         | The known values, for Flags Explorer and precompute. They do not limit the values: a provider value outside the options goes through.                                    |
-| `defaultValue`         | `V`                                                      | Returned when the evaluation fails, after logging one line. Without it, a [`FlagEvaluationError`](#flagevaluationerror) is thrown.                                      |
-| `description`          | `string`                                                 | What the flag is for, shown in Flags Explorer.                                                                                                                           |
-| `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => SourceInput<C> \| Promise<SourceInput<C>>` | The middle step of the [evaluation context chain](/docs/flags/evaluation-context). Receives the current request and the call side context, and returns the input of the source. The type of `context` defines what the call side must pass. |
-
-Throws a `TypeError` with `decide` (use `defineFlag`), without `source`, or
-when `source` was not returned by `defineSource`.
-
-```ts title="flags.ts"
-'use flags';
-
-import { bindFlag } from 'flags';
-import { self } from './flags/self';
-
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
-  defaultValue: false,
-});
-
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: self,
-  type: 'string',
-  options: ['control', 'express'],
-  defaultValue: 'control',
-  description: 'The checkout flow',
-});
-
-await checkout(); // 'control' | 'express' | (string & {})
-```
-
 ### `Flag`
 
-The type of a flag that `defineFlag` and `bindFlag` return. A flag is an async
-function with read-only properties.
+The type of a flag that `defineFlag` and `source.bindFlag` return. A flag is
+an async function with read-only properties.
 
 ```ts
 type Flag<C extends Source, K extends string, In, V extends FlagValue> =
@@ -130,12 +87,13 @@ type Flag<C extends Source, K extends string, In, V extends FlagValue> =
 ```
 
 - `options` are always normalized to `{ value, label? }` objects.
-- `source` is the source of `bindFlag`. For an inline flag, it is the
+- `source` is the source of a provider flag. For an inline flag, it is the
   internal source of inline flags (`DecideSource`).
 
-### `FlagOptions` and `InlineFlagOptions`
+### `BindFlagOptions` and `InlineFlagOptions`
 
-The option types of `bindFlag` and `defineFlag`, as in the tables above.
+The option types of `source.bindFlag` and `defineFlag`, as in the tables of
+[`source.bindFlag`](#sourcebindflag) and [`defineFlag`](#defineflag).
 
 ## Sources
 
@@ -147,7 +105,7 @@ management system, and the last step of the evaluation context chain.
 ```ts
 function defineSource<P extends Provider, N extends FlagManagementSystem, C extends EvaluationContext, In>(
   options: SourceOptions<P, N, C, In>,
-): Source<P, N, C, In>;
+): BindableSource<P, N, C, In>;
 ```
 
 | Option                 | Type                                                    | Description                                                                                                                                                                                |
@@ -155,9 +113,10 @@ function defineSource<P extends Provider, N extends FlagManagementSystem, C exte
 | `provider`             | `Provider`                                              | Any OpenFeature server provider. Required.                                                                                                                                                 |
 | `project`              | `Project`                                               | The flag project in the flag management system. Optional. Flags Explorer uses it for links to the dashboard. Without it, the flags work the same, but the manifest names no source for them. |
 | `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => C \| Promise<C>` | The last step of the chain. Returns the evaluation context for the provider. Runs once per request and input. Outside of a request, it runs on each evaluation with `request` undefined.     |
-| `hooks`                | `readonly Hook[]`                                       | OpenFeature hooks for the flags of this source. They run after the hooks of the configuration and before those of the call side and the provider. They also run for overrides.             |
+| `hooks`                | `readonly Hook[]`                                       | OpenFeature hooks for the flags of this source. They run after the hooks of the configuration and before those of the call side and the provider. They also run for overrides. The code generation passes the default export of `flags/sources/<source>/hooks.ts`.             |
 
-The returned source is frozen. Throws a `TypeError` for a `project` with
+The returned source is frozen. Declare its flags with
+[`source.bindFlag`](#sourcebindflag). Throws a `TypeError` for a `project` with
 `platform` (use `system`), or a `systemManifest` that is not an HTTPS URL.
 
 ```ts title="flags/self.ts"
@@ -171,6 +130,53 @@ export const self = defineSource({
     targetingKey: request?.cookies?.get('user-id')?.value ?? 'anonymous',
   }),
 });
+```
+
+### `source.bindFlag`
+
+Declares a **flag of a source**: the provider of the source decides its value.
+`bindFlag` is a method of the source that [`defineSource`](#definesource)
+returns. With [code generation](/docs/flags/code-generation), the SDK writes
+these calls for you, e.g. in `.flags/self.ts`.
+
+```ts
+source.bindFlag<K, T, O, In = SourceInput<typeof source>>(
+  key: K,
+  options?: BindFlagOptions<typeof source, In, T, O>,
+): Flag<typeof source, K, In, FlagValueFrom<T, O>>;
+```
+
+`key` is the key of the flag in the flag management system. All options are
+optional:
+
+| Option                 | Type                                                     | Description                                                                                                                                                              |
+| ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `type`                 | `'boolean' \| 'string' \| 'number' \| 'object'`           | The type of the value. The default is `'boolean'`. Selects the resolve method of the provider.                                                                            |
+| `options`              | `readonly (V \| { value: V; label?: string })[]`         | The known values, for Flags Explorer and precompute. They do not limit the values: a provider value outside the options goes through.                                    |
+| `defaultValue`         | `V`                                                      | Returned when the evaluation fails, after logging one line. Without it, a [`FlagEvaluationError`](#flagevaluationerror) is thrown.                                      |
+| `description`          | `string`                                                 | What the flag is for, shown in Flags Explorer.                                                                                                                           |
+| `getEvaluationContext` | `(request: FlagsRequest \| undefined, context: In) => SourceInput<typeof source> \| Promise<SourceInput<typeof source>>` | The middle step of the [evaluation context chain](/docs/flags/evaluation-context). Receives the current request and the call side context, and returns the input of the source. The type of `context` defines what the call side must pass. |
+
+Throws a `TypeError` with `decide` (use `defineFlag`), or when `options` is
+not an object.
+
+```ts title="flags.ts"
+'use flags';
+
+import { self } from './flags/self';
+
+export const summerSale = self.bindFlag('summerSale', {
+  defaultValue: false,
+});
+
+export const checkout = self.bindFlag('checkout', {
+  type: 'string',
+  options: ['control', 'express'],
+  defaultValue: 'control',
+  description: 'The checkout flow',
+});
+
+await checkout(); // 'control' | 'express' | (string & {})
 ```
 
 ### `Project`
@@ -192,9 +198,11 @@ Related types:
 - `FlagManagementSystem`: `'vercel-flags' | 'launchdarkly' | 'in-memory'`.
 - `ProjectFieldsBySystem`: the fields of each system, as in the table.
 
-### `Source`
+### `Source` and `BindableSource`
 
-The type that `defineSource` returns.
+`Source` is the type of a source. `BindableSource` is the type that
+`defineSource` returns: a `Source` with the method
+[`bindFlag`](#sourcebindflag).
 
 ```ts
 interface Source<P extends Provider, N extends FlagManagementSystem, C extends EvaluationContext, In> {
@@ -202,6 +210,13 @@ interface Source<P extends Provider, N extends FlagManagementSystem, C extends E
   readonly project?: Project<N>;
   readonly hooks?: readonly Hook[];
   getEvaluationContext?(request: FlagsRequest | undefined, context: In): C | Promise<C>;
+}
+
+interface BindableSource<P, N, C, In> extends Source<P, N, C, In> {
+  bindFlag<K, T, O, FlagIn = In>(
+    key: K,
+    options?: BindFlagOptions<this, FlagIn, T, O>,
+  ): Flag<this, K, FlagIn, FlagValueFrom<T, O>>;
 }
 ```
 
@@ -242,6 +257,11 @@ await teamInsights({ evaluationContext: { teamSlug: 'acme' } });
 
 Evaluates one flag, or a list of flags. Returns the values in the order of
 the list.
+
+Direct calls such as `await summerSale()` are fine. The SDK evaluates each
+flag once per request, and parallel calls of many flags share the work: one
+evaluation context per request, one provider call per flag. `evaluate` is not
+faster. It is a convenience for lists.
 
 ```ts
 function evaluate<F extends FlagDefinition>(
@@ -287,7 +307,7 @@ package. Framework packages call its methods for you. Without a framework,
 call them yourself. See [Without a framework](/docs/frameworks/node).
 
 ```ts
-import { runtime } from 'flags';
+import { runtime } from 'flags/runtime';
 ```
 
 ### `runtime.configure`
@@ -296,11 +316,14 @@ import { runtime } from 'flags';
 runtime.configure(config: Config): void;
 ```
 
-Sets the configuration, usually the `config` export of `flags/config.ts`.
-A new call replaces the configuration. Throws before it changes anything if
-the configuration is not valid, e.g. when `hooks` is not an array, or when it
-has a `defaultSource` (an option of earlier versions: give each flag its
-source).
+Sets the configuration, e.g. `{ hooks, settings }` with the default export of
+`flags/hooks.ts` and the content of `flags/config.json`. A framework binding
+calls it with the files of the folder `flags`. A new call replaces the
+configuration. Throws before it changes anything if the configuration is not
+valid, e.g. when `hooks` is not an array, when `settings` has an unknown key,
+when it has `overrides` (a setting of `flags/config.json`: use
+`settings: { overrides }`), or when it has a `defaultSource` (an option of
+earlier versions: give each flag its source).
 
 ### `runtime.onInit`
 
@@ -391,63 +414,93 @@ A framework binding calls these in its `setupFramework` function. See
 | Method                            | Description                                                                                                                                                                              |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `runtime.setGetRequest(fn)`       | `fn: GetRequest \| undefined`. Returns the current request as `FlagsRequestInit`, or `undefined` outside of a request. For frameworks without a wrapping middleware. The `headers` object must stay the same during one request, because the SDK identifies the request by it. Inside `onInvoke`, it is not called. |
-| `runtime.setLoadConfig(fn)`       | `fn: LoadConfig \| undefined`. Returns the configuration. Called once in production, and before each evaluation in development, so changes of `flags/config.ts` apply without a restart. |
+| `runtime.setLoadConfig(fn)`       | `fn: LoadConfig \| undefined`. Returns the configuration. Called once in production, and before each evaluation in development, so changes of `flags/hooks.ts` and `flags/config.json` apply without a restart. Bindings pass `loadConfig` of `flags/config`. |
 | `runtime.setRethrow(fn)`          | `fn: ((error: unknown) => void) \| undefined`. Throws an error again if the framework must receive it, e.g. a redirect. The runtime calls it before it uses a `defaultValue`.          |
 
-Related types:
+Related types, also exports of `flags/runtime`:
 
 - `Runtime`: the type of `runtime`. There is no constructor.
 - `GetRequest`: `() => FlagsRequestInit | undefined | Promise<FlagsRequestInit | undefined>`.
 - `LoadConfig`: `() => Config | undefined | Promise<Config | undefined>`.
 - `SetupFramework`: `(runtime: Runtime) => void | Promise<void>`, the export
   `setupFramework` of a framework binding.
-- `FlagDefinition`: what the runtime needs to evaluate a flag (`key`, `type`,
+- `FlagDefinition` (an export of `flags`): what the runtime needs to evaluate a flag (`key`, `type`,
   `defaultValue`, `options`, `description`, `source`, `getEvaluationContext`,
   `decide`). Every `Flag` is a `FlagDefinition`. `evaluate`, `FlagValues`
   and precompute accept it.
 
 ## Configuration
 
-### `defineConfig`
-
-Returns the configuration as it is, with its exact type. Export it as `config`
-from the optional `flags/config.ts`. Framework plugins load it. See
-[Configuration](/docs/flags/configuration).
-
-```ts
-function defineConfig<const C extends Config>(config: C): C;
-```
-
-| Option      | Type               | Description                                                                                                   |
-| ----------- | ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `overrides` | `OverridesOptions` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions).                          |
-| `hooks`     | `readonly Hook[]`  | OpenFeature hooks for all flags. They run first, and also for overrides, with the reason `OVERRIDE`.         |
-
-The configuration has no sources: each flag of a provider names its source in
-`bindFlag`.
-
-```ts title="flags/config.ts"
-import { defineConfig } from 'flags';
-
-export const config = defineConfig({
-  overrides: { secret: process.env.FLAGS_SECRET },
-  hooks: [
-    {
-      after(hookContext, details) {
-        console.log(hookContext.flagKey, details.value);
-      },
-    },
-  ],
-});
-```
+Each part of the configuration has its own optional file in the folder
+`flags`. Framework plugins load them. See
+[Configuration](/docs/flags/configuration). The types are exports of
+`flags/runtime`.
 
 ### `Config`
 
-The type of the configuration, with the fields of `defineConfig`.
+The type of the configuration, the argument of `runtime.configure`.
+
+| Field       | Type               | File                 | Description                                                                                          |
+| ----------- | ------------------ | -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `hooks`     | `readonly Hook[]`  | `flags/hooks.ts`     | OpenFeature hooks for all flags. They run first, and also for overrides, with the reason `OVERRIDE`. |
+| `settings`  | `Settings`         | `flags/config.json`  | The static settings, which the plugins and the CLI also read. See [`Settings`](#settings).          |
+
+The configuration has no sources: each flag of a provider is declared on its
+source, with `source.bindFlag`.
+
+```ts title="flags/hooks.ts"
+import type { Hook } from 'flags';
+
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      console.log(hookContext.flagKey, details.value);
+    },
+  },
+];
+
+export default hooks;
+```
+
+### `Settings`
+
+The type of `flags/config.json`. The SDK checks the settings strictly: an
+unknown key or a value of the wrong type is an error. The key `$schema` is
+allowed. The JSON Schema is at
+`https://flags-sdk.dev/schemas/config.v1.json`.
+
+| Setting      | Type      | Description                                                                                                                        |
+| ------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `selfSource` | `boolean` | The [default source `self`](/docs/flags/code-generation#the-default-source-self). `false` turns it off. The default is `true`. |
+| `overrides`  | `OverridesOptions` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions). |
+
+```json title="flags/config.json"
+{
+  "$schema": "https://flags-sdk.dev/schemas/config.v1.json",
+  "selfSource": false,
+  "overrides": { "vercel": { "maxLifetimeSeconds": 2592000 } }
+}
+```
+
+### `OverridesOptions`
+
+The setting `overrides` of `flags/config.json`. All options are JSON.
+
+| Option   | Type                                | Description                                                                                                                                                                  |
+| -------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `secret` | `false`                             | Accepts no tokens of the shared secret. The secret itself comes only from the environment variable `FLAGS_SECRET`. A string is an error.                                      |
+| `vercel` | `boolean \| VercelOverridesOptions` | Accepts tokens signed by Vercel. The default is `true` on Vercel or with a linked project (`VERCEL` or the OIDC token set), also with a shared secret, otherwise `false`. |
+
+`VercelOverridesOptions` has `issuer`, `jwksUrl`, `project`
+(`Partial<PlatformProject>`: `projectId`, `environment`, `teamId?`),
+`maxLifetimeSeconds` (default 7 days), `cacheMaxAgeMs` (default 5 minutes),
+`cooldownMs` (default 30 seconds) and `allowInsecureLocalhost`. The defaults
+fit Flags Explorer on Vercel. To accept no overrides, set
+`"overrides": { "secret": false, "vercel": false }`.
 
 ## Registration
 
-Flags register their sources when they are defined, and framework plugins
+Import these functions from `flags/runtime`. Flags register their sources when they are defined, and framework plugins
 register `'use flags'` modules for you. Call these functions only for
 sources whose flags are defined later, e.g. in lazily imported modules, or
 without a plugin.
@@ -463,6 +516,7 @@ Registers the sources of all flags that a module exports, so that
 flag.
 
 ```ts
+import { registerFlags } from 'flags/runtime';
 import * as flags from './flags';
 
 registerFlags(flags);
@@ -480,7 +534,9 @@ Registers sources directly. Throws for a value not returned by
 ## Overrides
 
 Overrides let Flags Explorer set the value of a flag for your browser, with the
-cookie `flag-overrides`. See [Overrides](/docs/tooling/overrides).
+cookie `flag-overrides`. See [Overrides](/docs/tooling/overrides). Import these
+functions and types from `flags/explorer`. Which tokens the SDK accepts is the
+setting [`overrides`](#overridesoptions) of `flags/config.json`.
 
 ### `encryptOverrides`
 
@@ -498,9 +554,9 @@ Throws without a secret, or when the secret is not 32 random bytes encoded as
 base64url.
 
 ```ts
-import { encryptOverrides } from 'flags';
+import { encryptOverrides } from 'flags/explorer';
 
-const token = await encryptOverrides({ 'summer-sale': true });
+const token = await encryptOverrides({ summerSale: true });
 ```
 
 ### `signOverrides`
@@ -533,21 +589,6 @@ Decrypts a token of `encryptOverrides`. Returns `undefined` for a token that
 is not valid, e.g. expired or encrypted with another secret. Throws without a
 secret.
 
-### `OverridesOptions`
-
-The `overrides` option of the configuration.
-
-| Option   | Type                                | Description                                                                                                                                                                  |
-| -------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `secret` | `string \| false`                   | The shared secret for encrypted tokens. The default is `FLAGS_SECRET`. `false` accepts no such tokens.                                                                       |
-| `vercel` | `boolean \| VercelOverridesOptions` | Accepts tokens signed by Vercel. The default is `true` on Vercel or with a linked project (`VERCEL` or the OIDC token set), also with a shared secret, otherwise `false`. |
-
-`VercelOverridesOptions` has `issuer`, `jwksUrl`, `project`
-(`Partial<PlatformProject>`: `projectId`, `environment`, `teamId?`),
-`maxLifetimeSeconds` (default 7 days), `cacheMaxAgeMs` (default 5 minutes),
-`cooldownMs` (default 30 seconds), `allowInsecureLocalhost` and `fetch`. The
-defaults fit Flags Explorer on Vercel.
-
 Related types:
 
 - `FlagOverrides`: `Record<string, JsonValue>`.
@@ -555,12 +596,11 @@ Related types:
   `'wrong-scope'`. The SDK logs the reason, never the token.
 - `OverridesError`: thrown when the SDK can not verify signed tokens at all,
   e.g. because the public keys can not be loaded.
-- `PlatformProject`, `VercelOverridesOptions`: see above.
 
 ## Flag values
 
 Functions to put the values of flags into a page, for Flags Explorer and
-analytics. In Next.js, use [`FlagValues`](/docs/api-reference/next#flagvalues).
+analytics. Import them from `flags/explorer`. In Next.js, use [`FlagValues`](/docs/api-reference/next#flagvalues).
 
 ### `encryptFlagValues`
 
@@ -601,7 +641,7 @@ Returns the content of the flag values element, with each `<` escaped. Pass a
 token of `encryptFlagValues`, or plain values (visible to every visitor).
 
 ```ts
-import { encryptFlagValues, serializeFlagValues } from 'flags';
+import { encryptFlagValues, serializeFlagValues } from 'flags/explorer';
 
 const content = serializeFlagValues(await encryptFlagValues(values));
 // <script type="application/json" data-flag-values>{content}</script>
@@ -675,20 +715,20 @@ The reasons that hooks see in `EvaluationDetails`:
 - `DECIDE_REASON` (`'DECIDE'`): the value of an inline flag, from `decide`.
 - `OVERRIDE_REASON` (`'OVERRIDE'`): the value of an override.
 
-```ts title="flags/config.ts"
-import { defineConfig, OVERRIDE_REASON } from 'flags';
+```ts title="flags/hooks.ts"
+import { type Hook, OVERRIDE_REASON } from 'flags';
 
-export const config = defineConfig({
-  hooks: [
-    {
-      after(hookContext, details) {
-        if (details.reason === OVERRIDE_REASON) {
-          console.log(`Override of ${hookContext.flagKey}`);
-        }
-      },
+const hooks: Hook[] = [
+  {
+    after(hookContext, details) {
+      if (details.reason === OVERRIDE_REASON) {
+        console.log(`Override of ${hookContext.flagKey}`);
+      }
     },
-  ],
-});
+  },
+];
+
+export default hooks;
 ```
 
 ## Code generation types

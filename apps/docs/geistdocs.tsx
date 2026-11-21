@@ -29,6 +29,10 @@ export const nav = [
     href: "/docs/providers",
   },
   {
+    label: "Tooling",
+    href: "/docs/tooling/flags-explorer",
+  },
+  {
     label: "Standard",
     href: "/docs/standard",
   },

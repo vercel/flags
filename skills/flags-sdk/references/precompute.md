@@ -15,7 +15,7 @@ Put the group into a module without `'use flags'`, because a `'use flags'` modul
 
 ```ts
 // marketing-flags.ts
-import { checkout, 'summer-sale' as summerSale } from 'flags:self';
+import { checkout, summerSale } from 'flags:self';
 
 export const marketingFlags = [summerSale, checkout] as const;
 ```
@@ -46,7 +46,7 @@ export const config = { matcher: '/marketing' };
 ```tsx
 // app/marketing/[code]/page.tsx
 import { generatePermutations, getPrecomputed } from '@flags-sdk/next/precompute';
-import { checkout, 'summer-sale' as summerSale } from 'flags:self';
+import { checkout, summerSale } from 'flags:self';
 import { marketingFlags } from '../../../marketing-flags';
 
 // Optional: build a page for each combination at build time
@@ -77,7 +77,7 @@ export default async function Page({
 
 ## Build time or on demand
 
-- **Build time**: `generatePermutations(group)` returns the code of each combination. Booleans have `false` and `true`. Every other flag needs `options`, or it throws. Skip combinations with a filter: `generatePermutations(marketingFlags, (values) => values['summer-sale'] === true)`.
+- **Build time**: `generatePermutations(group)` returns the code of each combination. Booleans have `false` and `true`. Every other flag needs `options`, or it throws. Skip combinations with a filter: `generatePermutations(marketingFlags, (values) => values.summerSale === true)`.
 - **On demand (ISR)**: return `[]` from `generateStaticParams`. Next.js renders each combination on its first request and caches it. Use this when there are many combinations.
 - A provider can return a value outside `options`, e.g. a new variant. The code then carries the value itself, and Next.js renders that page on demand, unless `export const dynamicParams = false`.
 
@@ -132,7 +132,7 @@ The source uses the ID as the targeting key. The input is optional, so the flags
 'use flags';
 
 import { VercelProvider } from '@vercel/flags-core/openfeature';
-import { bindFlag, defineSource } from 'flags';
+import { defineSource } from 'flags';
 
 const marketing = defineSource({
   provider: new VercelProvider(),
@@ -148,9 +148,7 @@ const marketing = defineSource({
   }),
 });
 
-export const heroTest = bindFlag({
-  key: 'hero-test',
-  source: marketing,
+export const heroTest = marketing.bindFlag('heroTest', {
   defaultValue: false,
 });
 ```

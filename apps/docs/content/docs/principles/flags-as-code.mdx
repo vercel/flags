@@ -14,7 +14,7 @@ key of the flag as a string:
 
 ```ts
 // A typical feature flag SDK, here the OpenFeature client
-const showBanner = await client.getBooleanValue('summer-sale', false, {
+const showBanner = await client.getBooleanValue('summerSale', false, {
   targetingKey: user.id,
 });
 ```
@@ -31,18 +31,15 @@ To get there, you declare the flag once:
 ```ts title="flags.ts"
 'use flags';
 
-import { bindFlag } from 'flags';
 import { self } from './flags/self';
 
-export const summerSale = bindFlag({
-  key: 'summer-sale',
-  source: self,
+export const summerSale = self.bindFlag('summerSale', {
   defaultValue: false,
   description: 'Shows the summer sale banner',
 });
 ```
 
-`bindFlag` declares a flag whose value comes from a flag management system,
+`source.bindFlag` declares a flag whose value comes from a flag management system,
 through a [source](/docs/flags/provider-flags). With
 [code generation](/docs/flags/code-generation), you do not write this code:
 the SDK writes it from the catalog of `flags/sources/self/`, and you import
@@ -68,9 +65,7 @@ The declaration contains everything the call site needs to know: the `type`
 `defaultValue`.
 
 ```ts title="flags.ts"
-export const checkout = bindFlag({
-  key: 'checkout',
-  source: self,
+export const checkout = self.bindFlag('checkout', {
   type: 'string',
   options: ['control', 'express'],
   defaultValue: 'control',
@@ -93,7 +88,7 @@ Traditional SDKs ask for the evaluation context on each call:
 ```ts
 // A typical feature flag SDK, here the OpenFeature client
 const context = { targetingKey: user.id, plan: user.plan };
-const value = await client.getBooleanValue('summer-sale', false, context);
+const value = await client.getBooleanValue('summerSale', false, context);
 ```
 
 Every call site has to build the context again. If one call site builds it
@@ -145,7 +140,7 @@ Your flag declarations and call sites stay the same. See
 Your application code imports only `flags`. The framework package
 (`@flags-sdk/next`, `@flags-sdk/sveltekit`, `@flags-sdk/nuxt`,
 `@flags-sdk/tanstack-start`, `@flags-sdk/hono` or `@flags-sdk/express`) gives
-the SDK the current request, loads the optional `flags/config.ts`, and lets the signals of
+the SDK the current request, loads the optional configuration files of the folder `flags`, and lets the signals of
 the framework through. The same flag module works in Next.js, in SvelteKit, in
 a Hono server, or in a plain Node.js script, because the
 [standard](/docs/standard) defines the contract between frameworks and the
