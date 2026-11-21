@@ -1,0 +1,19 @@
+source self
+// <- keyword
+//     ^ module
+
+flag summer-sale {
+// <- keyword
+//    ^ function
+//           ^ function
+  description: "Shows the summer sale banner"
+  // <- property
+  //           ^ string
+  type: "boolean"
+  //     ^ string
+  options: [{ value: true, label: "On" }]
+  //          ^ variable.member
+  //                 ^ boolean
+  defaultValue: null
+  //            ^ constant.builtin
+}

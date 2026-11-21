@@ -30,7 +30,8 @@ import { MANIFEST_FILE } from './build-manifest';
 import type { Config } from './config';
 import { findConfigModules, readSettings } from './config-file';
 import { loadEnvFiles } from './env-files';
-import { findFlagsModules } from './find-flags-modules';
+import { findFlagsFiles, findFlagsModules } from './find-flags-modules';
+import { usesContentMapper } from './flags-file/declarations';
 import { type FlagsAliases, generateFlags, watchFlags } from './generate';
 import { createManifest } from './manifest';
 import { runtime } from './runtime';
@@ -120,8 +121,15 @@ function prepareGenerate(args: string[], allowCommand: boolean): GenerateArgs {
   return { root, command };
 }
 
-function describeAliases(aliases: FlagsAliases): string {
+function describeAliases(root: string, aliases: FlagsAliases): string {
   const names = Object.keys(aliases);
+  const flagsFiles = findFlagsFiles(root);
+  if (flagsFiles.length > 0) {
+    const files = `${flagsFiles.length} flags ${flagsFiles.length === 1 ? 'file' : 'files'}`;
+    return usesContentMapper(root)
+      ? `flags: Found ${files}. TypeScript reads them with the content mapper.`
+      : `flags: Wrote the types of ${files}.`;
+  }
   if (names.length === 0) {
     return 'flags: No sources in flags/sources, and no default source self.';
   }
@@ -135,7 +143,7 @@ function describeAliases(aliases: FlagsAliases): string {
  */
 export async function sync(args: string[]): Promise<string> {
   const { root } = prepareGenerate(args, false);
-  return describeAliases(await generateFlags(root));
+  return describeAliases(root, await generateFlags(root));
 }
 
 /**
@@ -163,7 +171,9 @@ export async function watch(args: string[]): Promise<string> {
   try {
     const result = await watchFlags(root, { signal: controller.signal });
     done = result.done;
-    console.log(`${describeAliases(result.aliases)} Watching the catalogs.`);
+    console.log(
+      `${describeAliases(root, result.aliases)} Watching for changes.`,
+    );
     if (command.length === 0) {
       await done;
       return 'flags: Stopped watching the catalogs.';

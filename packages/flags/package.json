@@ -61,13 +61,22 @@
     "./tooling": {
       "import": "./dist/tooling.js",
       "require": "./dist/tooling.cjs"
-    }
+    },
+    "./register": {
+      "import": "./dist/node-register.js",
+      "require": "./dist/node-register.cjs"
+    },
+    "./package.json": "./package.json"
   },
   "typesVersions": {
     "*": {
       "tooling": [
         "dist/tooling.d.ts",
         "dist/tooling.d.cts"
+      ],
+      "register": [
+        "dist/node-register.d.ts",
+        "dist/node-register.d.cts"
       ],
       "config": [
         "dist/config-module.d.ts",
@@ -125,5 +134,14 @@
   },
   "bin": {
     "flags": "./bin/flags.js"
+  },
+  "typescript": {
+    "contentMapper": {
+      "exec": [
+        "node",
+        "bin/content-mapper.js"
+      ],
+      "dynamicConfig": true
+    }
   }
 }

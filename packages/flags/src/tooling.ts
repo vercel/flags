@@ -13,7 +13,39 @@ export {
   readSettings,
 } from './config-file';
 export { hasUseFlagsDirective } from './directive';
-export { findFlagsModules } from './find-flags-modules';
+export { findFlagsFiles, findFlagsModules } from './find-flags-modules';
+export {
+  type CompiledFlagsFile,
+  type CompileOptions,
+  compileFlagsFile,
+  FlagsFileError,
+  type FlagsFileSource,
+  type FlagsFileTypes,
+  findProjectDirectory,
+  formatDiagnostics,
+  renderFlagsFileTypes,
+  resolveFlagsSource,
+  sourceDirectoryCandidates,
+  type TypesMapping,
+} from './flags-file/compile';
+export {
+  declarationFileOf,
+  type FlagsFileDeclarationsResult,
+  usesContentMapper,
+  watchFlagsFileDeclarations,
+  writeFlagsFileDeclarations,
+} from './flags-file/declarations';
+export {
+  DiagnosticCode,
+  exportNameOf,
+  FLAGS_FILE_EXTENSION,
+  type FlagsFileDiagnostic,
+  type FlagsFileDocument,
+  type FlagsFileFlag,
+  type FlagsFileOption,
+  parseFlagsFile,
+  type Span,
+} from './flags-file/document';
 export {
   type FlagsAliases,
   findFlagsDirectory,

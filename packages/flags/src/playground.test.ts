@@ -12,6 +12,8 @@ import { TypedInMemoryProvider } from '@openfeature/server-sdk';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { decryptOverrides, encryptOverrides } from './explorer';
+import { compileFlagsFile } from './flags-file/compile';
+import { parseFlagsFile } from './flags-file/document';
 import { generateFlags } from './generate';
 import {
   defineFlag,
@@ -1120,5 +1122,89 @@ describe('15. Code generation from catalogs', () => {
     } finally {
       await rm(app, { recursive: true, force: true });
     }
+  });
+});
+
+describe('16. Flags files', () => {
+  // An application declares its flags in flags files, by default
+  // app.flags: `source <name>`, then `flag <key> { … }` for each flag,
+  // with its key and what the code knows about it. The body is JSON5: JSON
+  // with keys without quotes and comments, and a new line works as a
+  // comma. The source comes from
+  // flags/sources/<source>, as for code generation, but there is no
+  // catalog: nothing is downloaded, and a branch which adds a flag shows it
+  // in its diff. A framework plugin (or `node --import flags/register`)
+  // compiles each file into the same code as defineSource and bindFlag.
+
+  it('compiles app.flags into a module of its flags', async () => {
+    const app = await mkdtemp(join(__dirname, '../.flags-walkthrough-'));
+    try {
+      await writeFile(join(app, 'package.json'), '{}');
+      const shop = join(app, 'flags/sources/shop');
+      await mkdir(shop, { recursive: true });
+      await writeFile(
+        join(shop, 'provider.ts'),
+        `import { TypedInMemoryProvider } from '@openfeature/server-sdk';
+        export default new TypedInMemoryProvider({
+          'summer-sale': {
+            variants: { on: true, off: false },
+            defaultVariant: 'off',
+            disabled: false,
+            contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
+          },
+        });`,
+      );
+      await writeFile(
+        join(shop, 'context.ts'),
+        `import type { FlagsRequest } from 'flags';
+        export default (request: FlagsRequest | undefined) => ({
+          user: request?.cookies?.get('user')?.value ?? 'anonymous',
+        });`,
+      );
+      const text = `source shop
+
+flag summer-sale {
+  description: "Shows the summer sale banner"
+  defaultValue: false
+}
+
+flag checkout {
+  options: ["control", "express"]
+  defaultValue: "control"
+}
+`;
+
+      // What the loader of a framework plugin does with app.flags
+      const { code } = compileFlagsFile(text, {
+        fileName: join(app, 'app.flags'),
+        selfRegistration: false,
+      });
+      await writeFile(join(app, 'app.flags.ts'), code);
+
+      // import { checkout, summerSale } from './app.flags';
+      const { checkout, summerSale } = await import(
+        pathToFileURL(join(app, 'app.flags.ts')).href
+      );
+      const request = new Request('https://shop.example', {
+        headers: { cookie: 'user=alice' },
+      });
+      expect(await runtime.onInvoke(request, () => summerSale())).toBe(true);
+      expect(summerSale.key).toBe('summer-sale');
+      expect(summerSale.description).toBe('Shows the summer sale banner');
+      // The provider has no "checkout" yet: the code works before the flag
+      // exists in the flag management system
+      expect(await runtime.onInvoke(request, () => checkout())).toBe('control');
+    } finally {
+      await rm(app, { recursive: true, force: true });
+    }
+  });
+
+  it('points to each mistake in a flags file', () => {
+    const { diagnostics } = parseFlagsFile(
+      'flag summer-sale {\n  defualtValue: false,\n}\n',
+    );
+    expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      'Unknown field "defualtValue" in the flag "summer-sale". Did you mean "defaultValue"?',
+    ]);
   });
 });

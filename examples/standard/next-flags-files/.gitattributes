@@ -1,0 +1,2 @@
+# Highlight the strings, keys and comments of flags files on GitHub
+*.flags linguist-language=JSON5

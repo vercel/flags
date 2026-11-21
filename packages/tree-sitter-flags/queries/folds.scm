@@ -1,0 +1,5 @@
+[
+  (object)
+  (array)
+  (comment)
+] @fold

@@ -1,0 +1,310 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Flags",
+  "scopeName": "source.flags",
+  "fileTypes": ["flags"],
+  "patterns": [
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#source"
+    },
+    {
+      "include": "#flag"
+    },
+    {
+      "include": "#invalid-comment"
+    },
+    {
+      "match": "[^\\s{}]+",
+      "name": "invalid.illegal.statement.flags"
+    }
+  ],
+  "repository": {
+    "comment": {
+      "patterns": [
+        {
+          "match": "//.*$",
+          "name": "comment.line.double-slash.flags"
+        },
+        {
+          "begin": "/\\*",
+          "end": "\\*/",
+          "name": "comment.block.flags"
+        }
+      ]
+    },
+    "invalid-comment": {
+      "match": "#.*$",
+      "name": "invalid.illegal.comment.flags"
+    },
+    "source": {
+      "match": "\\b(source)\\s+(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|[\\p{L}$_][\\p{L}\\p{N}$_]*(?:-[\\p{L}\\p{N}$_]+)*)",
+      "captures": {
+        "1": {
+          "name": "keyword.other.source.flags"
+        },
+        "2": {
+          "name": "entity.name.type.source.flags"
+        }
+      }
+    },
+    "flag": {
+      "comment": "flag <key>, then an optional body",
+      "patterns": [
+        {
+          "begin": "\\b(flag)\\s+(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|[\\p{L}$_][\\p{L}\\p{N}$_]*(?:-[\\p{L}\\p{N}$_]+)*)\\s*(\\{)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.other.flag.flags"
+            },
+            "2": {
+              "name": "entity.name.function.flag.flags"
+            },
+            "3": {
+              "name": "punctuation.definition.block.begin.flags"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.block.end.flags"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#body"
+            }
+          ]
+        },
+        {
+          "match": "\\b(flag)\\s+(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|[\\p{L}$_][\\p{L}\\p{N}$_]*(?:-[\\p{L}\\p{N}$_]+)*)(?![-.\\p{L}\\p{N}$_])",
+          "captures": {
+            "1": {
+              "name": "keyword.other.flag.flags"
+            },
+            "2": {
+              "name": "entity.name.function.flag.flags"
+            }
+          }
+        },
+        {
+          "match": "\\b(flag)\\s+([^\\s{]+)",
+          "captures": {
+            "1": {
+              "name": "keyword.other.flag.flags"
+            },
+            "2": {
+              "name": "invalid.illegal.key-needs-quotes.flags"
+            }
+          }
+        }
+      ]
+    },
+    "body": {
+      "comment": "The fields of a flag",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#invalid-comment"
+        },
+        {
+          "match": "(?:\\b(type)\\b|([\"'])(type)\\2)\\s*(:)\\s*([\"'])(boolean|string|number|object)\\5",
+          "captures": {
+            "1": {
+              "name": "keyword.other.field.flags"
+            },
+            "3": {
+              "name": "keyword.other.field.flags"
+            },
+            "4": {
+              "name": "punctuation.separator.key-value.flags"
+            },
+            "5": {
+              "name": "string.quoted.flags"
+            },
+            "6": {
+              "name": "support.type.primitive.flags"
+            }
+          }
+        },
+        {
+          "match": "(?:\\b(description|type|defaultValue|options)\\b|([\"'])(description|type|defaultValue|options)\\2)\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "keyword.other.field.flags"
+            },
+            "3": {
+              "name": "keyword.other.field.flags"
+            },
+            "4": {
+              "name": "punctuation.separator.key-value.flags"
+            }
+          }
+        },
+        {
+          "match": "([\\p{L}$_][\\p{L}\\p{N}$_]*|\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*')\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "invalid.illegal.unknown-field.flags"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.flags"
+            }
+          }
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.flags"
+        },
+        {
+          "include": "#value"
+        }
+      ]
+    },
+    "value": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#literal"
+        },
+        {
+          "include": "#number"
+        },
+        {
+          "include": "#array"
+        },
+        {
+          "include": "#object"
+        },
+        {
+          "match": "`[^`]*`?|[\\p{L}$_][\\p{L}\\p{N}$_]*|[-+*/%<>=!?&|]+",
+          "name": "invalid.illegal.expression.flags"
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "begin": "\"",
+          "end": "\"|$",
+          "name": "string.quoted.double.flags",
+          "patterns": [
+            {
+              "include": "#escape"
+            }
+          ]
+        },
+        {
+          "begin": "'",
+          "end": "'|$",
+          "name": "string.quoted.single.flags",
+          "patterns": [
+            {
+              "include": "#escape"
+            }
+          ]
+        }
+      ]
+    },
+    "escape": {
+      "patterns": [
+        {
+          "match": "\\\\(?:['\"\\\\/bfnrtv0]|x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|$)",
+          "name": "constant.character.escape.flags"
+        },
+        {
+          "match": "\\\\.",
+          "name": "invalid.illegal.escape.flags"
+        }
+      ]
+    },
+    "literal": {
+      "match": "\\b(?:true|false|null)\\b",
+      "name": "constant.language.flags"
+    },
+    "number": {
+      "patterns": [
+        {
+          "match": "\\b(?:Infinity|NaN)\\b",
+          "name": "invalid.illegal.no-json-value.flags"
+        },
+        {
+          "match": "[-+]?(?:0[xX][0-9A-Fa-f]+|(?:(?:0|[1-9][0-9]*)(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?)(?![\\p{L}\\p{N}$_.])",
+          "name": "constant.numeric.flags"
+        }
+      ]
+    },
+    "array": {
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.array.begin.flags"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.array.end.flags"
+        }
+      },
+      "patterns": [
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.flags"
+        },
+        {
+          "include": "#value"
+        }
+      ]
+    },
+    "object": {
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.object.begin.flags"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.object.end.flags"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.flags"
+        },
+        {
+          "match": "(?:\\b(value|label)\\b|([\\p{L}$_][\\p{L}\\p{N}$_]*|\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'))\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "keyword.other.field.flags"
+            },
+            "2": {
+              "name": "support.type.property-name.flags"
+            },
+            "3": {
+              "name": "punctuation.separator.key-value.flags"
+            }
+          }
+        },
+        {
+          "include": "#value"
+        }
+      ]
+    }
+  }
+}

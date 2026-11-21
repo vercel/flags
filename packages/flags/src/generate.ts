@@ -32,6 +32,11 @@ import {
   type SourceFiles,
 } from './codegen';
 import { readSettings } from './config-file';
+import { findFlagsFiles } from './find-flags-modules';
+import {
+  watchFlagsFileDeclarations,
+  writeFlagsFileDeclarations,
+} from './flags-file/declarations';
 import { GENERATED_DIRECTORY } from './generated-directory';
 
 export { GENERATED_DIRECTORY };
@@ -574,6 +579,25 @@ async function start(
 
   try {
     controller.signal.throwIfAborted();
+    // An application with flags files declares its flags in them, and uses
+    // no catalog. Only the types of TypeScript before 7.1 are written.
+    if (findFlagsFiles(root).length > 0) {
+      const { problems } = await writeFlagsFileDeclarations(root);
+      for (const problem of problems) {
+        console.error(problem);
+      }
+      if (!watch) {
+        await close();
+        return { aliases: {}, done: Promise.resolve() };
+      }
+      watchFlagsFileDeclarations(root, controller.signal);
+      const done = new Promise<void>((resolve) => {
+        controller.signal.addEventListener('abort', () => resolve(), {
+          once: true,
+        });
+      }).finally(close);
+      return { aliases: {}, done };
+    }
     // The opt-in is the dependency, the opt-out is flags/config.json
     const selfSource =
       readSettings(root).selfSource !== false &&

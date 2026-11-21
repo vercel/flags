@@ -10,22 +10,31 @@
  * - The manifest of the flags, e.g. for Flags Explorer: in development at
  *   `/.well-known/flags/manifest.json`, and after a build as
  *   `flags-manifest.json` in the directory of the server output.
+ * - Flags files (`*.flags`): each becomes a module of its flags, with the
+ *   source of its `source` (see "Flags files" in the spec of `flags`).
  * - The modules of `flags:<source>`, generated from the catalogs of
- *   `flags/sources`, unless `disableCodeGeneration` is set.
+ *   `flags/sources`, unless `disableCodeGeneration` is set. An application
+ *   with flags files uses no catalogs.
  *
  * It is also a Rollup plugin, e.g. for the server build of Nitro.
  */
 import { createHash } from 'node:crypto';
-import { rmSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { createManifest } from 'flags/manifest';
 import { runtime } from 'flags/runtime';
 import {
   addSelfRegistration,
+  compileFlagsFile,
+  declarationFileOf,
+  FLAGS_FILE_EXTENSION,
   findConfigModules,
   findFlagsModules,
   hasUseFlagsDirective,
   MANIFEST_FILE,
+  renderFlagsFileTypes,
+  sourceDirectoryCandidates,
+  usesContentMapper,
   writeManifestFromBuild,
 } from 'flags/tooling';
 import type { Plugin, ViteDevServer } from 'vite';
@@ -92,6 +101,30 @@ export interface FlagsVitePluginOptions {
 export const MANIFEST_PATH = '/.well-known/flags/manifest.json';
 
 const sourceFile = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
+
+/**
+ * Writes the declaration file of a flags file for TypeScript before 7.1,
+ * e.g. `app.d.flags.ts`, if it changed.
+ */
+function writeFlagsFileDeclarations(file: string, text: string, root: string) {
+  if (usesContentMapper(root)) {
+    return;
+  }
+  const declaration = declarationFileOf(file);
+  const types = renderFlagsFileTypes(text, {
+    fileName: file,
+    projectDirectory: root,
+  }).text;
+  let previous: string | undefined;
+  try {
+    previous = readFileSync(declaration, 'utf8');
+  } catch {
+    previous = undefined;
+  }
+  if (previous !== types) {
+    writeFileSync(declaration, types);
+  }
+}
 
 /**
  * Replaces the directive with spaces. The bundler would warn about an
@@ -243,6 +276,33 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
     },
     transform(code, id, transformOptions) {
       const file = id.split('?')[0] ?? id;
+      // A flags file becomes a module with defineSource and source.bindFlag
+      if (
+        file.endsWith(FLAGS_FILE_EXTENSION) &&
+        !file.includes('/node_modules/')
+      ) {
+        const compiled = compileFlagsFile(code, {
+          fileName: file,
+          projectDirectory: root,
+        });
+        for (const directory of sourceDirectoryCandidates(
+          root,
+          compiled.document.source,
+        )) {
+          for (const part of ['provider', 'context', 'hooks']) {
+            this.addWatchFile(join(directory, `${part}.ts`));
+          }
+        }
+        for (const warning of compiled.warnings) {
+          this.warn(`flags: ${file}: ${warning.message}`);
+        }
+        try {
+          writeFlagsFileDeclarations(file, code, root);
+        } catch {
+          // The types are a convenience, the module is what counts
+        }
+        return { code: compiled.code, map: null };
+      }
       if (
         !isServer(this, transformOptions?.ssr, vite) ||
         file.includes('/node_modules/') ||

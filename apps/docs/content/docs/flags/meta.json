@@ -6,6 +6,7 @@
     "---Defining flags---",
     "inline-flags",
     "provider-flags",
+    "flags-files",
     "code-generation",
     "types-and-options",
     "---Using flags---",

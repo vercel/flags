@@ -1,0 +1,4 @@
+tsconfig.tsbuildinfo
+# The types of the flags files for TypeScript before 7.1, written by the
+# Flags SDK on dev, build and `flags sync`
+*.d.flags.ts

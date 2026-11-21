@@ -1,0 +1,16 @@
+id = "flags"
+name = "Flags files"
+description = "Syntax highlighting for flags files (*.flags) of the Flags SDK"
+version = "0.1.0"
+schema_version = 1
+authors = ["Vercel"]
+repository = "https://github.com/vercel/flags"
+
+# The grammar is packages/tree-sitter-flags of this repository. Zed builds
+# it from the commit `rev`, so `rev` must be a commit which has the grammar.
+# For a dev extension before that commit exists, run
+# `node packages/zed-flags/scripts/dev.mjs` (see README.md).
+[grammars.flags]
+repository = "https://github.com/vercel/flags"
+rev = "0000000000000000000000000000000000000000"
+path = "packages/tree-sitter-flags"

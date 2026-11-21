@@ -853,6 +853,43 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  examples/standard/next-flags-files:
+    dependencies:
+      '@flags-sdk/next':
+        specifier: workspace:*
+        version: link:../../../packages/framework-next
+      '@openfeature/core':
+        specifier: 1.12.0
+        version: 1.12.0
+      '@openfeature/server-sdk':
+        specifier: 1.23.0
+        version: 1.23.0(@openfeature/core@1.12.0)
+      flags:
+        specifier: workspace:*
+        version: link:../../../packages/flags
+      next:
+        specifier: 16.4.6
+        version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+    devDependencies:
+      '@types/node':
+        specifier: 22.14.0
+        version: 22.14.0
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.14)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   examples/standard/next-manual:
     dependencies:
       '@flags-sdk/next':
@@ -1667,6 +1704,12 @@ importers:
         specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.6(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
 
+  packages/tree-sitter-flags:
+    devDependencies:
+      tree-sitter-cli:
+        specifier: 0.27.2
+        version: 0.27.2
+
   packages/vercel-flags-core:
     dependencies:
       '@vercel/functions':
@@ -1709,6 +1752,8 @@ importers:
       vitest:
         specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.6(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
+
+  packages/vscode-flags: {}
 
   tests/standard/express:
     dependencies:
@@ -12409,6 +12454,11 @@ packages:
 
   tree-kill@1.2.2:
     resolution: {integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==}
+    hasBin: true
+
+  tree-sitter-cli@0.27.2:
+    resolution: {integrity: sha512-uuqW/tbzkGaV5pJeNYI0OwixzpXg3Ozx3XH3DXhnSz8DCrvQp5JACLr4/0y9C5AfmL6irfLoTkvN1338m8UGYw==}
+    engines: {node: '>=12.0.0'}
     hasBin: true
 
   trim-lines@3.0.1:
@@ -29724,6 +29774,8 @@ snapshots:
   tr46@0.0.3: {}
 
   tree-kill@1.2.2: {}
+
+  tree-sitter-cli@0.27.2: {}
 
   trim-lines@3.0.1: {}
 
