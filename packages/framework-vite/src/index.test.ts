@@ -126,7 +126,8 @@ describe('flags files', () => {
       );
       writeFileSync(
         join(dir, 'entry.ts'),
-        `import { banner, summerSale } from './app.flags';
+        `import { banner } from './app.flags';
+import { summerSale } from 'flags:self';
 export const run = async () => [await summerSale(), await banner()];`,
       );
       const { build } = await import('vite');

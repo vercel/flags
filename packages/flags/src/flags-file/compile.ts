@@ -259,7 +259,7 @@ function inlineCode(value: unknown): string {
  * The JSDoc of a flag: its description, its options and its default value,
  * as paragraphs, so that the editor shows them on hover.
  */
-function jsDocOf(flag: FlagsFileFlag, fileName: string): string[] {
+export function jsDocOf(flag: FlagsFileFlag, fileName: string): string[] {
   const parts: string[] = [];
   if (flag.description) {
     parts.push(flag.description);

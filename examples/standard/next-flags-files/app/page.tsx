@@ -1,5 +1,7 @@
+// A flag can be imported from its source, which has the flags of all
+// flags files with that source, or from its file
+import { checkout, summerSale } from 'flags:self';
 import { evaluate } from 'flags';
-import { checkout, summerSale } from '../app.flags';
 import { heroText } from './marketing.flags';
 
 export default async function Page() {

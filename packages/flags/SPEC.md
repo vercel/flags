@@ -1528,6 +1528,43 @@ of the key, e.g. `summerSale` for `summer-sale` or `summer.sale`, else the
 key as a string name (`import { '2fa' as twoFactor }`). Two flags with the
 same name are an error.
 
+### Imports by source
+
+An application can also import a flag from its source, `flags:<source>`,
+which has the flags of all flags files with that source:
+
+```ts
+import { checkout, summerSale } from 'flags:self';
+// The same flag as
+import { summerSale } from './app.flags';
+```
+
+- `writeFlagsFileSources(directory)` of `flags/tooling` writes one module
+  for each source of the flags files, `.flags/<source>.ts`. It re-exports
+  the flags of each file of the source, with the export names of the
+  files: `export { checkout, summerSale } from '../app.flags';`. It has no
+  `'use flags'`: the files register their flags, and the manifest names
+  the files as the declarations.
+- It writes `.flags/aliases.json` for the framework plugins, as the code
+  generation of catalogs does, and removes the module of a source which
+  no file has any more.
+- It writes `flags/generated.d.ts` (see "Where the types go" of "The
+  default source `self`"), with one `declare module 'flags:<source>'` for
+  each source. The type of each flag is the type of its export in its
+  file, `(typeof import('../app.flags'))['summerSale']`, with the JSDoc of
+  the flag. Thus it works with the content mapper and with the declaration
+  files of each flags file.
+- A key in two files of one source, or two keys with the same export name,
+  is a conflict: the second one is not in `flags:<source>`. `flags sync`
+  and a build fail with it, e.g. `flags: The flag "checkout" of the source
+  "self" is declared in app.flags and in checkout/checkout.flags. Declare
+  it in one file.` The dev servers report it, and go on.
+- `generateFlags` and `watchFlags` call it for an application with flags
+  files, and return its aliases, so the plugins of Next.js and Vite point
+  `flags:<source>` to the modules. The dev servers write the modules again
+  after each change of a flags file. A new source needs a restart, as its
+  alias is new.
+
 ### The source
 
 The `source` of a file is the folder `flags/sources/<source>` of the
@@ -1663,8 +1700,9 @@ with an error is left out, and the diagnostics say why.
 
 ### Open
 
-- Remove the catalogs and `flags:<source>` (see "Code generation") once
-  flags files replace them, and the default source `self` with them.
+- Remove the catalogs (see "Code generation") once flags files replace
+  them. `flags:<source>` stays, as the imports by source of the flags
+  files.
 - `flags check`: compare the flags files with the system, e.g. in CI: the
   flags of the code which the system does not have, the flags of the
   system which no file declares, and different types or options.

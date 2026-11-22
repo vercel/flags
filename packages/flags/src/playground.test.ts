@@ -5,7 +5,7 @@
  *
  * Keep this file up to date when you add a feature.
  */
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { TypedInMemoryProvider } from '@openfeature/server-sdk';
@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { decryptOverrides, encryptOverrides } from './explorer';
 import { compileFlagsFile } from './flags-file/compile';
 import { parseFlagsFile } from './flags-file/document';
-import { generateFlags } from './generate';
+import { generateFlags, writeFlagsFileSources } from './generate';
 import {
   defineFlag,
   defineSource,
@@ -1194,6 +1194,31 @@ flag checkout {
       // The provider has no "checkout" yet: the code works before the flag
       // exists in the flag management system
       expect(await runtime.onInvoke(request, () => checkout())).toBe('control');
+    } finally {
+      await rm(app, { recursive: true, force: true });
+    }
+  });
+
+  it('imports the flags of all files of a source from flags:<source>', async () => {
+    const app = await mkdtemp(join(__dirname, '../.flags-walkthrough-'));
+    try {
+      await writeFile(join(app, 'package.json'), '{}');
+      await mkdir(join(app, 'checkout'));
+      await writeFile(join(app, 'app.flags'), 'flag summer-sale\n');
+      // One file next to each feature, of the same source self
+      await writeFile(
+        join(app, 'checkout/checkout.flags'),
+        'flag express-checkout\n',
+      );
+
+      // What the framework plugins and `flags sync` do. The plugin points
+      // flags:self to the module.
+      const { aliases } = await writeFlagsFileSources(app);
+      expect(aliases).toEqual({ 'flags:self': './.flags/self.ts' });
+      // import { expressCheckout, summerSale } from 'flags:self';
+      expect(await readFile(join(app, '.flags/self.ts'), 'utf8')).toContain(
+        'export { summerSale } from "../app.flags";\nexport { expressCheckout } from "../checkout/checkout.flags";',
+      );
     } finally {
       await rm(app, { recursive: true, force: true });
     }

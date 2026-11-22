@@ -76,6 +76,17 @@ A flags file has only plain values: strings, numbers, `true`, `false`, `null`, a
 
 You import a flag by its key, if the key is a valid name in JavaScript, e.g. `checkout`. Otherwise you import it by the camelCase form of its key, e.g. `summerSale` for `summer-sale` or `summer.sale`. Two flags with the same camelCase form are an error.
 
+### Import from the source
+
+You can also import a flag from its [source](#the-source). `flags:self` has the flags of all flags files of the source `self`, also of more than one file:
+
+```ts title="app/page.tsx"
+import { checkout, summerSale } from 'flags:self';
+import { heroText } from 'flags:marketing';
+```
+
+It is the same flag as the import from its file, so both work in one application. The plugin of your framework writes the modules of `flags:<source>` into `.flags`, which Git ignores, and their types into `flags/generated.d.ts`. Without a framework plugin, `flags sync` writes them. A flag with the same key in two files of one source is an error. Restart the dev server after you add a file with a new source.
+
 ### Errors
 
 The build fails with the position of each error, and a hint:

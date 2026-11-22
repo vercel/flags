@@ -116,7 +116,8 @@ export async function writeFlagsFileDeclarations(
  * Writes the declarations again after each change of a flags file or of a
  * source, until the signal aborts. It watches the directory of the project
  * and each directory with a flags file, so a flags file in a new directory
- * needs a restart.
+ * needs a restart. `write` writes the files, by default the declarations of
+ * each flags file.
  */
 export function watchFlagsFileDeclarations(
   projectDirectory: string,
@@ -126,6 +127,8 @@ export function watchFlagsFileDeclarations(
       console.error(problem);
     }
   },
+  write: () => Promise<{ readonly problems: readonly string[] }> = () =>
+    writeFlagsFileDeclarations(projectDirectory),
 ): void {
   const root = path.resolve(projectDirectory);
   const directories = new Set([
@@ -141,7 +144,7 @@ export function watchFlagsFileDeclarations(
     clearTimeout(timer);
     timer = setTimeout(() => {
       running = running
-        .then(() => writeFlagsFileDeclarations(root))
+        .then(() => write())
         .then(({ problems }) => {
           if (problems.length > 0) {
             onProblems(problems);

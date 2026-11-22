@@ -48,6 +48,7 @@ export {
 } from './flags-file/document';
 export {
   type FlagsAliases,
+  type FlagsFileSourcesResult,
   findFlagsDirectory,
   findGeneratedDeclarations,
   GENERATED_DECLARATIONS,
@@ -55,6 +56,7 @@ export {
   generateFlags,
   type WatchResult,
   watchFlags,
+  writeFlagsFileSources,
 } from './generate';
 export { addSelfRegistration } from './self-registration';
 export { optionIndex } from './value-types';
