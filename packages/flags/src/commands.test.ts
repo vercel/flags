@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runCommand } from './commands';
+import { format, runCommand } from './commands';
 
 describe('flags manifest', () => {
   afterEach(() => {
@@ -56,5 +56,55 @@ describe('flags manifest', () => {
     await expect(runCommand(['other'])).rejects.toThrow(
       'Usage: flags manifest [dir] [--out <file>]',
     );
+  });
+});
+
+describe('flags format', () => {
+  it('formats the flags files of a folder', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'flags-format-'));
+    writeFileSync(join(dir, 'app.flags'), 'flag a {key:"a"}');
+    writeFileSync(join(dir, 'done.flags'), 'flag b\n');
+
+    await expect(runCommand(['format', '--check', dir])).rejects.toThrow(
+      'flags: These flags files are not formatted. Run flags format.',
+    );
+    expect(readFileSync(join(dir, 'app.flags'), 'utf8')).toBe(
+      'flag a {key:"a"}',
+    );
+
+    expect(await runCommand(['format', dir])).toBe(
+      'flags: Formatted 1 of 2 flags files.',
+    );
+    expect(readFileSync(join(dir, 'app.flags'), 'utf8')).toBe(
+      'flag a { key: "a" }\n',
+    );
+    expect(await runCommand(['format', '--check', dir])).toBe(
+      'flags: No changes in 2 flags files.',
+    );
+  });
+
+  it('formats the standard input to the standard output', async () => {
+    let output = '';
+    const streams = {
+      read: async () => 'source  self\nflag a',
+      write: (text: string) => {
+        output += text;
+      },
+    };
+
+    expect(await format(['--stdin'], streams)).toBe('');
+    expect(output).toBe('source self\n\nflag a\n');
+  });
+
+  it('shows the syntax error and writes nothing', async () => {
+    const write = vi.fn();
+    const streams = { read: async () => 'flag a {\n  key: tru\n}', write };
+
+    await expect(
+      format(['--stdin', '--stdin-filepath', 'app.flags'], streams),
+    ).rejects.toThrow(
+      'flags: app.flags has a syntax error, so it can not be formatted.\n\napp.flags:2:8 - error:',
+    );
+    expect(write).not.toHaveBeenCalled();
   });
 });

@@ -176,6 +176,34 @@ Before a type check in CI, write them with `flags sync`:
 }
 ```
 
+### Format
+
+`flags format` formats the flags files of the current directory, or of the files and folders which you give. `flags format --check` changes nothing, and fails if a file is not formatted, e.g. in CI:
+
+```sh
+npx flags format
+npx flags format --check
+```
+
+The formatter uses two spaces, one field on each line of a flag, and double quotes. A value which is on one line stays on one line while it fits into 80 columns, e.g. `options: ["control", "express"]`. Put a new line after `[` or `{` to keep it on many lines. The comments stay.
+
+`flags format --stdin` formats the standard input, for editors. In [Zed](https://zed.dev), with the extension of flags files, add it to `.zed/settings.json` of the project, and Zed formats flags files when you save them:
+
+```json title=".zed/settings.json"
+{
+  "languages": {
+    "Flags": {
+      "formatter": {
+        "external": {
+          "command": "npx",
+          "arguments": ["--no", "flags", "format", "--stdin", "--stdin-filepath", "{buffer_path}"]
+        }
+      }
+    }
+  }
+}
+```
+
 ### GitHub
 
 GitHub does not know flags files yet. JSON5 is the closest language which it knows, and highlights the strings, the keys and the comments:

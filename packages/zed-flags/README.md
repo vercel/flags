@@ -8,6 +8,37 @@ Syntax highlighting for flags files (`*.flags`) of the
 - brackets, auto-indentation, and comments with `cmd-/`;
 - each flag in the outline (`cmd-shift-o`).
 
+## Format on save
+
+An extension of Zed can not give a formatter without a language server.
+The command `flags format --stdin` of the `flags` package is the
+formatter. Add it to `.zed/settings.json` of the project (or to the
+settings of Zed), and Zed formats each flags file when you save it, or
+with "editor: format":
+
+```json
+{
+  "languages": {
+    "Flags": {
+      "formatter": {
+        "external": {
+          "command": "npx",
+          "arguments": ["--no", "flags", "format", "--stdin", "--stdin-filepath", "{buffer_path}"]
+        }
+      }
+    }
+  }
+}
+```
+
+`npx --no` uses the `flags` of the project, and does not download it.
+Zed starts the command in the root of the project. If `flags` is in a
+package of a monorepo, use its path as the command, e.g.
+`"command": "apps/web/node_modules/.bin/flags"` and
+`"arguments": ["format", "--stdin", "--stdin-filepath", "{buffer_path}"]`.
+With a syntax error, the command fails, Zed shows the error, and the file
+stays as it is.
+
 The grammar is `packages/tree-sitter-flags` of this repository. It also
 works in other editors with Tree-sitter, e.g. Neovim and Helix.
 

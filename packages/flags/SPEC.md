@@ -1694,6 +1694,41 @@ with an error is left out, and the diagnostics say why.
   `extension.toml`, with `path = "packages/tree-sitter-flags"`).
   `scripts/dev.mjs` prepares a dev extension with a local copy of the
   grammar, before such a commit exists.
+- `formatFlagsFile(text, { fileName })` of `flags/tooling` formats a
+  flags file, and `flags format [paths...] [--check]` formats the files,
+  and the flags files of the folders (the default is the current
+  directory). `--check` writes nothing and fails if a file changes.
+  `flags format --stdin [--stdin-filepath <file>]` formats the standard
+  input to the standard output, for editors: Zed uses it as an external
+  formatter (`"formatter": { "external": … }` of the language `Flags`),
+  because an extension of Zed can not give a formatter without a language
+  server. The format:
+  - Two spaces. One entry on each line of an object or an array on many
+    lines, with new lines and without commas, as the examples of "The
+    format" show.
+  - An object or an array stays on one line if it was on one line, has no
+    comments, and fits into 80 columns, e.g.
+    `options: ["control", { value: "express", label: "Express" }]`, with
+    `, ` and spaces inside `{ }`. A new line after `{` or `[` keeps it on
+    many lines, as Prettier does with objects. This is also the rule of
+    the body of a flag: `flag a { defaultValue: true }` stays.
+  - Strings in double quotes, unless the string has more double quotes
+    than single quotes. The other escapes and the numbers stay as they
+    are. A key in quotes which is a simple name (`[A-Za-z_$][A-Za-z0-9_$]*`)
+    loses its quotes.
+  - One space between the parts of a statement. A blank line after
+    `source` and around a statement with more than one line. Other blank
+    lines stay, at most one.
+  - The comments stay. A comment at the end of a line stays there, also
+    after a comma. A comment between the parts of an entry or of a
+    statement, e.g. `key /* c */: "a"`, moves to its own line before it.
+    The lines of a `/** … */` comment get the indentation of its place.
+  - `\n` line endings, a new line at the end, and the byte order mark if
+    the file has one. An empty file stays empty.
+  - Only the syntax: a file with a syntax error throws a `FlagsFileError`
+    (`flags format` shows it, and writes nothing), while a file with other
+    errors, e.g. an unknown field, is formatted. The formatted file has
+    the same statements and values as the file.
 - GitHub does not know the language. `*.flags linguist-language=JSON5` in
   `.gitattributes` highlights the strings, the keys and the comments. A
   language of Linguist needs more use first.

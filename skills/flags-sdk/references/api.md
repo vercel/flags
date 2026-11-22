@@ -358,9 +358,11 @@ const manifest = createManifest([{ id: 'flags.ts', exports: { ...flags } }]);
 flags sync [dir] [--production]
 flags watch [dir] [--production] [-- command ...args]
 flags manifest [dir] [--out <file>]
+flags format [paths...] [--check]
+flags format --stdin [--stdin-filepath <file>]
 ```
 
-See [code-generation.md](code-generation.md#the-cli).
+See [code-generation.md](code-generation.md#the-cli). `flags format` formats flags files (`*.flags`) in place; `--check` fails if one is not formatted; `--stdin` formats the standard input to the standard output, for editors (e.g. as the external formatter of the language `Flags` in Zed).
 
 ## `@flags-sdk/next`
 

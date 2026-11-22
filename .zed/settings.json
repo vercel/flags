@@ -9,7 +9,22 @@
     "TSX": { "formatter": { "language_server": { "name": "biome" } } },
     "JSON": { "formatter": { "language_server": { "name": "biome" } } },
     "JSONC": { "formatter": { "language_server": { "name": "biome" } } },
-    "CSS": { "formatter": { "language_server": { "name": "biome" } } }
+    "CSS": { "formatter": { "language_server": { "name": "biome" } } },
+    // The formatter of the workspace package. Run `pnpm build -F flags` first
+    "Flags": {
+      "formatter": {
+        "external": {
+          "command": "node",
+          "arguments": [
+            "packages/flags/bin/flags.js",
+            "format",
+            "--stdin",
+            "--stdin-filepath",
+            "{buffer_path}"
+          ]
+        }
+      }
+    }
   },
   "auto_install_extensions": {
     "biome": true

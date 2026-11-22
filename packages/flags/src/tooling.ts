@@ -46,6 +46,7 @@ export {
   parseFlagsFile,
   type Span,
 } from './flags-file/document';
+export { formatFlagsFile } from './flags-file/format';
 export {
   type FlagsAliases,
   type FlagsFileSourcesResult,

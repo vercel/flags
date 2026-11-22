@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { decryptOverrides, encryptOverrides } from './explorer';
 import { compileFlagsFile } from './flags-file/compile';
 import { parseFlagsFile } from './flags-file/document';
+import { formatFlagsFile } from './flags-file/format';
 import { generateFlags, writeFlagsFileSources } from './generate';
 import {
   defineFlag,
@@ -1231,5 +1232,16 @@ flag checkout {
     expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
       'Unknown field "defualtValue" in the flag "summer-sale". Did you mean "defaultValue"?',
     ]);
+  });
+
+  it('formats a flags file, and keeps its comments', () => {
+    // `flags format` and editors (`flags format --stdin`) use the formatter
+    expect(
+      formatFlagsFile(
+        "source self\nflag summerSale {key:'summer-sale', // the key\ndefaultValue:false,}\n",
+      ),
+    ).toBe(
+      'source self\n\nflag summerSale {\n  key: "summer-sale" // the key\n  defaultValue: false\n}\n',
+    );
   });
 });
