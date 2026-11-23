@@ -12,7 +12,7 @@ Overrides work with any provider connected through the Flags SDK.
 
 ## Before you start
 
-Use your application's `FLAGS_SECRET`, the secret that the Flags SDK uses to read encrypted overrides. Flags Explorer works without a `FLAGS_SECRET` on Vercel, but `encryptOverrides` in your tests needs one. If your project on Vercel has no secret, follow this guide and then [create the overrides without a `FLAGS_SECRET`](#test-without-a-flags_secret).
+Use your application's `FLAGS_SECRET`, the secret that the Flags SDK uses to read encrypted overrides. Flags Explorer works without a `FLAGS_SECRET` on Vercel with `flags` 4.5.0 or later, but `encryptOverrides` in your tests needs one. If your project on Vercel has no secret, follow this guide and then [create the overrides without a `FLAGS_SECRET`](#test-without-a-flags_secret).
 
 The Playwright configuration below loads the application's environment files. The application and tests use the same secret to read and create overrides.
 

@@ -46,7 +46,7 @@ npm i -g vercel@latest
    ```sh title="Terminal"
    vc link
    ```
-3. Pull the env vars of your project on Vercel locally. The Flags SDK uses them to identify your project, so the Vercel Toolbar can read your flags and set overrides without a `FLAGS_SECRET`:
+3. Pull the env vars of your project on Vercel locally. The Flags SDK uses them to identify your project, so with `flags` 4.5.0 or later the Vercel Toolbar can read your flags and set overrides without a `FLAGS_SECRET`:
    ```sh title="Terminal"
    vc env pull
    ```

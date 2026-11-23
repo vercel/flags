@@ -33,6 +33,8 @@ The Vercel Toolbar is included during local development. Link this folder with `
 
 Sign in to the toolbar and open Flags Explorer to override the greeting or banner for your session. Vercel injects the toolbar on preview deployments when enabled in project settings; configure the credentials and a matching `FLAGS_SECRET` for that environment.
 
+`FLAGS_SECRET` is optional on Vercel with `flags` 4.5.0 or later, as long as the project exposes the system environment variables: Vercel signs the Flags Explorer requests and overrides for the project. Locally, run `vercel env pull` to use Flags Explorer without one. This example sets a `FLAGS_SECRET` so that it also works outside Vercel.
+
 ## Run as a standalone project
 
 Copy this folder or use the Deploy button, configure `.env.local`, then run:

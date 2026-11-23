@@ -62,7 +62,7 @@ Use the precompute functionality of the Flags SDK to work around the limitations
 
 ### Prerequisites
 
-On Vercel, precompute works without a `FLAGS_SECRET`. The Flags SDK signs the precomputation result with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. In local development (`next dev`) or a local production build (`next build && next start`), it uses a fixed, public secret when there is none, after you run `vercel env pull`. Without a secret, it throws outside of Vercel.
+On Vercel with `flags` 4.5.0 or later, precompute works without a `FLAGS_SECRET`. The Flags SDK signs the precomputation result with a key that Vercel provides for each deployment, so a code is only valid inside the deployment that created it. In local development (`next dev`) or a local production build (`next build && next start`), it uses a fixed, public secret when there is none, after you run `vercel env pull`. Without a secret, it throws outside of Vercel.
 
 You need a `FLAGS_SECRET` environment variable in these cases:
 
