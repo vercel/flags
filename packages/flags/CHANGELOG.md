@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.5.1
+
+### Patch Changes
+
+- [#608](https://github.com/vercel/flags/pull/608) [`e8d792f`](https://github.com/vercel/flags/commit/e8d792f2e1814430ff0dc24bbf8d93b5f3bf955d) Thanks [@reginaldalfret](https://github.com/reginaldalfret), [@dferber90](https://github.com/dferber90)! - Serialization of a flag with 252 or more options is now correct. Before this fix, option indices 252 to 255 were read back as `null`, `false`, `true`, or an unlisted value, and indices of 256 or more were truncated. These options now use the unlisted-value path, so their values are kept.
+
 ## 4.5.0
 
 ### Minor Changes
