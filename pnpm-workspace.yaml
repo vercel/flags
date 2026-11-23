@@ -12,9 +12,15 @@ catalog:
 # apps/docs is a Next.js app that never loads Vite or Svelte, but its optional
 # peer chain (@vercel/analytics -> @sveltejs/kit -> @sveltejs/vite-plugin-svelte)
 # is resolved against the Vite 6 that fumadocs-mdx@14 pins there. Harmless.
+# apps/docs pins @sveltejs/kit@3 for that chain, because 2.x has
+# GHSA-3r8g-jcqq-3p5j and @vercel/analytics, @vercel/speed-insights and
+# @vercel/microfrontends only declare Kit 2. Kit 3 asks for TypeScript 6, but
+# apps/docs and packages/flags (which only imports Kit types) use TypeScript 5.
 peerDependencyRules:
   allowedVersions:
     '@sveltejs/vite-plugin-svelte>vite': '6'
+    '@sveltejs/kit': '3'
+    '@sveltejs/kit>typescript': '5'
 
 minimumReleaseAge: 2880
 
@@ -37,7 +43,8 @@ overrides:
   "mermaid": "^11.16.1"
   "nanoid@3": "^3.3.18"
   "nanoid@>=4": "^5.1.16"
-  "@sveltejs/kit": "^2.70.2"
+  "@sveltejs/kit@2": "^2.70.4"
+  "svelte": "^5.57.1"
   "@modelcontextprotocol/server@2": "^2.3.0"
   "undici@6": "^6.29.1"
   "zod@4": "^4.6.6"

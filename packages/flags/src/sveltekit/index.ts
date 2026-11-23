@@ -2,7 +2,6 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { RequestCookies } from '@edge-runtime/cookies';
 import {
   error,
-  type Handle,
   json,
   type RequestEvent,
   type RequestHandler,
@@ -304,6 +303,25 @@ function createContext(
 }
 
 const flagStorage = new AsyncLocalStorage<AsyncLocalContext>();
+
+/**
+ * Structural copy of SvelteKit's `Handle` type.
+ *
+ * SvelteKit 2 exports `Handle` from `@sveltejs/kit` and SvelteKit 3 exports it
+ * from `@sveltejs/kit/hooks`. A local type works with both versions.
+ */
+type Handle = (input: {
+  event: RequestEvent;
+  resolve: (
+    event: RequestEvent,
+    opts?: {
+      transformPageChunk?: (input: {
+        html: string;
+        done: boolean;
+      }) => string | undefined | Promise<string | undefined>;
+    },
+  ) => Promise<Response>;
+}) => Response | Promise<Response>;
 
 /**
  * Establishes context for flags, so they have access to the
