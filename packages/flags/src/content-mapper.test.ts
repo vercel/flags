@@ -55,7 +55,7 @@ describe('the content mapper of TypeScript 7.1', () => {
 
     // "é" is two bytes in UTF-8
     const content =
-      '// é\nflag "summer-sale" {\n  defaultValue: true,\n}\n\nflag broken {\n  type: "boolean",\n  defaultValue: 1,\n}\n';
+      '// é\nflag summerSale {\n  key: "summer-sale"\n  defaultValue: true\n}\n\nflag broken {\n  type: "boolean"\n  defaultValue: 1,\n}\n';
     const result = mapper.handle('transform', {
       fileName: path.join(directory, 'app.flags'),
       content,
@@ -75,8 +75,8 @@ describe('the content mapper of TypeScript 7.1', () => {
         ],
       ),
     ).toEqual([
-      ['flag_0', '"summer-sale"'],
-      ['summerSale', '"summer-sale"'],
+      ['flag_0', 'summerSale'],
+      ['summerSale', 'summerSale'],
     ]);
     expect(result.diagnostics).toEqual([
       {

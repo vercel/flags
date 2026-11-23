@@ -19,22 +19,20 @@
  * It is also a Rollup plugin, e.g. for the server build of Nitro.
  */
 import { createHash } from 'node:crypto';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { createManifest } from 'flags/manifest';
 import { runtime } from 'flags/runtime';
 import {
   addSelfRegistration,
   compileFlagsFile,
-  declarationFileOf,
   FLAGS_FILE_EXTENSION,
   findConfigModules,
   findFlagsModules,
   hasUseFlagsDirective,
   MANIFEST_FILE,
-  renderFlagsFileTypes,
   sourceDirectoryCandidates,
-  usesContentMapper,
+  writeFlagsFileDeclaration,
   writeManifestFromBuild,
 } from 'flags/tooling';
 import type { Plugin, ViteDevServer } from 'vite';
@@ -101,30 +99,6 @@ export interface FlagsVitePluginOptions {
 export const MANIFEST_PATH = '/.well-known/flags/manifest.json';
 
 const sourceFile = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
-
-/**
- * Writes the declaration file of a flags file for TypeScript before 7.1,
- * e.g. `app.d.flags.ts`, if it changed.
- */
-function writeFlagsFileDeclarations(file: string, text: string, root: string) {
-  if (usesContentMapper(root)) {
-    return;
-  }
-  const declaration = declarationFileOf(file);
-  const types = renderFlagsFileTypes(text, {
-    fileName: file,
-    projectDirectory: root,
-  }).text;
-  let previous: string | undefined;
-  try {
-    previous = readFileSync(declaration, 'utf8');
-  } catch {
-    previous = undefined;
-  }
-  if (previous !== types) {
-    writeFileSync(declaration, types);
-  }
-}
 
 /**
  * Replaces the directive with spaces. The bundler would warn about an
@@ -285,19 +259,22 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
           fileName: file,
           projectDirectory: root,
         });
-        for (const directory of sourceDirectoryCandidates(
-          root,
-          compiled.document.source,
-        )) {
-          for (const part of ['provider', 'context', 'hooks']) {
-            this.addWatchFile(join(directory, `${part}.ts`));
+        // A new provider.ts or context.ts of a source changes the module
+        for (const source of compiled.sources) {
+          for (const directory of sourceDirectoryCandidates(
+            root,
+            source.name,
+          )) {
+            for (const part of ['provider', 'context', 'hooks']) {
+              this.addWatchFile(join(directory, `${part}.ts`));
+            }
           }
         }
         for (const warning of compiled.warnings) {
           this.warn(`flags: ${file}: ${warning.message}`);
         }
         try {
-          writeFlagsFileDeclarations(file, code, root);
+          writeFlagsFileDeclaration(file, code, root);
         } catch {
           // The types are a convenience, the module is what counts
         }

@@ -31,13 +31,12 @@ export {
 export {
   declarationFileOf,
   type FlagsFileDeclarationsResult,
-  usesContentMapper,
   watchFlagsFileDeclarations,
+  writeFlagsFileDeclaration,
   writeFlagsFileDeclarations,
 } from './flags-file/declarations';
 export {
   DiagnosticCode,
-  exportNameOf,
   FLAGS_FILE_EXTENSION,
   type FlagsFileDiagnostic,
   type FlagsFileDocument,

@@ -5,4 +5,4 @@
 
 (flag_statement
   "flag" @context
-  key: (_) @name) @item
+  name: (_) @name) @item

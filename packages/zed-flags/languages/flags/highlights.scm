@@ -10,7 +10,7 @@
   name: (_) @type)
 
 (flag_statement
-  key: (_) @function)
+  name: (_) @function)
 
 ; The fields of a flag
 (flag_statement

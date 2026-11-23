@@ -11,14 +11,14 @@ flag newFeature
   (source_statement
     name: (name))
   (flag_statement
-    key: (name)))
+    name: (identifier)))
 
 ==================
-A source and a key in quotes
+A source in quotes, and the key of a flag
 ==================
 
 source "my-source"
-flag "summer-sale" {}
+flag summerSale { key: "summer-sale" }
 
 ---
 
@@ -27,9 +27,12 @@ flag "summer-sale" {}
     name: (string
       (string_content)))
   (flag_statement
-    key: (string
-      (string_content))
-    body: (object)))
+    name: (identifier)
+    body: (object
+      (pair
+        key: (identifier)
+        value: (string
+          (string_content))))))
 
 ==================
 Fields with new lines instead of commas
@@ -48,7 +51,7 @@ flag checkout {
 
 (source_file
   (flag_statement
-    key: (name)
+    name: (identifier)
     body: (object
       (pair
         key: (identifier)
@@ -90,7 +93,7 @@ flag banner {
   (comment)
   (comment)
   (flag_statement
-    key: (name)
+    name: (identifier)
     body: (object
       (pair
         key: (identifier)
@@ -121,13 +124,13 @@ flag banner {
       (comment))))
 
 ==================
-Names with "-" without quotes
+A source with "-" without quotes, and a flag with its own source
 ==================
 
 source my-source
-flag summer-sale
-flag new-checkout-v2 {
-  defaultValue: true
+flag summerSale
+flag teaser {
+  source: "marketing"
 }
 
 ---
@@ -136,10 +139,11 @@ flag new-checkout-v2 {
   (source_statement
     name: (name))
   (flag_statement
-    key: (name))
+    name: (identifier))
   (flag_statement
-    key: (name)
+    name: (identifier)
     body: (object
       (pair
         key: (identifier)
-        value: (true)))))
+        value: (string
+          (string_content))))))

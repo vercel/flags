@@ -3,11 +3,12 @@
  * "Flags files" in SPEC.md.
  *
  * ```
- * source "self"
+ * source self
  *
- * flag "summer-sale" {
- *   description: "Shows the summer sale banner",
- *   defaultValue: false,
+ * flag summerSale {
+ *   key: "summer-sale"
+ *   description: "Shows the summer sale banner"
+ *   defaultValue: false
  * }
  * ```
  */
@@ -53,7 +54,8 @@ export const DiagnosticCode = {
   InvalidValue: 3,
   TypeMismatch: 4,
   DuplicateOption: 5,
-  ExportNameClash: 6,
+  /** Two flags with the same key in one source */
+  DuplicateKey: 6,
   NotAFlag: 7,
   DefaultNotInOptions: 8,
 } as const;
@@ -67,17 +69,25 @@ export interface FlagsFileOption {
  * One flag of a flags file.
  */
 export interface FlagsFileFlag {
+  /**
+   * The name after `flag`: the name of the export, which the application
+   * imports, e.g. `summerSale`.
+   */
+  readonly name: string;
+  readonly nameSpan: Span;
+  /**
+   * The key of the flag in the flag management system: the field `key`, or
+   * else the name.
+   */
   readonly key: string;
-  /** The key after `flag`, e.g. `"summer-sale"` in `flag "summer-sale" {}` */
-  readonly keySpan: Span;
+  /** The value of the field `key`, if the flag has it */
+  readonly keySpan?: Span;
+  /** The source of the flag: the field `source`, or the source of the file */
+  readonly source: string;
+  /** The value of the field `source`, if the flag has it */
+  readonly sourceSpan?: Span;
   /** The statement of the flag, with its body */
   readonly span: Span;
-  /**
-   * The name of the export: the key, if it is a JavaScript identifier, else
-   * its camelCase form, e.g. `summerSale` for `summer-sale`, else the key
-   * as a string name.
-   */
-  readonly exportName: string;
   readonly type: FlagType;
   readonly description?: string;
   readonly defaultValue?: unknown;
@@ -85,7 +95,10 @@ export interface FlagsFileFlag {
 }
 
 export interface FlagsFileDocument {
-  /** The name of the source, `self` without `source` */
+  /**
+   * The default source of the flags of the file: `source`, or `self`. A
+   * flag can have another source in its field `source`.
+   */
   readonly source: string;
   /** The value of `source`, if the file has it */
   readonly sourceSpan?: Span;
@@ -99,7 +112,14 @@ const FLAG_TYPES: readonly FlagType[] = [
   'number',
   'object',
 ];
-const FLAG_FIELDS = ['description', 'type', 'defaultValue', 'options'];
+const FLAG_FIELDS = [
+  'key',
+  'source',
+  'description',
+  'type',
+  'defaultValue',
+  'options',
+];
 const OPTION_FIELDS = ['value', 'label'];
 // As for the folders of flags/sources
 const SOURCE_NAME = /^[a-z][a-z0-9_-]*$/i;
@@ -118,27 +138,6 @@ const RESERVED = new Set(
  */
 export function isPlainIdentifier(name: string): boolean {
   return IDENTIFIER.test(name) && !RESERVED.has(name);
-}
-
-/**
- * The name of the export of a flag key: the key, if it is an identifier,
- * else its camelCase form, e.g. `summerSale` for `summer-sale` or
- * `summer.sale`, else the key itself.
- */
-export function exportNameOf(key: string): string {
-  if (isPlainIdentifier(key)) {
-    return key;
-  }
-  const words = key.split(/[^A-Za-z0-9_$]+/).filter(Boolean);
-  const camel = words
-    .map((word, index) =>
-      index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1),
-    )
-    .join('');
-  if (isPlainIdentifier(camel)) {
-    return camel;
-  }
-  return key;
 }
 
 /** The closest of the words, for "Did you mean …?" */
@@ -317,11 +316,14 @@ class Analyzer {
   }
 
   flag(
-    key: string,
-    keySpan: Span,
+    name: string,
+    nameSpan: Span,
+    defaultSource: string,
     span: Span,
     body: ObjectValue | undefined,
   ): FlagsFileFlag | undefined {
+    // The messages name a flag by its name, as the file does
+    const key = name;
     const fields = new Map<string, ObjectEntry>();
     let valid = true;
     for (const entry of body?.entries ?? []) {
@@ -346,6 +348,42 @@ class Analyzer {
         continue;
       }
       fields.set(entry.key, entry);
+    }
+
+    let systemKey: { value: string; span: Span } | undefined;
+    const keyField = fields.get('key');
+    if (keyField) {
+      if (keyField.value.kind === 'string' && keyField.value.value !== '') {
+        systemKey = { value: keyField.value.value, span: keyField.value.span };
+      } else {
+        valid = false;
+        this.report(
+          DiagnosticCode.InvalidValue,
+          '"key" must be the key of the flag in your flag management system, in quotes, e.g. key: "summer-sale".',
+          keyField.value.span,
+        );
+      }
+    }
+
+    let source: { value: string; span: Span } | undefined;
+    const sourceField = fields.get('source');
+    if (sourceField) {
+      if (
+        sourceField.value.kind === 'string' &&
+        SOURCE_NAME.test(sourceField.value.value)
+      ) {
+        source = {
+          value: sourceField.value.value,
+          span: sourceField.value.span,
+        };
+      } else {
+        valid = false;
+        this.report(
+          DiagnosticCode.InvalidValue,
+          '"source" must be the name of a source in quotes, e.g. source: "marketing". It starts with a letter, and has only letters, digits, "-" and "_".',
+          sourceField.value.span,
+        );
+      }
     }
 
     let description: string | undefined;
@@ -479,10 +517,13 @@ class Analyzer {
       return undefined;
     }
     return {
-      key,
-      keySpan,
+      name,
+      nameSpan,
+      key: systemKey?.value ?? name,
+      ...(systemKey ? { keySpan: systemKey.span } : {}),
+      source: source?.value ?? defaultSource,
+      ...(source ? { sourceSpan: source.span } : {}),
       span,
-      exportName: exportNameOf(key),
       type,
       ...(description !== undefined ? { description } : {}),
       ...(defaultValue ? { defaultValue: defaultValue.value } : {}),
@@ -520,8 +561,9 @@ export function parseFlagsFile(text: string): FlagsFileDocument {
   let seenSource = false;
   let seenFlag = false;
   const flags: FlagsFileFlag[] = [];
-  const keys = new Set<string>();
-  const exportNames = new Map<string, string>();
+  const names = new Set<string>();
+  // The name of the flag of each source and key
+  const keys = new Map<string, string>();
   for (const statement of statements) {
     if (statement.kind === 'source') {
       if (seenSource) {
@@ -553,43 +595,46 @@ export function parseFlagsFile(text: string): FlagsFileDocument {
       continue;
     }
     seenFlag = true;
-    const key = statement.key;
-    if (key === '') {
+    const name = statement.name;
+    if (!isPlainIdentifier(name)) {
       analyzer.report(
         DiagnosticCode.InvalidValue,
-        'The key of a flag can not be empty.',
-        statement.keySpan,
+        `"${name}" is a reserved word of JavaScript, so it can not be the name of a flag. Choose another name, and set the key: flag ${name}Flag { key: "${name}" }.`,
+        statement.nameSpan,
       );
       continue;
     }
-    if (keys.has(key)) {
+    if (names.has(name)) {
       analyzer.report(
         DiagnosticCode.Syntax,
-        `The flag "${key}" is declared two times.`,
-        statement.keySpan,
+        `The flag ${name} is declared two times.`,
+        statement.nameSpan,
       );
       continue;
     }
-    keys.add(key);
+    names.add(name);
     const flag = analyzer.flag(
-      key,
-      statement.keySpan,
+      name,
+      statement.nameSpan,
+      source,
       statement.span,
       statement.body,
     );
     if (!flag) {
       continue;
     }
-    const other = exportNames.get(flag.exportName);
+    // A key can be in a file once for each source
+    const id = JSON.stringify([flag.source, flag.key]);
+    const other = keys.get(id);
     if (other !== undefined) {
       analyzer.report(
-        DiagnosticCode.ExportNameClash,
-        `The flags "${other}" and "${key}" have the same name in JavaScript, ${flag.exportName}. Rename one of them.`,
-        statement.keySpan,
+        DiagnosticCode.DuplicateKey,
+        `The flags ${other} and ${name} have the same key "${flag.key}" in the source "${flag.source}". Each key can have one flag.`,
+        flag.keySpan ?? flag.nameSpan,
       );
       continue;
     }
-    exportNames.set(flag.exportName, key);
+    keys.set(id, name);
     flags.push(flag);
   }
 
@@ -609,6 +654,8 @@ export function parseFlagsFile(text: string): FlagsFileDocument {
  */
 export function flagOptionsOf(flag: FlagsFileFlag): Record<string, unknown> {
   return {
+    key: flag.key,
+    source: flag.source,
     type: flag.type,
     ...(flag.options ? { options: flag.options } : {}),
     ...(flag.description !== undefined

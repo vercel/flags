@@ -1128,14 +1128,18 @@ describe('15. Code generation from catalogs', () => {
 
 describe('16. Flags files', () => {
   // An application declares its flags in flags files, by default
-  // app.flags: `source <name>`, then `flag <key> { … }` for each flag,
-  // with its key and what the code knows about it. The body is JSON5: JSON
+  // app.flags: `source <name>`, then `flag <name> { … }` for each flag.
+  // The name is the export which the application imports, `key` is the key
+  // in the flag management system (the default is the name), and the rest
+  // is what the code knows about the flag. A flag can set its own `source`. The body is JSON5: JSON
   // with keys without quotes and comments, and a new line works as a
   // comma. The source comes from
   // flags/sources/<source>, as for code generation, but there is no
   // catalog: nothing is downloaded, and a branch which adds a flag shows it
   // in its diff. A framework plugin (or `node --import flags/register`)
-  // compiles each file into the same code as defineSource and bindFlag.
+  // compiles each file into the same code as defineSource and bindFlag,
+  // and writes its types next to it (app.d.flags.ts), for each editor.
+  // TypeScript 7.1 can also read the file itself with the content mapper.
 
   it('compiles app.flags into a module of its flags', async () => {
     const app = await mkdtemp(join(__dirname, '../.flags-walkthrough-'));
@@ -1164,7 +1168,8 @@ describe('16. Flags files', () => {
       );
       const text = `source shop
 
-flag summer-sale {
+flag summerSale {
+  key: "summer-sale"
   description: "Shows the summer sale banner"
   defaultValue: false
 }
@@ -1205,11 +1210,11 @@ flag checkout {
     try {
       await writeFile(join(app, 'package.json'), '{}');
       await mkdir(join(app, 'checkout'));
-      await writeFile(join(app, 'app.flags'), 'flag summer-sale\n');
+      await writeFile(join(app, 'app.flags'), 'flag summerSale\n');
       // One file next to each feature, of the same source self
       await writeFile(
         join(app, 'checkout/checkout.flags'),
-        'flag express-checkout\n',
+        'flag expressCheckout\n',
       );
 
       // What the framework plugins and `flags sync` do. The plugin points
@@ -1227,10 +1232,10 @@ flag checkout {
 
   it('points to each mistake in a flags file', () => {
     const { diagnostics } = parseFlagsFile(
-      'flag summer-sale {\n  defualtValue: false,\n}\n',
+      'flag summerSale {\n  defualtValue: false\n}\n',
     );
     expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
-      'Unknown field "defualtValue" in the flag "summer-sale". Did you mean "defaultValue"?',
+      'Unknown field "defualtValue" in the flag "summerSale". Did you mean "defaultValue"?',
     ]);
   });
 

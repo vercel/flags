@@ -122,7 +122,7 @@ describe('flags files', () => {
       );
       writeFileSync(
         join(dir, 'app.flags'),
-        'flag "summer-sale" {\n  defaultValue: false,\n}\n\nflag banner {\n  type: "string",\n}\n',
+        'flag summerSale {\n  key: "summer-sale"\n  defaultValue: false\n}\n\nflag banner {\n  type: "string"\n}\n',
       );
       writeFileSync(
         join(dir, 'entry.ts'),

@@ -4,17 +4,14 @@
  * `source.bindFlag`, which registers its flags itself. See "Flags files"
  * in the spec of `flags`.
  *
- * For TypeScript before 7.1, it also writes the declaration file next to
- * the flags file, e.g. `app.d.flags.ts`.
+ * It also writes the declaration file next to the flags file, e.g.
+ * `app.d.flags.ts`, for the editors and for `tsc`.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   compileFlagsFile,
-  declarationFileOf,
-  renderFlagsFileTypes,
   sourceDirectoryCandidates,
-  usesContentMapper,
+  writeFlagsFileDeclaration,
 } from 'flags/tooling';
 
 interface LoaderContext {
@@ -23,26 +20,6 @@ interface LoaderContext {
   addDependency(file: string): void;
   addContextDependency(directory: string): void;
   emitWarning(warning: Error): void;
-}
-
-function writeDeclarations(file: string, text: string, projectDir: string) {
-  if (usesContentMapper(projectDir)) {
-    return;
-  }
-  const declaration = declarationFileOf(file);
-  const types = renderFlagsFileTypes(text, {
-    fileName: file,
-    projectDirectory: projectDir,
-  }).text;
-  let previous: string | undefined;
-  try {
-    previous = readFileSync(declaration, 'utf8');
-  } catch {
-    previous = undefined;
-  }
-  if (previous !== types) {
-    writeFileSync(declaration, types);
-  }
 }
 
 export default function flagsFileLoader(
@@ -56,17 +33,16 @@ export default function flagsFileLoader(
   });
   // A new provider.ts or context.ts changes the module
   this.addDependency(`${projectDir}/package.json`);
-  for (const directory of sourceDirectoryCandidates(
-    projectDir,
-    compiled.document.source,
-  )) {
-    this.addContextDependency(dirname(directory));
+  for (const { name } of compiled.sources) {
+    for (const directory of sourceDirectoryCandidates(projectDir, name)) {
+      this.addContextDependency(dirname(directory));
+    }
   }
   for (const warning of compiled.warnings) {
     this.emitWarning(new Error(`flags: ${warning.message}`));
   }
   try {
-    writeDeclarations(this.resourcePath, source, projectDir);
+    writeFlagsFileDeclaration(this.resourcePath, source, projectDir);
   } catch {
     // The types are a convenience, the module is what counts
   }

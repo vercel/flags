@@ -52,16 +52,12 @@
           }
         ]
       },
-      "key": {
+      "name": {
         "multiple": false,
         "required": true,
         "types": [
           {
-            "type": "name",
-            "named": true
-          },
-          {
-            "type": "string",
+            "type": "identifier",
             "named": true
           }
         ]

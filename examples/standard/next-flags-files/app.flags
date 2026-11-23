@@ -1,9 +1,11 @@
-// The flags of the shop: the key of each flag, and what the code knows
-// about it. The rules and the rollout stay in the flag management system.
+// The flags of the shop. Each flag has the name which the code imports,
+// and its key in the flag management system. The rules and the rollout
+// stay in the flag management system.
 // See https://flags-sdk.dev/docs/flags/flags-files
 source self
 
-flag summer-sale {
+flag summerSale {
+  key: "summer-sale"
   description: "Shows the summer sale banner"
   defaultValue: false
 }

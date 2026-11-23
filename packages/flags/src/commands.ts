@@ -42,7 +42,6 @@ import { findConfigModules, readSettings } from './config-file';
 import { loadEnvFiles } from './env-files';
 import { findFlagsFiles, findFlagsModules } from './find-flags-modules';
 import { FlagsFileError, formatDiagnostics } from './flags-file/compile';
-import { usesContentMapper } from './flags-file/declarations';
 import { formatFlagsFile } from './flags-file/format';
 import { type FlagsAliases, generateFlags, watchFlags } from './generate';
 import { createManifest } from './manifest';
@@ -267,9 +266,7 @@ function describeAliases(root: string, aliases: FlagsAliases): string {
     const files = `${flagsFiles.length} flags ${flagsFiles.length === 1 ? 'file' : 'files'}`;
     const modules =
       names.length > 0 ? ` The sources are ${names.join(', ')}.` : '';
-    return usesContentMapper(root)
-      ? `flags: Found ${files}. TypeScript reads them with the content mapper.${modules}`
-      : `flags: Wrote the types of ${files}.${modules}`;
+    return `flags: Wrote the types of ${files}.${modules}`;
   }
   if (names.length === 0) {
     return 'flags: No sources in flags/sources, and no default source self.';

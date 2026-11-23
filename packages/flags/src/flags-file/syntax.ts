@@ -7,17 +7,18 @@
  *
  * flag newFeature
  *
- * flag summer-sale {
+ * flag summerSale {
+ *   key: "summer-sale"
  *   description: "Shows the summer sale banner"
  *   defaultValue: false
  * }
  * ```
  *
- * - `source <name>` names the source of the flags of the file. The name is
- *   written as a key.
- * - `flag <key>` declares a flag, with an optional body. The key is a
- *   JavaScript identifier, which can also have `-` inside, e.g.
- *   `summer-sale`, or a string in quotes.
+ * - `source <name>` names the default source of the flags of the file. The
+ *   name is an identifier which can also have `-` inside, e.g.
+ *   `my-source`, or a string in quotes.
+ * - `flag <name>` declares a flag, with an optional body. The name is a
+ *   JavaScript identifier: the name of the export of the flag.
  * - The body is a JSON5 object: JSON with keys without quotes, strings in
  *   single quotes, trailing commas and comments. A new line can replace
  *   the comma between two entries.
@@ -65,12 +66,13 @@ export interface SourceStatement {
   readonly span: Span;
 }
 
-/** `flag <key>` or `flag <key> { … }` */
+/** `flag <name>` or `flag <name> { … }` */
 export interface FlagStatement {
   readonly kind: 'flag';
   readonly keywordSpan: Span;
-  readonly key: string;
-  readonly keySpan: Span;
+  /** The name of the export, e.g. `summerSale` */
+  readonly name: string;
+  readonly nameSpan: Span;
   readonly body?: ObjectValue;
   readonly span: Span;
 }
@@ -99,6 +101,21 @@ const STATEMENTS =
   'A flags file has only `source <name>` and `flag <key> { … }`.';
 const PLAIN_VALUES =
   'A flags file has only plain values: strings, numbers, true, false, null, arrays and objects.';
+
+/**
+ * A name for the hint of an error, e.g. `summerSale` for the key
+ * `summer-sale`. Only for the message: the name of a flag is what the file
+ * declares.
+ */
+function suggestedName(key: string): string {
+  const words = key.split(/[^\p{L}\p{N}$_]+/u).filter(Boolean);
+  const name = words
+    .map((word, index) =>
+      index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1),
+    )
+    .join('');
+  return /^[\p{L}$_]/u.test(name) ? name : `flag${name}`;
+}
 
 class Parser {
   readonly #text: string;
@@ -258,21 +275,38 @@ class Parser {
       );
     }
     this.#skip();
-    const keyStart = this.#index;
-    let key: string;
+    const nameStart = this.#index;
     if (this.#peek() === '"' || this.#peek() === "'") {
-      key = this.#string();
-    } else {
-      const identifier = this.#name();
-      if (!identifier) {
-        this.#error(
-          'Expected the key of the flag: a name, e.g. flag summer-sale, or a string in quotes.',
-        );
-      }
-      key = identifier.value;
-      this.#rejectUnquoted(keyStart, 'flag');
+      const key = this.#string();
+      this.#error(
+        `The name of a flag is the JavaScript name which you import. For the key "${key}", write: flag ${suggestedName(key)} { key: "${key}" }.`,
+        nameStart,
+        this.#index - nameStart,
+      );
     }
-    const keySpan = { start: keyStart, end: this.#index };
+    const identifier = this.#identifier();
+    if (!identifier) {
+      this.#error(
+        'Expected the name of the flag, e.g. flag summerSale. It is the JavaScript name which you import.',
+      );
+    }
+    const name = identifier.value;
+    if (this.#peek() === '-' || this.#peek() === '.') {
+      let end = this.#index;
+      while (
+        end < this.#text.length &&
+        /[^\s{/]/.test(this.#text.charAt(end))
+      ) {
+        end++;
+      }
+      const key = this.#text.slice(nameStart, end);
+      this.#error(
+        `The name of a flag is the JavaScript name which you import. For the key "${key}", write: flag ${suggestedName(key)} { key: "${key}" }.`,
+        nameStart,
+        end - nameStart,
+      );
+    }
+    const nameSpan = { start: nameStart, end: this.#index };
     // The body is optional: flag newFeature
     const afterKey = this.#index;
     this.#skip();
@@ -281,8 +315,8 @@ class Parser {
       return {
         kind: 'flag',
         keywordSpan: keyword.span,
-        key,
-        keySpan,
+        name,
+        nameSpan,
         body,
         span: { start, end: this.#index },
       };
@@ -291,18 +325,18 @@ class Parser {
     return {
       kind: 'flag',
       keywordSpan: keyword.span,
-      key,
-      keySpan,
+      name,
+      nameSpan,
       span: { start, end: this.#index },
     };
   }
 
   /**
-   * After a name without quotes: a `.` would continue it, e.g.
-   * `flag checkout.v2`. Such a name needs quotes, because it looks like an
-   * access to a property.
+   * After the name of a source without quotes: a `.` would continue it,
+   * e.g. `source my.source`. Such a name needs quotes, because it looks like
+   * an access to a property.
    */
-  #rejectUnquoted(start: number, keyword: 'flag' | 'source'): void {
+  #rejectUnquoted(start: number, keyword: 'source'): void {
     const next = this.#peek();
     if (next !== '.') {
       return;

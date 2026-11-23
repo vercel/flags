@@ -1,0 +1,4 @@
+# The types of the flags files, written by flags/register and `flags sync`
+*.d.flags.ts
+# The types of flags:<source>, written by `flags sync`
+flags/generated.d.ts

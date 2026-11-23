@@ -1,15 +1,15 @@
 /**
- * The types of flags files for TypeScript before 7.1: a declaration file
- * next to each flags file, e.g. `app.d.flags.ts` for `app.flags`. With
- * `allowArbitraryExtensions`, TypeScript takes the types of
- * `import … from './app.flags'` from it.
+ * The types of flags files: a declaration file next to each flags file,
+ * e.g. `app.d.flags.ts` for `app.flags`. With `allowArbitraryExtensions`,
+ * TypeScript takes the types of `import … from './app.flags'` from it.
  *
- * With the content mapper of TypeScript 7.1 (`contentMappers` in
- * `tsconfig.json`), TypeScript reads the flags files itself, and there are
- * no declaration files.
+ * The SDK writes them also when `tsconfig.json` has the content mapper of
+ * TypeScript 7.1: editors with an older TypeScript (e.g. Zed's `vtsls`)
+ * read the declaration files, and TypeScript 7.1 with
+ * `--runExternalCode` uses the content mapper.
  */
 import { randomUUID } from 'node:crypto';
-import { type FSWatcher, readFileSync, watch } from 'node:fs';
+import { type FSWatcher, readFileSync, watch, writeFileSync } from 'node:fs';
 import { readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { findFiles, findFlagsFiles } from '../find-flags-modules';
@@ -31,17 +31,31 @@ function isOwnDeclaration(content: string): boolean {
 }
 
 /**
- * Whether the `tsconfig.json` of the project uses the content mapper of
- * `flags`, so that TypeScript needs no declaration files.
+ * Writes the declaration file of one flags file, if it changed. The
+ * framework loaders call it when they compile the file. Returns whether it
+ * wrote the file.
  */
-export function usesContentMapper(projectDirectory: string): boolean {
-  let text: string;
+export function writeFlagsFileDeclaration(
+  file: string,
+  text: string,
+  projectDirectory: string,
+): boolean {
+  const declaration = declarationFileOf(file);
+  const types = renderFlagsFileTypes(text, {
+    fileName: file,
+    projectDirectory,
+  }).text;
+  let previous: string | undefined;
   try {
-    text = readFileSync(path.join(projectDirectory, 'tsconfig.json'), 'utf8');
+    previous = readFileSync(declaration, 'utf8');
   } catch {
+    previous = undefined;
+  }
+  if (previous === types) {
     return false;
   }
-  return /"contentMappers"/.test(text) && /"\.flags"/.test(text);
+  writeFileSync(declaration, types);
+  return true;
 }
 
 async function writeIfChanged(file: string, content: string): Promise<boolean> {
@@ -69,16 +83,15 @@ export interface FlagsFileDeclarationsResult {
 
 /**
  * Writes the declaration file of each flags file of the project, if it
- * changed, and removes the declaration files of removed flags files. With
- * the content mapper, it removes them all. A flags file with an error still
- * gets its declarations, without the flags with errors.
+ * changed, and removes the declaration files of removed flags files. A
+ * flags file with an error still gets its declarations, without the flags
+ * with errors.
  */
 export async function writeFlagsFileDeclarations(
   projectDirectory: string,
 ): Promise<FlagsFileDeclarationsResult> {
   const root = path.resolve(projectDirectory);
   const files = findFlagsFiles(root);
-  const mapper = usesContentMapper(root);
   const problems: string[] = [];
   const wanted = new Set<string>();
   for (const id of files) {
@@ -91,11 +104,9 @@ export async function writeFlagsFileDeclarations(
     if (types.diagnostics.length > 0) {
       problems.push(formatDiagnostics(id, text, types.diagnostics));
     }
-    if (!mapper) {
-      const declaration = declarationFileOf(file);
-      wanted.add(declaration);
-      await writeIfChanged(declaration, types.text);
-    }
+    const declaration = declarationFileOf(file);
+    wanted.add(declaration);
+    await writeIfChanged(declaration, types.text);
   }
   for (const id of findFiles(root, (name) =>
     name.endsWith(DECLARATION_SUFFIX),

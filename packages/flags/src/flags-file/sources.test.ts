@@ -22,17 +22,17 @@ export default new TypedInMemoryProvider({});`,
     }
     await writeFile(
       path.join(directory, 'app.flags'),
-      'flag summer-sale {\n  description: "The sale"\n  defaultValue: false\n}\n\nflag checkout {\n  options: ["control", "express"]\n}\n',
+      'flag summerSale {\n  key: "summer-sale"\n  description: "The sale"\n  defaultValue: false\n}\n\nflag checkout {\n  options: ["control", "express"]\n}\n\n// One flag of another source\nflag teaser {\n  source: "marketing"\n}\n',
     );
     await mkdir(path.join(directory, 'checkout'));
     // A second file of the same source, next to its feature
     await writeFile(
       path.join(directory, 'checkout/checkout.flags'),
-      'flag express-shipping\n',
+      'flag expressShipping {\n  key: "express-shipping"\n}\n',
     );
     await writeFile(
       path.join(directory, 'marketing.flags'),
-      'source marketing\n\nflag hero-text {\n  defaultValue: "Welcome"\n}\n',
+      'source marketing\n\nflag heroText {\n  key: "hero-text"\n  defaultValue: "Welcome"\n}\n',
     );
   });
 
@@ -98,15 +98,16 @@ export { expressShipping } from "../checkout/checkout.flags";
     await writeFile(
       consumer,
       `import { checkout, expressShipping, summerSale } from 'flags:self';
-import { heroText } from 'flags:marketing';
+import { heroText, teaser } from 'flags:marketing';
 import { summerSale as fromFile } from './app.flags';
 const sale: Promise<boolean> = summerSale();
 const flow: Promise<'control' | 'express' | (string & {})> = checkout();
 const express: Promise<boolean> = expressShipping();
 const hero: Promise<string> = heroText();
+const tease: Promise<boolean> = teaser();
 // The same flag, from its source and from its file
 export const same: typeof fromFile = summerSale;
-export { sale, flow, express, hero };
+export { sale, flow, express, hero, tease };
 `,
     );
     const program = ts.createProgram(
@@ -125,10 +126,10 @@ export { sale, flow, express, hero };
   it('fails a build if two files of one source declare the same flag', async () => {
     await writeFile(
       path.join(directory, 'checkout/checkout.flags'),
-      'flag checkout\n',
+      'flag shopCheckout {\n  key: "checkout"\n}\n',
     );
     await expect(generateFlags(directory)).rejects.toThrow(
-      'flags: The flag "checkout" of the source "self" is declared in app.flags and in checkout/checkout.flags. Declare it in one file.',
+      'flags: The key "checkout" of the source "self" is declared in app.flags and in checkout/checkout.flags. Declare it in one file.',
     );
   });
 });

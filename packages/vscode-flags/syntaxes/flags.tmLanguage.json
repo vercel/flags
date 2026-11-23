@@ -51,10 +51,10 @@
       }
     },
     "flag": {
-      "comment": "flag <key>, then an optional body",
+      "comment": "flag <name>, then an optional body. The name is a JavaScript name.",
       "patterns": [
         {
-          "begin": "\\b(flag)\\s+(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|[\\p{L}$_][\\p{L}\\p{N}$_]*(?:-[\\p{L}\\p{N}$_]+)*)\\s*(\\{)",
+          "begin": "\\b(flag)\\s+([\\p{L}$_][\\p{L}\\p{N}$_]*)\\s*(\\{)",
           "beginCaptures": {
             "1": {
               "name": "keyword.other.flag.flags"
@@ -79,7 +79,7 @@
           ]
         },
         {
-          "match": "\\b(flag)\\s+(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|[\\p{L}$_][\\p{L}\\p{N}$_]*(?:-[\\p{L}\\p{N}$_]+)*)(?![-.\\p{L}\\p{N}$_])",
+          "match": "\\b(flag)\\s+([\\p{L}$_][\\p{L}\\p{N}$_]*)(?![-.\"'\\p{L}\\p{N}$_])",
           "captures": {
             "1": {
               "name": "keyword.other.flag.flags"
@@ -90,13 +90,14 @@
           }
         },
         {
+          "comment": "A name which is not a JavaScript name, e.g. summer-sale: it needs key",
           "match": "\\b(flag)\\s+([^\\s{]+)",
           "captures": {
             "1": {
               "name": "keyword.other.flag.flags"
             },
             "2": {
-              "name": "invalid.illegal.key-needs-quotes.flags"
+              "name": "invalid.illegal.flag-name.flags"
             }
           }
         }
@@ -132,7 +133,7 @@
           }
         },
         {
-          "match": "(?:\\b(description|type|defaultValue|options)\\b|([\"'])(description|type|defaultValue|options)\\2)\\s*(:)",
+          "match": "(?:\\b(key|source|description|type|defaultValue|options)\\b|([\"'])(key|source|description|type|defaultValue|options)\\2)\\s*(:)",
           "captures": {
             "1": {
               "name": "keyword.other.field.flags"

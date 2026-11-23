@@ -2,10 +2,13 @@ source self
 // <- keyword
 //     ^ module
 
-flag summer-sale {
+flag summerSale {
 // <- keyword
 //    ^ function
 //           ^ function
+  key: "summer-sale"
+  // <- property
+  //     ^ string
   description: "Shows the summer sale banner"
   // <- property
   //           ^ string

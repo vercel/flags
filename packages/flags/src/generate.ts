@@ -38,7 +38,7 @@ import {
   watchFlagsFileDeclarations,
   writeFlagsFileDeclarations,
 } from './flags-file/declarations';
-import { isPlainIdentifier, parseFlagsFile } from './flags-file/document';
+import { parseFlagsFile } from './flags-file/document';
 import { GENERATED_DIRECTORY } from './generated-directory';
 
 export { GENERATED_DIRECTORY };
@@ -538,13 +538,10 @@ function importPath(fromDirectory: string, file: string): string {
   return relative.startsWith('.') ? relative : `./${relative}`;
 }
 
-function exportName(name: string): string {
-  return isPlainIdentifier(name) ? name : JSON.stringify(name);
-}
-
 interface SourceFlag {
   readonly key: string;
-  readonly exportName: string;
+  /** The name of the flag, and of its export */
+  readonly name: string;
   readonly file: string;
   readonly doc: readonly string[];
 }
@@ -553,8 +550,8 @@ export interface FlagsFileSourcesResult {
   /** The aliases of the modules of the sources, as for `generateFlags` */
   readonly aliases: FlagsAliases;
   /**
-   * Flags which two files of one source declare, with the same key or the
-   * same name in JavaScript. The second one is not in `flags:<source>`.
+   * Flags of two files with the same source and the same key or the same
+   * name. The second one is not in `flags:<source>`.
    */
   readonly conflicts: readonly string[];
 }
@@ -563,7 +560,9 @@ export interface FlagsFileSourcesResult {
  * Writes the module of each source of the flags files, so that an
  * application can import a flag from its source, e.g.
  * `import { summerSale } from 'flags:self'`, as well as from its file. The
- * module of a source re-exports the flags of all flags files of the source:
+ * module of a source re-exports the flags of the source from all flags
+ * files, with their names. The source of a flag is its field `source`, or
+ * the source of its file:
  *
  * ```ts
  * // .flags/self.ts
@@ -585,24 +584,24 @@ export async function writeFlagsFileSources(
   for (const id of findFlagsFiles(root)) {
     const file = path.join(root, id);
     const document = parseFlagsFile(await readFile(file, 'utf8'));
-    const flags = sources.get(document.source) ?? [];
-    sources.set(document.source, flags);
     for (const flag of document.flags) {
+      const flags = sources.get(flag.source) ?? [];
+      sources.set(flag.source, flags);
       const other = flags.find(
-        (existing) =>
-          existing.key === flag.key || existing.exportName === flag.exportName,
+        (existing) => existing.key === flag.key || existing.name === flag.name,
       );
       if (other) {
+        const where = `${path.relative(root, other.file)} and in ${id}`;
         conflicts.push(
           other.key === flag.key
-            ? `flags: The flag "${flag.key}" of the source "${document.source}" is declared in ${path.relative(root, other.file)} and in ${id}. Declare it in one file.`
-            : `flags: The flags "${other.key}" (${path.relative(root, other.file)}) and "${flag.key}" (${id}) of the source "${document.source}" have the same name in JavaScript, ${flag.exportName}. Rename one of them.`,
+            ? `flags: The key "${flag.key}" of the source "${flag.source}" is declared in ${where}. Declare it in one file.`
+            : `flags: The name ${flag.name} of the source "${flag.source}" is declared in ${where}, for the keys "${other.key}" and "${flag.key}". Rename one of them.`,
         );
         continue;
       }
       flags.push({
         key: flag.key,
-        exportName: flag.exportName,
+        name: flag.name,
         file,
         doc: jsDocOf(flag, id),
       });
@@ -621,7 +620,7 @@ export async function writeFlagsFileSources(
   for (const name of names) {
     assertSourceName(name);
     const flags = [...(sources.get(name) ?? [])].sort((a, b) =>
-      a.exportName.localeCompare(b.exportName, 'en'),
+      a.name.localeCompare(b.name, 'en'),
     );
     const byFile = new Map<string, SourceFlag[]>();
     for (const flag of flags) {
@@ -633,7 +632,7 @@ export async function writeFlagsFileSources(
         .sort(([a], [b]) => a.localeCompare(b, 'en'))
         .map(
           ([file, fileFlags]) =>
-            `export { ${fileFlags.map((flag) => exportName(flag.exportName)).join(', ')} } from ${JSON.stringify(importPath(output, file))};`,
+            `export { ${fileFlags.map((flag) => flag.name).join(', ')} } from ${JSON.stringify(importPath(output, file))};`,
         ),
       ...(flags.length === 0 ? ['export {};'] : []),
       '',
@@ -646,8 +645,8 @@ export async function writeFlagsFileSources(
       const local = `flag_${index}`;
       declarations.push(
         ...flag.doc.map((line) => `  ${line}`),
-        `  const ${local}: (typeof import(${JSON.stringify(importPath(flagsDirectory, flag.file))}))[${JSON.stringify(flag.exportName)}];`,
-        `  export { ${local} as ${exportName(flag.exportName)} };`,
+        `  const ${local}: (typeof import(${JSON.stringify(importPath(flagsDirectory, flag.file))}))[${JSON.stringify(flag.name)}];`,
+        `  export { ${local} as ${flag.name} };`,
         '',
       );
     }

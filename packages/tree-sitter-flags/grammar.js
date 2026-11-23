@@ -6,7 +6,8 @@
  *
  * flag newFeature
  *
- * flag "summer-sale" {
+ * flag summerSale {
+ *   key: "summer-sale"
  *   description: "Shows the summer sale banner"
  *   defaultValue: false
  * }
@@ -44,10 +45,12 @@ module.exports = grammar({
     source_statement: ($) =>
       seq('source', field('name', choice($.name, $.string))),
 
+    // The name of a flag is the JavaScript name which the code imports. Its
+    // key in the flag management system is the field key of the body.
     flag_statement: ($) =>
       seq(
         'flag',
-        field('key', choice($.name, $.string)),
+        field('name', $.identifier),
         optional(field('body', $.object)),
       ),
 
@@ -112,8 +115,8 @@ module.exports = grammar({
     false: (_) => 'false',
     null: (_) => 'null',
 
-    // The name after flag or source: an identifier, which can also have "-"
-    // between its characters, e.g. summer-sale.
+    // The name of a source: an identifier, which can also have "-" between
+    // its characters, e.g. my-source.
     // biome-ignore lint/complexity/noUselessEscapeInRegex: \p{L} is a Unicode class for Tree-sitter
     name: (_) => /[\p{L}$_][\p{L}\p{N}$_]*(-[\p{L}\p{N}$_]+)*/,
 

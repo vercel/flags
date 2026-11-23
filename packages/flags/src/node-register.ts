@@ -12,14 +12,16 @@
  *
  * A flags file becomes the same module as with a framework plugin: one
  * `defineSource` and one `source.bindFlag` for each flag, and the flags
- * register themselves. It needs `module.registerHooks` (Node.js 22.15 or
- * newer). Relative imports without an extension work, as in a bundler,
- * e.g. in `provider.ts`.
+ * register themselves. It also writes the declaration file next to the
+ * flags file, e.g. `app.d.flags.ts`, for the editors and for `tsc`. It
+ * needs `module.registerHooks` (Node.js 22.15 or newer). Relative imports
+ * without an extension work, as in a bundler, e.g. in `provider.ts`.
  */
 import { readFileSync } from 'node:fs';
 import nodeModule from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { compileFlagsFile } from './flags-file/compile';
+import { compileFlagsFile, findProjectDirectory } from './flags-file/compile';
+import { writeFlagsFileDeclaration } from './flags-file/declarations';
 import { FLAGS_FILE_EXTENSION } from './flags-file/document';
 
 interface LoadResult {
@@ -88,14 +90,19 @@ registerHooks({
       return nextLoad(url, context);
     }
     const fileName = fileURLToPath(url);
-    const { code, warnings } = compileFlagsFile(
-      readFileSync(fileName, 'utf8'),
-      {
-        fileName,
-      },
-    );
+    const text = readFileSync(fileName, 'utf8');
+    const projectDirectory = findProjectDirectory(fileName);
+    const { code, warnings } = compileFlagsFile(text, {
+      fileName,
+      projectDirectory,
+    });
     for (const warning of warnings) {
       console.warn(`flags: ${fileName}: ${warning.message}`);
+    }
+    try {
+      writeFlagsFileDeclaration(fileName, text, projectDirectory);
+    } catch {
+      // The types are a convenience, the module is what counts
     }
     return { format: 'module', source: code, shortCircuit: true };
   },

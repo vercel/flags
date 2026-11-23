@@ -282,13 +282,13 @@ export function jsDocOf(flag: FlagsFileFlag, fileName: string): string[] {
   } else {
     parts.push('No default value: a failed evaluation throws.');
   }
-  const label =
-    /^[\p{ID_Start}$_](?:[\p{ID_Continue}$\u200c\u200d]|-(?=[\p{ID_Continue}$]))*$/u.test(
-      flag.key,
-    )
-      ? flag.key
-      : JSON.stringify(flag.key);
-  parts.push(`Declared in ${fileName} as \`flag ${label}\`.`);
+  const details = [
+    ...(flag.key !== flag.name ? [`the key \`${flag.key}\``] : []),
+    ...(flag.sourceSpan ? [`the source \`${flag.source}\``] : []),
+  ];
+  parts.push(
+    `Declared in ${fileName} as \`flag ${flag.name}\`${details.length > 0 ? `, with ${details.join(' and ')}` : ''}.`,
+  );
   return [
     '/**',
     ...parts
@@ -298,13 +298,6 @@ export function jsDocOf(flag: FlagsFileFlag, fileName: string): string[] {
       .map((line) => (line ? ` * ${line}` : ' *')),
     ' */',
   ];
-}
-
-function exportClause(local: string, exportName: string): string {
-  const name = isPlainIdentifier(exportName)
-    ? exportName
-    : JSON.stringify(exportName);
-  return `export { ${local} as ${name} };`;
 }
 
 /**
@@ -347,7 +340,8 @@ export interface CompiledFlagsFile {
   /** The module: JavaScript, which is also valid TypeScript */
   readonly code: string;
   readonly document: FlagsFileDocument;
-  readonly source: FlagsFileSource;
+  /** The sources of the flags of the file, in the order of the file */
+  readonly sources: readonly FlagsFileSource[];
   /** The warnings of the file. An error throws. */
   readonly warnings: readonly FlagsFileDiagnostic[];
 }
@@ -369,9 +363,20 @@ function throwOnErrors(
 }
 
 /**
+ * The names of the sources of the flags of a file, in the order of the
+ * file. Without flags, the source of the file, so that it is checked.
+ */
+function sourceNamesOf(document: FlagsFileDocument): string[] {
+  const names = new Set(document.flags.map((flag) => flag.source));
+  return names.size > 0 ? [...names] : [document.source];
+}
+
+/**
  * Compiles a flags file into a module with the `'use flags'` directive:
- * one `defineSource`, and one `source.bindFlag` for each flag, in the order
- * of the file. Throws a `FlagsFileError` if the file has an error.
+ * one `defineSource` for each source of its flags, and one
+ * `source.bindFlag` for each flag, in the order of the file. Each flag is
+ * exported under its name. Throws a `FlagsFileError` if the file has an
+ * error.
  */
 export function compileFlagsFile(
   text: string,
@@ -382,55 +387,68 @@ export function compileFlagsFile(
   throwOnErrors(options.fileName, text, document);
   const projectDirectory =
     options.projectDirectory ?? findProjectDirectory(fileName);
-  const source = resolveFlagsSource(projectDirectory, document.source);
+  const sources = sourceNamesOf(document).map((name) =>
+    resolveFlagsSource(projectDirectory, name),
+  );
   const from = path.dirname(fileName);
   const base = path.basename(fileName);
+
+  const imports = ["import { defineSource } from 'flags';"];
+  const definitions: string[] = [];
+  if (sources.some((source) => source.provider === 'vercel')) {
+    imports.push(`import { VercelProvider } from '${VERCEL_PROVIDER_MODULE}';`);
+  }
+  const variables = new Map<string, string>();
+  for (const [index, source] of sources.entries()) {
+    const variable = `source_${index}`;
+    variables.set(source.name, variable);
+    if (source.provider === 'vercel') {
+      // Each instance without arguments uses the same client of Vercel Flags
+      definitions.push(`const provider_${index} = new VercelProvider();`);
+    } else {
+      imports.push(
+        `import provider_${index} from ${JSON.stringify(relativeImport(from, source.provider.file))};`,
+      );
+    }
+    if (source.context) {
+      imports.push(
+        `import getEvaluationContext_${index} from ${JSON.stringify(relativeImport(from, source.context))};`,
+      );
+    }
+    if (source.hooks) {
+      imports.push(
+        `import hooks_${index} from ${JSON.stringify(relativeImport(from, source.hooks))};`,
+      );
+    }
+    definitions.push(
+      `// The source ${JSON.stringify(source.name)}`,
+      `const ${variable} = defineSource({`,
+      `  provider: provider_${index},`,
+      ...(source.project
+        ? [`  project: ${JSON.stringify(source.project)},`]
+        : []),
+      ...(source.context
+        ? [`  getEvaluationContext: getEvaluationContext_${index},`]
+        : []),
+      ...(source.hooks ? [`  hooks: hooks_${index},`] : []),
+      '});',
+      '',
+    );
+  }
 
   const lines = [
     `// Compiled by the Flags SDK from ${base}. Change ${base} instead.`,
     "'use flags';",
     '',
-    "import { defineSource } from 'flags';",
-  ];
-  if (source.provider === 'vercel') {
-    lines.push(`import { VercelProvider } from '${VERCEL_PROVIDER_MODULE}';`);
-  } else {
-    lines.push(
-      `import provider from ${JSON.stringify(relativeImport(from, source.provider.file))};`,
-    );
-  }
-  if (source.context) {
-    lines.push(
-      `import getEvaluationContext from ${JSON.stringify(relativeImport(from, source.context))};`,
-    );
-  }
-  if (source.hooks) {
-    lines.push(
-      `import hooks from ${JSON.stringify(relativeImport(from, source.hooks))};`,
-    );
-  }
-  lines.push('');
-  if (source.provider === 'vercel') {
-    // Each instance without arguments uses the same client of Vercel Flags
-    lines.push('const provider = new VercelProvider();', '');
-  }
-  lines.push(
-    'const source = defineSource({',
-    '  provider,',
-    ...(source.project
-      ? [`  project: ${JSON.stringify(source.project)},`]
-      : []),
-    ...(source.context ? ['  getEvaluationContext,'] : []),
-    ...(source.hooks ? ['  hooks,'] : []),
-    '});',
+    ...imports,
     '',
-  );
-  for (const [index, flag] of document.flags.entries()) {
-    const local = `flag_${index}`;
+    ...definitions,
+  ];
+  for (const flag of document.flags) {
     const optionList = optionsCode(flag);
     lines.push(
       ...jsDocOf(flag, base),
-      `const ${local} = source.bindFlag(${JSON.stringify(flag.key)}, {`,
+      `export const ${flag.name} = ${variables.get(flag.source)}.bindFlag(${JSON.stringify(flag.key)}, {`,
       `  type: ${JSON.stringify(flag.type)},`,
       ...(optionList ? [`  options: ${optionList},`] : []),
       ...(flag.description !== undefined
@@ -440,7 +458,6 @@ export function compileFlagsFile(
         ? [`  defaultValue: ${JSON.stringify(flag.defaultValue)},`]
         : []),
       '});',
-      exportClause(local, flag.exportName),
       '',
     );
   }
@@ -455,7 +472,7 @@ export function compileFlagsFile(
   return {
     code: lines.join('\n'),
     document,
-    source,
+    sources,
     warnings: document.diagnostics.filter(
       (diagnostic) => diagnostic.severity === 'warning',
     ),
@@ -539,19 +556,6 @@ export function renderFlagsFileTypes(
     options.projectDirectory ?? findProjectDirectory(fileName);
   const from = path.dirname(fileName);
   const base = path.basename(fileName);
-  let source: FlagsFileSource | undefined;
-  try {
-    source = resolveFlagsSource(projectDirectory, document.source);
-  } catch (error) {
-    const span = document.sourceSpan ?? { start: 0, end: 0 };
-    diagnostics.push({
-      severity: 'error',
-      message: (error as Error).message.replace(/^flags: /, ''),
-      start: span.start,
-      length: Math.max(span.end - span.start, 1),
-      code: 9,
-    });
-  }
 
   let output = '';
   const mappings: TypesMapping[] = [];
@@ -577,59 +581,85 @@ export function renderFlagsFileTypes(
   line(
     "import type { EvaluationContext, Flag, FlagManagementSystem, FlagValueFrom, Source } from 'flags';",
   );
-  line();
-  if (source === undefined) {
-    line('type Provider = never;');
-  } else if (source.provider === 'vercel') {
+
+  // One interface for each source, e.g. SelfSource, so that the editor
+  // shows a short type: Flag<SelfSource, 'summer-sale', …>
+  const typesOf = new Map<string, { source: string; input: string }>();
+  for (const [index, name] of sourceNamesOf(document).entries()) {
+    let source: FlagsFileSource | undefined;
+    try {
+      source = resolveFlagsSource(projectDirectory, name);
+    } catch (error) {
+      // At the first place which names the source
+      const span = document.flags.find((flag) => flag.source === name)
+        ?.sourceSpan ??
+        document.sourceSpan ?? { start: 0, end: 0 };
+      diagnostics.push({
+        severity: 'error',
+        message: (error as Error).message.replace(/^flags: /, ''),
+        start: span.start,
+        length: Math.max(span.end - span.start, 1),
+        code: 9,
+      });
+    }
+    const provider = `Provider_${index}`;
+    const input = `Input_${index}`;
+    line();
+    if (source === undefined) {
+      line(`type ${provider} = never;`);
+    } else if (source.provider === 'vercel') {
+      line(
+        `type ${provider} = InstanceType<(typeof import('${VERCEL_PROVIDER_MODULE}'))['VercelProvider']>;`,
+      );
+    } else {
+      line(
+        `type ${provider} = (typeof import(${JSON.stringify(relativeImport(from, source.provider.file))}))['default'];`,
+      );
+    }
+    if (source?.context) {
+      const context = `Context_${index}`;
+      line(
+        `type ${context} = (typeof import(${JSON.stringify(relativeImport(from, source.context))}))['default'];`,
+      );
+      line('// The input after the request, or undefined without one');
+      line(
+        `type Rest_${index} = Parameters<${context}> extends [unknown, ...infer R] ? R : [];`,
+      );
+      line(
+        `type First_${index} = Rest_${index} extends [(infer I)?, ...unknown[]] ? I : undefined;`,
+      );
+      line(
+        `type ${input} = Rest_${index} extends [] ? undefined : First_${index};`,
+      );
+    } else {
+      line(`type ${input} = undefined;`);
+    }
+    const sourceName = sourceTypeName(name);
+    line(`/** The source \`${name}\` of ${base}. */`);
     line(
-      `type Provider = InstanceType<(typeof import('${VERCEL_PROVIDER_MODULE}'))['VercelProvider']>;`,
+      `interface ${sourceName} extends Source<${provider}, FlagManagementSystem, EvaluationContext, ${input}> {}`,
     );
-  } else {
-    line(
-      `type Provider = (typeof import(${JSON.stringify(relativeImport(from, source.provider.file))}))['default'];`,
-    );
+    typesOf.set(name, { source: sourceName, input });
   }
-  if (source?.context) {
-    line(
-      `type Context = (typeof import(${JSON.stringify(relativeImport(from, source.context))}))['default'];`,
-    );
-    line('// The input after the request, or undefined without one');
-    line(
-      'type Rest = Parameters<Context> extends [unknown, ...infer R] ? R : [];',
-    );
-    line(
-      'type First = Rest extends [(infer I)?, ...unknown[]] ? I : undefined;',
-    );
-    line('type Input = Rest extends [] ? undefined : First;');
-  } else {
-    line('type Input = undefined;');
-  }
-  const sourceName = sourceTypeName(document.source);
   line();
-  line(`/** The source \`${document.source}\` of ${base}. */`);
-  line(
-    `interface ${sourceName} extends Source<Provider, FlagManagementSystem, EvaluationContext, Input> {}`,
-  );
-  line();
+
   for (const [index, flag] of document.flags.entries()) {
     const local = `flag_${index}`;
-    const keyLength = flag.keySpan.end - flag.keySpan.start;
+    const types = typesOf.get(flag.source);
+    if (!types) {
+      continue;
+    }
+    const nameLength = flag.nameSpan.end - flag.nameSpan.start;
     for (const docLine of jsDocOf(flag, base)) {
       line(docLine);
     }
     output += 'declare const ';
-    mapped(local, flag.keySpan.start, keyLength);
+    mapped(local, flag.nameSpan.start, nameLength);
     line(
-      `: Flag<${sourceName}, ${JSON.stringify(flag.key)}, Input, FlagValueFrom<${JSON.stringify(flag.type satisfies FlagType)}, ${optionsType(flag)}>>;`,
+      `: Flag<${types.source}, ${JSON.stringify(flag.key)}, ${types.input}, FlagValueFrom<${JSON.stringify(flag.type satisfies FlagType)}, ${optionsType(flag)}>>;`,
     );
     output += `export { ${local} as `;
-    mapped(
-      isPlainIdentifier(flag.exportName)
-        ? flag.exportName
-        : JSON.stringify(flag.exportName),
-      flag.keySpan.start,
-      keyLength,
-    );
+    mapped(flag.name, flag.nameSpan.start, nameLength);
     line(' };');
     line();
   }

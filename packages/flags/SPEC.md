@@ -91,7 +91,8 @@ writes a deployment adapter.
     "The move to sources".
 16. In progress: flags files. The flags of an application are declared in
     `*.flags` files (`flag <key> { … }` with a JSON5 body), and compiled by the framework loaders, with the
-    content mapper of TypeScript 7.1 for the types (see "Flags files").
+    declaration file next to each flags file, or the content mapper of
+    TypeScript 7.1, for the types (see "Flags files").
     Next: remove the catalogs and `flags:<source>`.
 
 Not planned now: the migration from v4 (later with a skill or a codemod), and
@@ -1417,7 +1418,8 @@ file:
 // app.flags
 source self
 
-flag summer-sale {
+flag summerSale {
+  key: "summer-sale"
   description: "Shows the summer sale banner"
   defaultValue: false
 }
@@ -1457,25 +1459,23 @@ separators. It is encoded in UTF-8.
 
 ```txt
 file      = (comment | source | flag)*
-source    = "source" name
-flag      = "flag" name [object]
-name      = identifier ("-" identifier)* | string
+source    = "source" source-name
+flag      = "flag" identifier [object]
+source-name = identifier ("-" identifier)* | string
 object    = "{" [pair (separator pair)* [","]] "}"
 array     = "[" [value (separator value)* [","]] "]"
 separator = "," | a new line
 ```
 
-- `source <name>`: the name of the source of all flags of the file,
+- `source <name>`: the default source of the flags of the file,
   `[a-z][a-z0-9_-]*` (case-insensitive), e.g. `source self` or
-  `source my-source`. At most one, before the first flag. The default is
-  `self`.
-- `flag <key>`: one flag. A key without quotes is a JavaScript identifier
-  (`IdentifierName`, so also a reserved word), which can also have `-`
-  between its characters, e.g. `flag summer-sale`: kebab-case is the usual
-  style of flag keys in flag management systems. Each other key needs
-  quotes, e.g. `flag "checkout.v2"`: a `.` looks like an access to a
-  property, and the error for `flag checkout.v2` says so. A name can not
-  end with `-`. The keys of a body follow JavaScript, without `-`.
+  `source my-source`. A name with another character needs quotes. At most
+  one, before the first flag. The default is `self`.
+- `flag <name>`: one flag. The name is a JavaScript identifier, and not a
+  reserved word: it is the name of the export, which the application
+  imports (see "The name and the key"). `flag summer-sale` and
+  `flag "summer-sale"` are errors, with a hint which shows the field
+  `key`.
 - The body `{ … }` is optional. It is an object of JSON5: JSON, plus keys
   without quotes, strings in single quotes, trailing commas, hexadecimal
   numbers, a leading `+`, `.5` and `5.`, and the escapes of JSON5. A
@@ -1490,10 +1490,13 @@ separator = "," | a new line
 - Only plain values: strings, numbers, `true`, `false`, `null`, arrays
   and objects. References, function calls, operators, template literals,
   computed keys and `undefined` are errors. Nothing is evaluated.
-- The fields of a flag have the names of the options of `bindFlag`:
+- The fields of a flag are `key`, `source`, and the options of
+  `bindFlag`:
 
   | Field | Value |
   | --- | --- |
+  | `key` | The key of the flag in the flag management system, a string. The default is the name |
+  | `source` | The source of this flag, a string, e.g. `source: "marketing"`. The default is the source of the file |
   | `description` | A string |
   | `type` | `"boolean"`, `"string"`, `"number"` or `"object"` |
   | `defaultValue` | A value of the type. Without it, a failed evaluation throws |
@@ -1504,11 +1507,12 @@ separator = "," | a new line
   is a boolean flag. A value of the type `object` is an object, an array
   or `null`.
 - An error: a statement other than `source` and `flag` (e.g. `resource`),
-  two `source` statements, `source` after a flag, an unknown field (with
-  "Did you mean …?"), a value of the wrong type, options of different
-  types without `type`, an option two times, a flag two times, a key of an
-  object two times, and an integer which is not a safe integer of
-  JavaScript. A warning: a `defaultValue` which is not one of the options.
+  two `source` statements, `source` after a flag, a name which is not an
+  identifier or which is a reserved word, an unknown field (with "Did you
+  mean …?"), a value of the wrong type, an empty `key`, options of
+  different types without `type`, an option two times, a name two times,
+  two flags with the same key and the same source, a key of an object two
+  times, and an integer which is not a safe integer of JavaScript. A warning: a `defaultValue` which is not one of the options.
 - Each diagnostic has a stable number (`DiagnosticCode`), and the offset
   and the length of its text in the file.
 
@@ -1520,18 +1524,52 @@ a content mapper take `.flags.json`, because `.json` is a built-in
 extension. The body is JSON5 with new lines as separators, so a parser of
 another language is a small parser of JSON5 plus the two statements.
 
-### The export names
+### The name and the key
 
-Each flag is an export of the module of the file. The name of the export
-is the key, if the key is a JavaScript identifier, else the camelCase form
-of the key, e.g. `summerSale` for `summer-sale` or `summer.sale`, else the
-key as a string name (`import { '2fa' as twoFactor }`). Two flags with the
-same name are an error.
+A flag has a name and a key:
+
+- The name, after `flag`, is the name of the export: the application
+  imports it, e.g. `import { summerSale } from './app.flags'`. It is a name
+  of the code, as the name of a variable.
+- The key, in the field `key`, is the key of the flag in the flag
+  management system, e.g. `summer-sale`. It is what the provider gets, and
+  what the manifest and Flags Explorer show. Without `key`, the key is the
+  name.
+
+```js
+flag summerSale {
+  key: "summer-sale"
+}
+```
+
+The SDK never makes one from the other. Thus a key can have any
+characters, and the name in the code can change while the flag keeps its
+key.
+
+### The source of a flag
+
+The source of a flag is its field `source`, or else the source of its
+file. A file can thus have a flag of another source, for one case:
+
+```js
+source self
+
+flag summerSale
+
+flag heroText {
+  key: "hero-text"
+  source: "marketing"
+}
+```
+
+A key can be in one file once for each source: two flags with the same
+key and different sources are two flags.
 
 ### Imports by source
 
 An application can also import a flag from its source, `flags:<source>`,
-which has the flags of all flags files with that source:
+which has the flags of that source from all flags files (see "The source
+of a flag"):
 
 ```ts
 import { checkout, summerSale } from 'flags:self';
@@ -1540,9 +1578,9 @@ import { summerSale } from './app.flags';
 ```
 
 - `writeFlagsFileSources(directory)` of `flags/tooling` writes one module
-  for each source of the flags files, `.flags/<source>.ts`. It re-exports
-  the flags of each file of the source, with the export names of the
-  files: `export { checkout, summerSale } from '../app.flags';`. It has no
+  for each source of the flags, `.flags/<source>.ts`. It re-exports the
+  flags of the source from each file, with their names:
+  `export { checkout, summerSale } from '../app.flags';`. It has no
   `'use flags'`: the files register their flags, and the manifest names
   the files as the declarations.
 - It writes `.flags/aliases.json` for the framework plugins, as the code
@@ -1554,11 +1592,11 @@ import { summerSale } from './app.flags';
   file, `(typeof import('../app.flags'))['summerSale']`, with the JSDoc of
   the flag. Thus it works with the content mapper and with the declaration
   files of each flags file.
-- A key in two files of one source, or two keys with the same export name,
-  is a conflict: the second one is not in `flags:<source>`. `flags sync`
-  and a build fail with it, e.g. `flags: The flag "checkout" of the source
-  "self" is declared in app.flags and in checkout/checkout.flags. Declare
-  it in one file.` The dev servers report it, and go on.
+- A key or a name in two files of one source is a conflict: the second
+  flag is not in `flags:<source>`. `flags sync` and a build fail with it,
+  e.g. `flags: The key "checkout" of the source "self" is declared in
+  app.flags and in checkout/checkout.flags. Declare it in one file.` The
+  dev servers report it, and go on.
 - `generateFlags` and `watchFlags` call it for an application with flags
   files, and return its aliases, so the plugins of Next.js and Vite point
   `flags:<source>` to the modules. The dev servers write the modules again
@@ -1567,7 +1605,7 @@ import { summerSale } from './app.flags';
 
 ### The source
 
-The `source` of a file is the folder `flags/sources/<source>` of the
+A source is the folder `flags/sources/<source>` of the
 application (in its root or in `src`), as in "Code generation", but
 without `catalog.ts`:
 
@@ -1595,14 +1633,17 @@ file into a module. It is the code that an application can write by hand:
 - the `'use flags'` directive;
 - the imports of `provider.ts`, `context.ts` and `hooks.ts`, relative to
   the flags file, with their extension;
-- one `defineSource`, with the `project` of the default source `self`;
-- one `source.bindFlag(key, { type, options, description, defaultValue })`
-  for each flag, in the order of the file, with a JSDoc of its
-  description, its options and its default value;
+- one `defineSource` for each source of the flags of the file, in the
+  order of the file (`source_0`, `source_1`, …), with the `project` of the
+  default source `self`;
+- `export const <name> = source_<n>.bindFlag(key, { type, options,
+  description, defaultValue })` for each flag, in the order of the file,
+  with a JSDoc of its description, its options, its default value, and
+  its key and its source if they are not the defaults;
 - the self-registration (`registerFlags` of `flags/runtime`), unless
   `selfRegistration: false`.
 
-Each flags file has its own `defineSource`. Two files with the same source
+Each flags file has its own `defineSource` for each source. Two files with the same source
 share its provider and its `getEvaluationContext` (the steps of the
 context chain are cached by function, see "Cache"), and each
 `new VercelProvider()` without arguments uses the same client.
@@ -1639,9 +1680,22 @@ to hand-written code (`Flag<Source, key, Input, FlagValueFrom<type, options>>`),
 the input of `context.ts`, and the same JSDoc. It never throws: a flag
 with an error is left out, and the diagnostics say why.
 
-- **TypeScript 7.1 and newer**: the content mapper of `flags`. The
-  application adds it to `tsconfig.json`, and runs `tsc --runExternalCode`.
-  There are no generated files.
+There are two ways, and an application can have both:
+
+- **Declaration files** (each TypeScript version): a declaration file next
+  to each flags file, e.g. `app.d.flags.ts` for `app.flags`, with
+  `allowArbitraryExtensions` in `tsconfig.json`. The framework loaders and
+  `flags/register` write it when they compile the file
+  (`writeFlagsFileDeclaration` of `flags/tooling`), `flags sync` writes it
+  for each flags file, and `flags watch` and the dev servers write it
+  after each change. The SDK removes a declaration file with its own
+  header when its flags file is gone. Applications ignore `*.d.flags.ts`
+  in Git. Without a dev server (e.g. plain Node.js), a changed flags file
+  has new types after the next start, `flags watch` or `flags sync`.
+- **The content mapper** (TypeScript 7.1 and newer, optional): the
+  application adds it to `tsconfig.json`, and runs
+  `tsc --runExternalCode`. TypeScript then reads the flags files itself,
+  and the editor goes from an import to the flag in the flags file.
 
   ```json
   {
@@ -1659,14 +1713,15 @@ with an error is left out, and the diagnostics say why.
   and highlights, but no rename: a new key is a new flag). The errors of
   the file are diagnostics of the file. The warnings are not, because
   `tsc` fails on each diagnostic.
-- **TypeScript before 7.1**: a declaration file next to each flags file,
-  e.g. `app.d.flags.ts` for `app.flags`, with `allowArbitraryExtensions` in
-  `tsconfig.json`. The framework loaders write it when they compile the
-  file, `flags sync` writes it for each flags file, and `flags watch` and
-  the dev servers write it after each change. The SDK removes a
-  declaration file with its own header when its flags file is gone, and
-  writes none when `tsconfig.json` has the content mapper. Applications
-  ignore `*.d.flags.ts` in Git.
+
+The SDK writes the declaration files also when `tsconfig.json` has the
+content mapper. Most editors run an older TypeScript (e.g. `vtsls` of
+Zed, or the TypeScript of VS Code without the extension of TypeScript 7),
+which reads the declaration files and ignores `contentMappers`.
+TypeScript 7.1 with `--runExternalCode` takes the content mapper over the
+declaration file: go to definition goes to the flags file. TypeScript 7.1
+without `--runExternalCode` takes the types from the declaration file, but
+fails on `contentMappers` (TS18068).
 
 ### Editors
 
@@ -1753,10 +1808,12 @@ with an error is left out, and the diagnostics say why.
   can start it.
 - Publish the Zed extension, and set `rev` in `extension.toml` (it is a
   placeholder now).
-- TypeScript 7.1 beta starts the content mapper with an empty environment,
-  so `exec: ["node", …]` does not find `node` (`executable file not found
-  in $PATH`). With the absolute path of `node`, the content mapper works.
-  Report it to TypeScript.
+- `node_modules/.bin/tsc` of TypeScript 7.1 beta replaces itself with the
+  native `tsc` through `process.execve(exe, args)`, without `env`. On
+  Node.js 22 (e.g. 22.19), this passes an empty environment, so
+  `exec: ["node", …]` does not find `node` (`executable file not found in
+  $PATH`). Node.js 24 passes `process.env`, and the native `tsc` works on
+  each version. Report it to TypeScript (pass `process.env`).
 
 ## Code generation
 

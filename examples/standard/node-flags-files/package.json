@@ -1,0 +1,23 @@
+{
+  "name": "standard-example-node-flags-files",
+  "private": true,
+  "type": "module",
+  "description": "The Flags SDK with flags files in plain Node.js, without a bundler",
+  "scripts": {
+    "start": "node --import flags/register src/main.ts",
+    "test": "node --import flags/register --test test/*.test.ts",
+    "type-check:content-mapper": "tsc --runExternalCode"
+  },
+  "dependencies": {
+    "@openfeature/core": "1.12.0",
+    "@openfeature/server-sdk": "1.23.0",
+    "flags": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.14.0",
+    "typescript": "7.1.0-beta"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}
