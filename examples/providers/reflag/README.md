@@ -34,6 +34,8 @@ The discovery endpoint at `/.well-known/vercel/flags` merges the code-defined fl
 
 The Vercel Toolbar is included during local development. Link this folder with `vercel link`, sign in to the toolbar, and open Flags Explorer to override `welcome_message` or `show_banner` for your session without changing their values in Reflag. The local `FLAGS_SECRET` must match the linked project's Development value. Vercel injects the toolbar on preview deployments when enabled in project settings.
 
+`FLAGS_SECRET` is optional on Vercel with `flags` 4.5.0 or later, as long as the project exposes the system environment variables: Vercel signs the Flags Explorer requests and overrides for the project. Locally, run `vercel env pull` to use Flags Explorer without one. This example sets a `FLAGS_SECRET` so that it also works outside Vercel.
+
 ## Run as a standalone project
 
 Copy this folder, or use the Deploy button above. From the copied folder:

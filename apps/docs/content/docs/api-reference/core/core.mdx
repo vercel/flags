@@ -7,7 +7,7 @@ description: 'The `flags` package provides the core functionality for integratin
 
 A method for verifying access to your flags endpoint. You can use `verifyAccess` to keep your endpoint private, but allow the Vercel Toolbar to access it. Returns a `Promise` with a `true` or `false` value.
 
-On Vercel, or locally after `vercel env pull`, `verifyAccess` accepts short-lived tokens that Vercel signs for your project, so it works without a `FLAGS_SECRET`. With a `FLAGS_SECRET`, it also accepts encrypted tokens (JWEs) generated with that secret by the SDK functions documented below. Without a secret, a JWE is rejected and `verifyAccess` returns `false`.
+On Vercel, or locally after `vercel env pull`, `verifyAccess` accepts short-lived tokens that Vercel signs for your project, so with `flags` 4.5.0 or later it works without a `FLAGS_SECRET`. With a `FLAGS_SECRET`, it also accepts encrypted tokens (JWEs) generated with that secret by the SDK functions documented below. Without a secret, a JWE is rejected and `verifyAccess` returns `false`.
 
 To verify signed tokens on Vercel, your project must expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables). When there is no secret and the host can not verify signed tokens, `verifyAccess` returns `false` and logs a warning.
 

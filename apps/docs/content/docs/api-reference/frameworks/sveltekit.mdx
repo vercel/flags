@@ -61,7 +61,7 @@ import * as flags from '$lib/flags';
 export const handle = createHandle({ flags });
 ```
 
-On Vercel, `createHandle` works without a secret: it accepts flag overrides and flags discovery requests that Vercel signs for your project, and flag values are encrypted with the public key of Vercel. Locally, run `vercel env pull` first. With a `FLAGS_SECRET`, overrides and discovery requests encrypted with the secret are accepted as well.
+On Vercel with `flags` 4.5.0 or later, `createHandle` works without a secret: it accepts flag overrides and flags discovery requests that Vercel signs for your project, and flag values are encrypted with the public key of Vercel. Locally, run `vercel env pull` first. With a `FLAGS_SECRET`, overrides and discovery requests encrypted with the secret are accepted as well.
 
 Note that when composing `createHandle` with other handlers using SvelteKit's `sequence` utility then `createHandle` should come first. Only handlers after it will be able to access feature flags.
 

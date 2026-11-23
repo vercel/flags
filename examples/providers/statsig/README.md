@@ -38,6 +38,8 @@ The example exposes its flag definitions at `/.well-known/vercel/flags`, protect
 
 Open Flags Explorer in the toolbar to override `welcome_message_text` or `show_banner` for your session without changing the values in Statsig. Use the same `FLAGS_SECRET` in your local environment and the linked Vercel project.
 
+`FLAGS_SECRET` is optional on Vercel with `flags` 4.5.0 or later, as long as the project exposes the system environment variables: Vercel signs the Flags Explorer requests and overrides for the project. Locally, run `vercel env pull` to use Flags Explorer without one. This example sets a `FLAGS_SECRET` so that it also works outside Vercel.
+
 ## Run as a standalone project
 
 Copy this folder, or use the Deploy button above. From the copied folder:
