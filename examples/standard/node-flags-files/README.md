@@ -21,9 +21,8 @@ needs Node.js 22.15 or newer.
 
 For the types, `flags/register` writes `src/app.d.flags.ts` next to the
 flags file each time it compiles it (`allowArbitraryExtensions` is on in
-`tsconfig.json`, and Git ignores the file). Every editor reads it. While
-you edit the flags file without the server, `npx flags watch` writes it
-again after each change.
+`tsconfig.json`, and Git ignores the file). Every editor reads it. `pnpm dev`
+restarts after each change of the flags file, and writes it again.
 
 `tsconfig.json` also has the content mapper of `flags` (`contentMappers`).
 With it, TypeScript 7.1 reads the flags file itself (`tsc
@@ -33,7 +32,8 @@ Code: the extension of TypeScript 7 and `packages/vscode-flags`).
 
 ```sh
 pnpm --filter flags build
-pnpm start   # http://localhost:4440, try the cookies user=alice and beta=1
+pnpm dev     # http://localhost:4440, restarts after each change, also of app.flags
+pnpm start   # the same, without restarts. Try the cookies user=alice and beta=1
 pnpm test
 pnpm type-check:content-mapper
 ```

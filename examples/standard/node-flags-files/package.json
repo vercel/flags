@@ -4,6 +4,7 @@
   "type": "module",
   "description": "The Flags SDK with flags files in plain Node.js, without a bundler",
   "scripts": {
+    "dev": "node --watch --import flags/register src/main.ts",
     "start": "node --import flags/register src/main.ts",
     "test": "node --import flags/register --test test/*.test.ts",
     "type-check:content-mapper": "tsc --runExternalCode"
