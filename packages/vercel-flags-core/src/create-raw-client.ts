@@ -267,6 +267,7 @@ export function createCreateRawClient(fns: {
               ? null
               : (definition.variantIds?.[variantIndex] ?? null);
           const entity = entities ?? ({} as E);
+          const layerId = getExperimentLayerId(experiment);
           report(
             [
               {
@@ -276,7 +277,7 @@ export function createCreateRawClient(fns: {
                 base: experiment.base,
                 rampId: experiment.rampId,
                 rampPercentage: experiment.rampPercentage,
-                layerId: getExperimentLayerId(experiment),
+                ...(layerId === undefined ? {} : { layerId }),
                 assignmentReason: 'override',
               },
             ],

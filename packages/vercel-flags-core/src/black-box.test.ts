@@ -4730,6 +4730,9 @@ describe('Controller (black-box)', () => {
         ],
         entity,
       );
+      expect(reportExposures.mock.calls[0]?.[0][0]).not.toHaveProperty(
+        'layerId',
+      );
 
       await client.shutdown();
     });
