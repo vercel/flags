@@ -1,5 +1,67 @@
 # @vercel/flags
 
+## 4.5.1
+
+### Patch Changes
+
+- [#608](https://github.com/vercel/flags/pull/608) [`e8d792f`](https://github.com/vercel/flags/commit/e8d792f2e1814430ff0dc24bbf8d93b5f3bf955d) Thanks [@reginaldalfret](https://github.com/reginaldalfret), [@dferber90](https://github.com/dferber90)! - Serialization of a flag with 252 or more options is now correct. Before this fix, option indices 252 to 255 were read back as `null`, `false`, `true`, or an unlisted value, and indices of 256 or more were truncated. These options now use the unlisted-value path, so their values are kept.
+
+## 4.5.0
+
+### Minor Changes
+
+- [#586](https://github.com/vercel/flags/pull/586) [`3cc264b`](https://github.com/vercel/flags/commit/3cc264ba96b6005206fc1af3f06e9ddedb08841d) Thanks [@luismeyer](https://github.com/luismeyer)! - `encryptFlagValues` encrypts with the public key of Vercel when there is no `FLAGS_SECRET`, instead of throwing. In SvelteKit, `createHandle` and `encryptFlagValues` work without `FLAGS_SECRET` too: the flag values of a page are encrypted with the public key.
+  
+  This fallback is silent. Before, a secret which is `undefined` or empty (e.g. `encryptFlagValues(values, process.env.TYPO)`) threw an error. Now the values are encrypted with the public key, and `decryptFlagValues` can not read them, because only Vercel can decrypt them: it logs a warning and returns `undefined`.
+  
+  `decryptFlagValues`, `encryptFlagDefinitions` and `decryptFlagDefinitions` keep working only with a `FLAGS_SECRET`.
+  
+  The project of the host is also read from the OIDC token of the request (`x-vercel-oidc-token`), so a deployment which does not expose the system environment variables works too.
+
+- [#589](https://github.com/vercel/flags/pull/589) [`e248a06`](https://github.com/vercel/flags/commit/e248a06422e0b183331f3ce4b699187163b6479a) Thanks [@luismeyer](https://github.com/luismeyer)! - `verifyAccess` accepts short-lived tokens which Vercel signs with Vercel KMS, so the Flags Discovery Endpoint (`/.well-known/vercel/flags`) works on Vercel without a `FLAGS_SECRET`. These tokens are signed by a separate Vercel KMS issuer, not the issuer of signed overrides.
+  
+  Proofs encrypted with the `FLAGS_SECRET` keep working exactly as before. Without a secret, `verifyAccess` now returns `false` for such a proof instead of throwing.
+  
+  When there is no secret and the host can not verify signed tokens (a self-hosted app, local development without `vercel env pull`, or a project which does not expose the system environment variables), `verifyAccess` logs a warning which names the fix.
+
+- [#587](https://github.com/vercel/flags/pull/587) [`3b5d8ec`](https://github.com/vercel/flags/commit/3b5d8ec1e0055a2e6669fa4466a9e929db6dd5c6) Thanks [@luismeyer](https://github.com/luismeyer)! - Accept flag overrides which the Vercel Toolbar signs with Vercel KMS, so overrides work on Vercel without a `FLAGS_SECRET`.
+  
+  On Vercel, or locally after `vercel env pull`, the SDK verifies signed override tokens with the public keys of Vercel, which it keeps in memory. `decryptOverrides` accepts them too, for apps which read the cookie themselves. Tokens encrypted with the `FLAGS_SECRET` keep working exactly as before. The cookie is still `vercel-flag-overrides`.
+  
+  The host must know that it runs for a Vercel project. On Vercel, it reads the project from the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables) (`VERCEL`, `VERCEL_PROJECT_ID`), or from the OIDC token of the request (`x-vercel-oidc-token`). With that token, a deployment also checks the team of a signed token. Locally, `vercel env pull` supplies the `VERCEL_OIDC_TOKEN`. SvelteKit also reads it from `$env` during `vite dev`.
+  
+  A signed token which the host can not use is ignored, with a warning which names the cause: the host can not verify signed tokens, the public keys do not load, or the token is for a different project or environment.
+  
+  Without a `FLAGS_SECRET`, a Next.js flag now ignores an overrides cookie which the host can not read (e.g. an encrypted cookie from before the secret was removed). Before, it threw `flags: Missing FLAGS_SECRET`.
+  
+  Add `signOverrides`, which asks Vercel to sign flag overrides for the project and the environment of the host, e.g. for end-to-end tests of a project without a `FLAGS_SECRET`. It uses the OIDC token of the host: of the request on a deployment, or the `VERCEL_OIDC_TOKEN` of `vercel env pull`.
+
+- [#597](https://github.com/vercel/flags/pull/597) [`0d8720f`](https://github.com/vercel/flags/commit/0d8720f57a72e79ea6c6ecfce099899601dffd72) Thanks [@luismeyer](https://github.com/luismeyer)! - Precompute works on Vercel without a `FLAGS_SECRET`. When there is no secret, `precompute`, `serialize`, `deserialize`, `getPrecomputed` and `generatePermutations` (Next.js and SvelteKit) sign the code with a key derived from `VERCEL_DEPLOYMENT_KEY`, which Vercel sets for the build and for the runtime of a deployment.
+  
+  Each deployment has its own key, so a code is only valid inside the deployment which created it. Set `FLAGS_SECRET` or `FLAGS_PRECOMPUTE_SECRET`, or pass a secret, if a code must be valid in another deployment or project.
+  
+  The new variable `FLAGS_PRECOMPUTE_SECRET` sets a secret for precompute only. It is only used when there is no `FLAGS_SECRET`. The order is: a secret passed to the function, `FLAGS_SECRET`, `FLAGS_PRECOMPUTE_SECRET`, the key of the deployment, the public secret outside of Vercel. In SvelteKit, pass the same secret to `createHandle`, `precompute` and `generatePermutations`, or none to all of them.
+  
+  In the local development of a Vercel project (e.g. `next dev` or a local `next build && next start` after `vercel env pull`, which writes a `VERCEL_OIDC_TOKEN` for the environment `development`), these functions use a fixed, public secret when there is no other one. Anyone can create a code with it, so they warn one time when `NODE_ENV` is not `development`. Without such a token, e.g. on a custom host, they throw without a secret, as before.
+  
+  In a Turborepo task, a cache hit replays codes of another deployment, because `VERCEL_DEPLOYMENT_KEY` is not part of the hash of the task. Add `VERCEL_DEPLOYMENT_KEY` to the `env` of the task in `turbo.json`, or set `FLAGS_PRECOMPUTE_SECRET`.
+  
+  On Vercel without a secret and without `VERCEL_DEPLOYMENT_KEY` (a project which does not expose the system environment variables, or a build with `vercel build` which is deployed with `vercel deploy --prebuilt`), these functions throw as before.
+
+### Patch Changes
+
+- [#586](https://github.com/vercel/flags/pull/586) [`3cc264b`](https://github.com/vercel/flags/commit/3cc264ba96b6005206fc1af3f06e9ddedb08841d) Thanks [@luismeyer](https://github.com/luismeyer)! - Without a `FLAGS_SECRET`, `encryptFlagValues` no longer throws when the public key of Vercel does not load (e.g. the key host is down, or a request times out). It logs a warning, at most one time in 30 seconds, and returns an empty string, so the build or the render does not fail. The flag values are only for the Vercel Toolbar: the page has none until it renders again.
+  
+  `FlagValues` of `flags/react` renders nothing for an empty string. If you render the `script` tag with `data-flag-values` yourself, leave it out when the value is empty. In SvelteKit, `createHandle` already rendered the page without the flag values; `encryptFlagValues` of `flags/sveltekit` now returns an empty string too.
+  
+  `encryptFlagValues` still throws when there is neither a secret nor a project ID, when the project ID is too long, and when the secret is not valid. With a secret nothing changes.
+
+## 4.4.1
+
+### Patch Changes
+
+- [#592](https://github.com/vercel/flags/pull/592) [`9c5de4b`](https://github.com/vercel/flags/commit/9c5de4b87b22d7ffc22545dde51913d661b0b651) Thanks [@luismeyer](https://github.com/luismeyer)! - `deserialize` and `getPrecomputed` now throw when a precompute code does not match the requested flags group, such as an empty-group code paired with a non-empty group (or the other way around). The `__no_flags__` sentinel is now only accepted when deserializing an empty flags array.
+
 ## 4.4.0
 
 ### Minor Changes
