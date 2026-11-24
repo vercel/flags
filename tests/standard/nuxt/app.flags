@@ -1,0 +1,7 @@
+// The flags of the source self, for flags:self
+source self
+
+flag enableSale {
+  options: [false, true]
+  defaultValue: false
+}

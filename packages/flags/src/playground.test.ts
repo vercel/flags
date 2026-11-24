@@ -15,7 +15,7 @@ import { decryptOverrides, encryptOverrides } from './explorer';
 import { compileFlagsFile } from './flags-file/compile';
 import { parseFlagsFile } from './flags-file/document';
 import { formatFlagsFile } from './flags-file/format';
-import { generateFlags, writeFlagsFileSources } from './generate';
+import { writeFlagsFileSources } from './generate';
 import {
   defineFlag,
   defineSource,
@@ -1062,71 +1062,7 @@ describe('14. Discovery for Flags Explorer', () => {
   });
 });
 
-describe('15. Code generation from catalogs', () => {
-  // An application puts each source into flags/sources/<source>:
-  // catalog.ts (the flags, for the code generation), provider.ts (the
-  // OpenFeature provider) and context.ts (getEvaluationContext).
-  // `flags sync`, `flags watch` or a framework plugin write the module of
-  // flags:<source> into .flags. It is the same code as defineSource and
-  // bindFlag by hand.
-
-  it('writes the module of flags:<source> from flags/sources/<source>', async () => {
-    const app = await mkdtemp(join(__dirname, '../.flags-walkthrough-'));
-    try {
-      const shop = join(app, 'flags/sources/shop');
-      await mkdir(shop, { recursive: true });
-      await writeFile(
-        join(shop, 'catalog.ts'),
-        `import type { CatalogLoader } from 'flags';
-        // Usually loaded from the flag management system
-        const loadCatalog: CatalogLoader = async () => ({
-          flags: {
-            'summer-sale': { variants: [false, true], description: 'The sale' },
-          },
-        });
-        export default loadCatalog;`,
-      );
-      await writeFile(
-        join(shop, 'provider.ts'),
-        `import { TypedInMemoryProvider } from '@openfeature/server-sdk';
-        export default new TypedInMemoryProvider({
-          'summer-sale': {
-            variants: { on: true, off: false },
-            defaultVariant: 'off',
-            disabled: false,
-            contextEvaluator: (context) => (context.user === 'alice' ? 'on' : 'off'),
-          },
-        });`,
-      );
-      await writeFile(
-        join(shop, 'context.ts'),
-        `import type { FlagsRequest } from 'flags';
-        export default (request: FlagsRequest | undefined) => ({
-          user: request?.cookies?.get('user')?.value ?? 'anonymous',
-        });`,
-      );
-
-      // e.g. `flags sync`. The framework plugin points flags:shop to it.
-      expect(await generateFlags(app)).toEqual({
-        'flags:shop': './.flags/shop.ts',
-      });
-
-      // import { 'summer-sale' as summerSale } from 'flags:shop';
-      const { 'summer-sale': summerSale } = await import(
-        pathToFileURL(join(app, '.flags/shop.ts')).href
-      );
-      const request = new Request('https://shop.example', {
-        headers: { cookie: 'user=alice' },
-      });
-      expect(await runtime.onInvoke(request, () => summerSale())).toBe(true);
-      expect(summerSale.description).toBe('The sale');
-    } finally {
-      await rm(app, { recursive: true, force: true });
-    }
-  });
-});
-
-describe('16. Flags files', () => {
+describe('15. Flags files', () => {
   // An application declares its flags in flags files, by default
   // app.flags: `source <name>`, then `flag <name> { … }` for each flag.
   // The name is the export which the application imports, `key` is the key
@@ -1134,9 +1070,9 @@ describe('16. Flags files', () => {
   // is what the code knows about the flag. A flag can set its own `source`. The body is JSON5: JSON
   // with keys without quotes and comments, and a new line works as a
   // comma. The source comes from
-  // flags/sources/<source>, as for code generation, but there is no
-  // catalog: nothing is downloaded, and a branch which adds a flag shows it
-  // in its diff. A framework plugin (or `node --import flags/register`)
+  // flags/sources/<source>. The flags files are the only declarations of
+  // the flags: nothing is downloaded, and a branch which adds a flag shows
+  // it in its diff. A framework plugin (or `node --import flags/register`)
   // compiles each file into the same code as defineSource and bindFlag,
   // and writes its types next to it (app.d.flags.ts), for each editor.
   // TypeScript 7.1 can also read the file itself with the content mapper.
@@ -1225,6 +1161,24 @@ flag checkout {
       expect(await readFile(join(app, '.flags/self.ts'), 'utf8')).toContain(
         'export { summerSale } from "../app.flags";\nexport { expressCheckout } from "../checkout/checkout.flags";',
       );
+    } finally {
+      await rm(app, { recursive: true, force: true });
+    }
+  });
+
+  it('defines flags:<source> only with a flags file of the source', async () => {
+    const app = await mkdtemp(join(__dirname, '../.flags-walkthrough-'));
+    try {
+      await writeFile(join(app, 'package.json'), '{}');
+      // Without a flags file, there is no flags:self: an import of it fails
+      expect((await writeFlagsFileSources(app)).aliases).toEqual({});
+
+      // A flags file without flags is valid, and defines its source, e.g.
+      // before the first flag of a new application
+      await writeFile(join(app, 'app.flags'), 'source self\n');
+      expect((await writeFlagsFileSources(app)).aliases).toEqual({
+        'flags:self': './.flags/self.ts',
+      });
     } finally {
       await rm(app, { recursive: true, force: true });
     }

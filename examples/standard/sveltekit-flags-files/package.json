@@ -1,9 +1,9 @@
 {
-  "name": "standard-example-sveltekit-codegen",
+  "name": "standard-example-sveltekit-flags-files",
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "The Flags SDK with SvelteKit and code generation of flags:self",
+  "description": "The Flags SDK with SvelteKit and flags files",
   "scripts": {
     "dev": "svelte-kit sync && vite dev",
     "build": "svelte-kit sync && vite build",

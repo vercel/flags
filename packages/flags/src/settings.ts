@@ -16,11 +16,11 @@ import type { OverridesOptions } from './overrides/reader';
  */
 export interface Settings {
   /**
-   * The default source `self`. An application which depends on
-   * `@vercel/flags-core` has the source `self` with the flags of its Vercel
-   * project, also without `flags/sources/self/`, and the code generation
-   * loads these flags from Vercel Flags. `false` turns it off. The default
-   * is `true`.
+   * The default source `self`. In an application which depends on
+   * `@vercel/flags-core`, the flags of the source `self` in the flags files
+   * use the provider `VercelProvider`, also without
+   * `flags/sources/self/provider.ts`. `false` turns it off. The default is
+   * `true`.
    */
   readonly selfSource?: boolean;
   /**

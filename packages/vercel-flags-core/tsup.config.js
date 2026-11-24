@@ -7,7 +7,6 @@ export default [
       'src/openfeature.default.ts',
       'src/default-provider.default.ts',
       // Runs in Node.js at build time only, so it has no Next.js variant
-      'src/catalog.ts',
     ],
     format: ['esm', 'cjs'],
     splitting: true,

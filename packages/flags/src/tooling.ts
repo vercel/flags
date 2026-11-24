@@ -6,7 +6,6 @@
  * Flags SDK itself uses them in the same way.
  */
 export { MANIFEST_FILE, writeManifestFromBuild } from './build-manifest';
-export { renderSourceModule, type SourceFiles } from './codegen';
 export {
   type ConfigModule,
   findConfigModules,

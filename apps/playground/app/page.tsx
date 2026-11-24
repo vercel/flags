@@ -1,13 +1,7 @@
-import {
-  'fake-hat-checkout-experiment' as checkout,
-  flag0,
-  'test-string' as offer,
-  'json-flag' as settings,
-} from 'flags:site';
+import { checkout, flag0, offer, settings } from 'flags:site';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import catalog from '../.flags/catalog.json';
 import ExampleFeature from './example-feature';
 
 async function changeVisitor(formData: FormData) {
@@ -230,10 +224,7 @@ export default function getEvaluationContext(
 
       <footer>
         <span>Next.js × Vercel Flags</span>
-        <span>
-          {catalog.site.flags} available flags <span aria-hidden="true">·</span>{' '}
-          Catalog revision {catalog.site.revision}
-        </span>
+        <span>The flags are declared in site.flags</span>
       </footer>
     </main>
   );

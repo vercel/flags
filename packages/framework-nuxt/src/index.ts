@@ -18,9 +18,8 @@
  *   with `useEvent()`, and `flags/config.ts`. The module sets
  *   `experimental.asyncContext` of Nitro for it.
  * - A Nitro plugin calls `runtime.onInit` and `runtime.onShutdown`.
- * - The modules of `flags:<source>`, generated from the catalogs of
- *   `flags/sources`, for Vite and Nitro, unless `disableCodeGeneration` is
- *   set.
+ * - The modules of `flags:<source>`, generated from the flags files, for
+ *   Vite and Nitro, unless `disableCodeGeneration` is set.
  *
  * It is a plain function and uses only hooks of Nuxt, so that the SDK does
  * not depend on `@nuxt/kit`.
@@ -61,10 +60,9 @@ interface Nuxt {
 export interface FlagsNuxtOptions {
   /**
    * Turns off the code generation of `flags:<source>`. By default, the
-   * module generates the modules from the catalogs of
-   * `flags/sources/<source>`: one time for a build, and again after each
-   * change of a catalog for `nuxt dev`. Without `flags/sources`, it writes
-   * nothing.
+   * module writes the modules of `flags:<source>` and the types of the
+   * flags files: one time for a build, and again after each change of a
+   * flags file for `nuxt dev`. Without flags files, it writes nothing.
    *
    * ```ts
    * modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]

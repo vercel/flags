@@ -43,3 +43,5 @@ next-env.d.ts
 
 # Written by the Flags SDK on dev, build and `flags sync`
 /flags/generated.d.ts
+# The types of the flags files, written by the Flags SDK in the same way
+*.d.flags.ts

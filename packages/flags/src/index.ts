@@ -1,9 +1,3 @@
-export type {
-  Catalog,
-  CatalogFlag,
-  CatalogLoader,
-  CatalogLoadOptions,
-} from './catalog';
 export { FlagEvaluationError } from './errors';
 export {
   type Evaluate,

@@ -59,16 +59,6 @@
         "types": "./dist/default-provider.default.d.cts",
         "default": "./dist/default-provider.default.cjs"
       }
-    },
-    "./catalog": {
-      "import": {
-        "types": "./dist/catalog.d.ts",
-        "default": "./dist/catalog.js"
-      },
-      "require": {
-        "types": "./dist/catalog.d.cts",
-        "default": "./dist/catalog.cjs"
-      }
     }
   },
   "main": "./dist/index.default.js",

@@ -7,4 +7,4 @@
 '@flags-sdk/nuxt': minor
 ---
 
-The default source `self`: an application which depends on `@vercel/flags-core` can import the flags of its Vercel project from `flags:self`, without `flags/sources/self/`. The code generation uses `new VercelProvider()` and the catalog of `@vercel/flags-core/catalog`. Each file of `flags/sources/self/` replaces its part, e.g. `context.ts` adds an evaluation context. `"selfSource": false` in `flags/config.json` turns it off, for the plugins and the CLI. If the flags can not be loaded, e.g. without `vercel env pull`, `flags:self` has no flags and the SDK warns.
+The default source `self`: in an application which depends on `@vercel/flags-core`, the flags of the source `self` in the flags files use `new VercelProvider()`, without `flags/sources/self/`. Each file of `flags/sources/self/` replaces its part, e.g. `context.ts` adds an evaluation context and `provider.ts` replaces the provider. `"selfSource": false` in `flags/config.json` turns it off, for the plugins, the CLI and the compiler of the flags files.

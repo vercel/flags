@@ -1,0 +1,10 @@
+// The flags of the app, of the source self. The rules stay in the flag
+// management system, here the in-memory provider of
+// flags/sources/self/provider.ts.
+// See https://flags-sdk.dev/docs/flags/flags-files
+source self
+
+flag enableSale {
+  description: "Shows the summer sale"
+  defaultValue: false
+}

@@ -50,15 +50,8 @@ describe('flags', () => {
 describe('code generation of flags:<source>', () => {
   it('generates the modules for a build, and adds the aliases', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'flags-vite-'));
-    const source = join(dir, 'flags/sources/self');
-    mkdirSync(source, { recursive: true });
-    writeFileSync(
-      join(source, 'catalog.ts'),
-      'export default () => ({ flags: { enableSale: { variants: [false, true] } } });',
-    );
-    // The generation must not run them
-    writeFileSync(join(source, 'provider.ts'), "throw new Error('no');");
-    writeFileSync(join(source, 'context.ts'), "throw new Error('no');");
+    writeFileSync(join(dir, 'package.json'), '{}');
+    writeFileSync(join(dir, 'app.flags'), 'flag enableSale\n');
 
     const plugin = flags();
     const config = await configOf(plugin)({ root: dir }, { command: 'build' });
@@ -67,7 +60,7 @@ describe('code generation of flags:<source>', () => {
       { find: 'flags:self', replacement: join(dir, '.flags/self.ts') },
     ]);
     expect(readFileSync(join(dir, '.flags/self.ts'), 'utf8')).toContain(
-      'source.bindFlag("enableSale"',
+      'export { enableSale } from "../app.flags";',
     );
     expect(readFileSync(join(dir, 'flags/generated.d.ts'), 'utf8')).toContain(
       "declare module 'flags:self'",
@@ -76,26 +69,21 @@ describe('code generation of flags:<source>', () => {
 });
 
 describe('code generation by default', () => {
-  it('finds flags/sources in src, and writes nothing without sources', async () => {
+  it('writes nothing without flags files, and the types into src/flags', async () => {
     const empty = mkdtempSync(join(tmpdir(), 'flags-vite-'));
     expect(await configOf(flags())({ root: empty }, { command: 'build' })).toBe(
       undefined,
     );
 
     const dir = mkdtempSync(join(tmpdir(), 'flags-vite-'));
-    const source = join(dir, 'src/flags/sources/self');
-    mkdirSync(source, { recursive: true });
-    writeFileSync(
-      join(source, 'catalog.ts'),
-      'export default () => ({ flags: { enableSale: { variants: [false, true] } } });',
-    );
-    writeFileSync(join(source, 'provider.ts'), "throw new Error('no');");
-    writeFileSync(join(source, 'context.ts'), "throw new Error('no');");
+    writeFileSync(join(dir, 'package.json'), '{}');
+    mkdirSync(join(dir, 'src'));
+    writeFileSync(join(dir, 'src/app.flags'), 'flag enableSale\n');
 
     await configOf(flags())({ root: dir }, { command: 'build' });
 
     expect(readFileSync(join(dir, '.flags/self.ts'), 'utf8')).toContain(
-      "from '../src/flags/sources/self/provider.ts'",
+      'export { enableSale } from "../src/app.flags";',
     );
     expect(
       readFileSync(join(dir, 'src/flags/generated.d.ts'), 'utf8'),
