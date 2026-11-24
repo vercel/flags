@@ -10,7 +10,9 @@ name: Release
 #      The long-running `standard` branch is in changesets pre mode
 #      (`.changeset/pre.json`, tag `standard`). Its releases get versions like
 #      `1.2.0-standard.0` and go to the `standard` dist-tag, not `latest`.
-#      Run `pnpm changeset pre exit` before `standard` merges into `main`.
+#      `baseBranch` in `.changeset/config.json` is `standard`. Before
+#      `standard` merges into `main`, set it back to `main` and run
+#      `pnpm changeset pre exit`.
 #      Snapshot releases are not possible from `standard`, because changesets
 #      does not allow snapshots in pre mode.
 #

@@ -1,11 +1,16 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@4/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "vercel/flags" }],
+  "changelog": [
+    "@changesets/changelog-github",
+    {
+      "repo": "vercel/flags"
+    }
+  ],
   "commit": false,
   "fixed": [],
   "linked": [],
   "access": "public",
-  "baseBranch": "main",
+  "baseBranch": "standard",
   "updateInternalDependencies": "patch",
   "format": false,
   "ignore": [],
