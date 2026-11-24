@@ -32,6 +32,7 @@ export default defineConfig({
     manifest: 'src/manifest.ts',
     'use-flags-loader': 'src/use-flags-loader.ts',
     'manifest-loader': 'src/manifest-loader.ts',
+    'flags-file-loader': 'src/flags-file-loader.ts',
   },
   format: ['esm', 'cjs'],
   splitting: true,

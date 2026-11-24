@@ -89,6 +89,11 @@ writes a deployment adapter.
     (`defineSource`, `bindFlag`), and code generation from catalogs
     (`flags:<source>`) in each framework with a bundler. The plan is in
     "The move to sources".
+16. In progress: flags files. The flags of an application are declared in
+    `*.flags` files (`flag <key> { … }` with a JSON5 body), and compiled by the framework loaders, with the
+    declaration file next to each flags file, or the content mapper of
+    TypeScript 7.1, for the types (see "Flags files").
+    Next: remove the catalogs and `flags:<source>`.
 
 Not planned now: the migration from v4 (later with a skill or a codemod), and
 the packages of the monorepo that still use v4.
@@ -1402,7 +1407,418 @@ analytics of Vercel. The format is section 11 of `STANDARD.md`: the element
   through `@vercel/request-context`. `@vercel/flags-core` already reports
   each evaluation of `VercelProvider` in this way.
 
+## Flags files
+
+A flags file declares the flags of an application in a file of its own,
+with the extension `.flags`. By convention, the main file is `app.flags` in
+the root of the application. The application imports its flags from the
+file:
+
+```js
+// app.flags
+source self
+
+flag summerSale {
+  key: "summer-sale"
+  description: "Shows the summer sale banner"
+  defaultValue: false
+}
+
+flag checkout {
+  options: ["control", { value: "express", label: "Express checkout" }]
+  defaultValue: "control"
+}
+```
+
+```ts
+import { checkout, summerSale } from './app.flags';
+```
+
+The flags files are the flags of the application. The application is the
+source of truth of which flags exist and what the code knows about each
+flag (key, type, options, description, default value). The flag
+management system stays the source of truth of the values: the rules, the
+rollouts and the targeting. Thus:
+
+- A branch which adds a flag shows it in its diff, and only its own flags.
+- The build and the type check use no network and no credentials. They
+  work offline, in CI and in a sandbox, also for an agent which can not
+  create flags in the system.
+- An agent sees each flag, its type and its options in the repository.
+- A flag works before it exists in the system: the provider returns
+  `FLAG_NOT_FOUND`, and the flag returns its `defaultValue`.
+
+An application with at least one flags file uses no catalogs: the code
+generation of "Code generation" does not run.
+
+### The format
+
+A flags file has its own small syntax, for JavaScript and TypeScript
+developers: two statements, and a body which is JSON5, with new lines as
+separators. It is encoded in UTF-8.
+
+```txt
+file      = (comment | source | flag)*
+source    = "source" source-name
+flag      = "flag" identifier [object]
+source-name = identifier ("-" identifier)* | string
+object    = "{" [pair (separator pair)* [","]] "}"
+array     = "[" [value (separator value)* [","]] "]"
+separator = "," | a new line
+```
+
+- `source <name>`: the default source of the flags of the file,
+  `[a-z][a-z0-9_-]*` (case-insensitive), e.g. `source self` or
+  `source my-source`. A name with another character needs quotes. At most
+  one, before the first flag. The default is `self`.
+- `flag <name>`: one flag. The name is a JavaScript identifier, and not a
+  reserved word: it is the name of the export, which the application
+  imports (see "The name and the key"). `flag summer-sale` and
+  `flag "summer-sale"` are errors, with a hint which shows the field
+  `key`.
+- The body `{ … }` is optional. It is an object of JSON5: JSON, plus keys
+  without quotes, strings in single quotes, trailing commas, hexadecimal
+  numbers, a leading `+`, `.5` and `5.`, and the escapes of JSON5. A
+  backslash at the end of a line continues a string. `Infinity` and `NaN`
+  are errors, because they have no JSON value.
+- A new line separates two entries of an object or two items of an array,
+  as a comma does. Commas are optional at the end of a line, and two
+  entries on one line need a comma. Thus each valid JSON5 body is also a
+  valid body, but not each body is JSON5.
+- Comments are `//` and `/* … */`, everywhere between tokens. `#` is an
+  error, with a hint.
+- Only plain values: strings, numbers, `true`, `false`, `null`, arrays
+  and objects. References, function calls, operators, template literals,
+  computed keys and `undefined` are errors. Nothing is evaluated.
+- The fields of a flag are `key`, `source`, and the options of
+  `bindFlag`:
+
+  | Field | Value |
+  | --- | --- |
+  | `key` | The key of the flag in the flag management system, a string. The default is the name |
+  | `source` | The source of this flag, a string, e.g. `source: "marketing"`. The default is the source of the file |
+  | `description` | A string |
+  | `type` | `"boolean"`, `"string"`, `"number"` or `"object"` |
+  | `defaultValue` | A value of the type. Without it, a failed evaluation throws |
+  | `options` | An array of values, or of `{ value: …, label: "…" }`. An option of an `object` flag must be `{ value: … }` |
+
+- The type is `type`, else the type of `defaultValue`, else the type of
+  the options, else `boolean`, as for `bindFlag`. Thus `flag newFeature`
+  is a boolean flag. A value of the type `object` is an object, an array
+  or `null`.
+- An error: a statement other than `source` and `flag` (e.g. `resource`),
+  two `source` statements, `source` after a flag, a name which is not an
+  identifier or which is a reserved word, an unknown field (with "Did you
+  mean …?"), a value of the wrong type, an empty `key`, options of
+  different types without `type`, an option two times, a name two times,
+  two flags with the same key and the same source, a key of an object two
+  times, and an integer which is not a safe integer of JavaScript. A warning: a `defaultValue` which is not one of the options.
+- Each diagnostic has a stable number (`DiagnosticCode`), and the offset
+  and the length of its text in the file.
+
+Why not an existing language: TOML needs `["a.b"]` for such a key and has
+no `null`. HCL uses `=` and has rules for blocks on one line which
+JavaScript developers do not expect. YAML turns `no` and `off` into
+booleans, which is wrong for the values of flags. TypeScript does not let
+a content mapper take `.flags.json`, because `.json` is a built-in
+extension. The body is JSON5 with new lines as separators, so a parser of
+another language is a small parser of JSON5 plus the two statements.
+
+### The name and the key
+
+A flag has a name and a key:
+
+- The name, after `flag`, is the name of the export: the application
+  imports it, e.g. `import { summerSale } from './app.flags'`. It is a name
+  of the code, as the name of a variable.
+- The key, in the field `key`, is the key of the flag in the flag
+  management system, e.g. `summer-sale`. It is what the provider gets, and
+  what the manifest and Flags Explorer show. Without `key`, the key is the
+  name.
+
+```js
+flag summerSale {
+  key: "summer-sale"
+}
+```
+
+The SDK never makes one from the other. Thus a key can have any
+characters, and the name in the code can change while the flag keeps its
+key.
+
+### The source of a flag
+
+The source of a flag is its field `source`, or else the source of its
+file. A file can thus have a flag of another source, for one case:
+
+```js
+source self
+
+flag summerSale
+
+flag heroText {
+  key: "hero-text"
+  source: "marketing"
+}
+```
+
+A key can be in one file once for each source: two flags with the same
+key and different sources are two flags.
+
+### Imports by source
+
+An application can also import a flag from its source, `flags:<source>`,
+which has the flags of that source from all flags files (see "The source
+of a flag"):
+
+```ts
+import { checkout, summerSale } from 'flags:self';
+// The same flag as
+import { summerSale } from './app.flags';
+```
+
+- `writeFlagsFileSources(directory)` of `flags/tooling` writes one module
+  for each source of the flags, `.flags/<source>.ts`. It re-exports the
+  flags of the source from each file, with their names:
+  `export { checkout, summerSale } from '../app.flags';`. It has no
+  `'use flags'`: the files register their flags, and the manifest names
+  the files as the declarations.
+- It writes `.flags/aliases.json` for the framework plugins, as the code
+  generation of catalogs does, and removes the module of a source which
+  no file has any more.
+- It writes `flags/generated.d.ts` (see "Where the types go" of "The
+  default source `self`"), with one `declare module 'flags:<source>'` for
+  each source. The type of each flag is the type of its export in its
+  file, `(typeof import('../app.flags'))['summerSale']`, with the JSDoc of
+  the flag. Thus it works with the content mapper and with the declaration
+  files of each flags file.
+- A key or a name in two files of one source is a conflict: the second
+  flag is not in `flags:<source>`. `flags sync` and a build fail with it,
+  e.g. `flags: The key "checkout" of the source "self" is declared in
+  app.flags and in checkout/checkout.flags. Declare it in one file.` The
+  dev servers report it, and go on.
+- `generateFlags` and `watchFlags` call it for an application with flags
+  files, and return its aliases, so the plugins of Next.js and Vite point
+  `flags:<source>` to the modules. The dev servers write the modules again
+  after each change of a flags file. A new source needs a restart, as its
+  alias is new.
+
+### The source
+
+A source is the folder `flags/sources/<source>` of the
+application (in its root or in `src`), as in "Code generation", but
+without `catalog.ts`:
+
+| File | Default export |
+| --- | --- |
+| `provider.ts` | The OpenFeature provider |
+| `context.ts` (optional) | `getEvaluationContext(request, input)` |
+| `hooks.ts` (optional) | The OpenFeature hooks of the source |
+
+The files can also be `.mts`, `.tsx`, `.js` or `.mjs`. The source `self`
+of an application which depends on `@vercel/flags-core` needs no
+`provider.ts`: its provider is `new VercelProvider()`, and its project
+`{ system: 'vercel-flags' }`. `"selfSource": false` in `flags/config.json`
+turns this off. Without a provider, the compilation throws, e.g.
+`The source "shop" needs flags/sources/shop/provider.ts.`
+
+The application directory is the nearest directory with a `package.json`,
+or the directory which the framework plugin gives.
+
+### The module
+
+`compileFlagsFile(text, { fileName })` of `flags/tooling` compiles a flags
+file into a module. It is the code that an application can write by hand:
+
+- the `'use flags'` directive;
+- the imports of `provider.ts`, `context.ts` and `hooks.ts`, relative to
+  the flags file, with their extension;
+- one `defineSource` for each source of the flags of the file, in the
+  order of the file (`source_0`, `source_1`, …), with the `project` of the
+  default source `self`;
+- `export const <name> = source_<n>.bindFlag(key, { type, options,
+  description, defaultValue })` for each flag, in the order of the file,
+  with a JSDoc of its description, its options, its default value, and
+  its key and its source if they are not the defaults;
+- the self-registration (`registerFlags` of `flags/runtime`), unless
+  `selfRegistration: false`.
+
+Each flags file has its own `defineSource` for each source. Two files with the same source
+share its provider and its `getEvaluationContext` (the steps of the
+context chain are cached by function, see "Cache"), and each
+`new VercelProvider()` without arguments uses the same client.
+
+The compilation throws a `FlagsFileError` with each error, e.g.:
+
+```txt
+app.flags:6:17 - error: A flags file has only plain values: strings, numbers, true, false, null, arrays and objects. Put text in quotes: "tru".
+
+    defaultValue: tru,
+                  ~~~
+```
+
+A flags file is a flags module of "Discovery": `findFlagsModules` returns
+it, and the manifest has its flags, with the declaration
+`{ module: 'app.flags', export: 'summerSale' }`.
+
+### In the frameworks
+
+| Setup | What compiles the flags files |
+| --- | --- |
+| Next.js, `withFlags` | A Turbopack rule `*.flags` with the loader `@flags-sdk/next/flags-file-loader` (`as: '*.js'`). The rule of `'use flags'` skips flags files |
+| Vite, SvelteKit, Nuxt, TanStack Start | The `transform` of the plugin `flags` |
+| Node.js without a bundler, e.g. Hono, Express | `node --import flags/register server.ts` (`module.registerHooks`, Node.js 22.15 or newer). It also lets relative imports leave out `.ts` |
+
+The loaders watch the folders of the sources, so a new `context.ts`
+changes the module.
+
+### TypeScript
+
+`renderFlagsFileTypes(text, { fileName })` gives the types of a flags
+file: one declaration for each flag, with the type which `bindFlag` gives
+to hand-written code (`Flag<Source, key, Input, FlagValueFrom<type, options>>`),
+the input of `context.ts`, and the same JSDoc. It never throws: a flag
+with an error is left out, and the diagnostics say why.
+
+There are two ways, and an application can have both:
+
+- **Declaration files** (each TypeScript version): a declaration file next
+  to each flags file, e.g. `app.d.flags.ts` for `app.flags`, with
+  `allowArbitraryExtensions` in `tsconfig.json`. The framework loaders and
+  `flags/register` write it when they compile the file
+  (`writeFlagsFileDeclaration` of `flags/tooling`), `flags sync` writes it
+  for each flags file, and `flags watch` and the dev servers write it
+  after each change. The SDK removes a declaration file with its own
+  header when its flags file is gone. Applications ignore `*.d.flags.ts`
+  in Git. Without a dev server (e.g. plain Node.js), a changed flags file
+  has new types after the next start, `flags watch` or `flags sync`.
+- **The content mapper** (TypeScript 7.1 and newer, optional): the
+  application adds it to `tsconfig.json`, and runs
+  `tsc --runExternalCode`. TypeScript then reads the flags files itself,
+  and the editor goes from an import to the flag in the flags file.
+
+  ```json
+  {
+    "contentMappers": [{ "package": "flags", "extensions": [".flags"] }]
+  }
+  ```
+
+  The `package.json` of `flags` has `typescript.contentMapper` with
+  `exec: ["node", "bin/content-mapper.js"]` and `dynamicConfig: true`. The
+  process speaks the JSON-RPC protocol of the content mappers (LSP
+  framing). Its `configIdentity` is a hash of the `package.json`, of
+  `flags/config.json` and of the files of the sources which exist, and it
+  watches them. Each export and each local declaration maps to the key of
+  its flag (`Alias`, with hover, definition, type definition, references
+  and highlights, but no rename: a new key is a new flag). The errors of
+  the file are diagnostics of the file. The warnings are not, because
+  `tsc` fails on each diagnostic.
+
+The SDK writes the declaration files also when `tsconfig.json` has the
+content mapper. Most editors run an older TypeScript (e.g. `vtsls` of
+Zed, or the TypeScript of VS Code without the extension of TypeScript 7),
+which reads the declaration files and ignores `contentMappers`.
+TypeScript 7.1 with `--runExternalCode` takes the content mapper over the
+declaration file: go to definition goes to the flags file. TypeScript 7.1
+without `--runExternalCode` takes the types from the declaration file, but
+fails on `contentMappers` (TS18068).
+
+### Editors
+
+- `packages/vscode-flags` is a VS Code extension: the language `flags`, a
+  TextMate grammar (`source.flags`), snippets, and the registration of the
+  content mapper with the extension of TypeScript 7.
+- The grammar marks `source` and `flag` (`keyword.other`), the key of each
+  flag (`entity.name.function`), the fields (`keyword.other.field`) and the
+  type (`support.type.primitive`). It marks as `invalid.illegal` what a
+  flags file does not allow: an unknown field, a key with `.` without
+  quotes, `#` comments, other statements, and expressions. Shiki can load
+  it.
+- `packages/tree-sitter-flags` is the Tree-sitter grammar, for Zed,
+  Neovim, Helix and other editors with Tree-sitter. It has the generated
+  parser (ABI 14, `pnpm --filter tree-sitter-flags generate`), queries for
+  highlights, folds and indents with the capture names of nvim-treesitter,
+  and tests (`pnpm --filter tree-sitter-flags test`), also of the
+  highlights. It accepts a little more than the SDK, e.g. two entries on
+  one line without a comma: the parser of the SDK is the reference. No two
+  patterns of the queries capture the same node, because editors do not
+  agree which capture wins.
+- `packages/zed-flags` is the extension of Zed: the language, highlights
+  with the capture names of Zed, brackets, indents, and the flags in the
+  outline. Zed builds the grammar from a commit (`rev` in
+  `extension.toml`, with `path = "packages/tree-sitter-flags"`).
+  `scripts/dev.mjs` prepares a dev extension with a local copy of the
+  grammar, before such a commit exists.
+- `formatFlagsFile(text, { fileName })` of `flags/tooling` formats a
+  flags file, and `flags format [paths...] [--check]` formats the files,
+  and the flags files of the folders (the default is the current
+  directory). `--check` writes nothing and fails if a file changes.
+  `flags format --stdin [--stdin-filepath <file>]` formats the standard
+  input to the standard output, for editors: Zed uses it as an external
+  formatter (`"formatter": { "external": … }` of the language `Flags`),
+  because an extension of Zed can not give a formatter without a language
+  server. The format:
+  - Two spaces. One entry on each line of an object or an array on many
+    lines, with new lines and without commas, as the examples of "The
+    format" show.
+  - An object or an array stays on one line if it was on one line, has no
+    comments, and fits into 80 columns, e.g.
+    `options: ["control", { value: "express", label: "Express" }]`, with
+    `, ` and spaces inside `{ }`. A new line after `{` or `[` keeps it on
+    many lines, as Prettier does with objects. This is also the rule of
+    the body of a flag: `flag a { defaultValue: true }` stays.
+  - Strings in double quotes, unless the string has more double quotes
+    than single quotes. The other escapes and the numbers stay as they
+    are. A key in quotes which is a simple name (`[A-Za-z_$][A-Za-z0-9_$]*`)
+    loses its quotes.
+  - One space between the parts of a statement. A blank line after
+    `source` and around a statement with more than one line. Other blank
+    lines stay, at most one.
+  - The comments stay. A comment at the end of a line stays there, also
+    after a comma. A comment between the parts of an entry or of a
+    statement, e.g. `key /* c */: "a"`, moves to its own line before it.
+    The lines of a `/** … */` comment get the indentation of its place.
+  - `\n` line endings, a new line at the end, and the byte order mark if
+    the file has one. An empty file stays empty.
+  - Only the syntax: a file with a syntax error throws a `FlagsFileError`
+    (`flags format` shows it, and writes nothing), while a file with other
+    errors, e.g. an unknown field, is formatted. The formatted file has
+    the same statements and values as the file.
+- GitHub does not know the language. `*.flags linguist-language=JSON5` in
+  `.gitattributes` highlights the strings, the keys and the comments. A
+  language of Linguist needs more use first.
+
+### Open
+
+- Remove the catalogs (see "Code generation") once flags files replace
+  them. `flags:<source>` stays, as the imports by source of the flags
+  files.
+- `flags check`: compare the flags files with the system, e.g. in CI: the
+  flags of the code which the system does not have, the flags of the
+  system which no file declares, and different types or options.
+- `flags import`: write a flags file from a catalog, for applications with
+  flags in a system already.
+- The platform creates the flags of the manifest in the system after a
+  deployment, so that an agent without access to the system can add a
+  flag.
+- The project of a source other than `self`, e.g. a `project.json` in the
+  folder of the source, for the links of Flags Explorer.
+- A language server for flags files, for the editors without TypeScript
+  7.1: diagnostics, completion of the fields, and hover. The Zed extension
+  can start it.
+- Publish the Zed extension, and set `rev` in `extension.toml` (it is a
+  placeholder now).
+- `node_modules/.bin/tsc` of TypeScript 7.1 beta replaces itself with the
+  native `tsc` through `process.execve(exe, args)`, without `env`. On
+  Node.js 22 (e.g. 22.19), this passes an empty environment, so
+  `exec: ["node", …]` does not find `node` (`executable file not found in
+  $PATH`). Node.js 24 passes `process.env`, and the native `tsc` works on
+  each version. Report it to TypeScript (pass `process.env`).
+
 ## Code generation
+
+An application with flags files does not use code generation (see "Flags
+files"). Flags files are planned to replace it.
 
 Code generation is optional. It writes the same code as `defineSource`
 and `source.bindFlag` by hand, from a catalog of the flag management system.

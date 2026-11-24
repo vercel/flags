@@ -1,0 +1,54 @@
+{
+  "name": "vscode-flags",
+  "displayName": "Flags files",
+  "description": "Syntax highlighting, snippets and TypeScript support for flags files (*.flags) of the Flags SDK",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "vercel",
+  "license": "MIT",
+  "homepage": "https://flags-sdk.dev/docs/flags/flags-files",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git",
+    "directory": "packages/vscode-flags"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:flags"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "flags",
+        "aliases": [
+          "Flags",
+          "flags"
+        ],
+        "extensions": [
+          ".flags"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "flags",
+        "scopeName": "source.flags",
+        "path": "./syntaxes/flags.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "flags",
+        "path": "./snippets/flags.code-snippets"
+      }
+    ]
+  }
+}

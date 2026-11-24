@@ -31,6 +31,10 @@ export default defineConfig({
     manifest: 'src/manifest.ts',
     tooling: 'src/tooling.ts',
     cli: 'src/cli.ts',
+    // Node.js hooks for flags files: node --import flags/register
+    'node-register': 'src/node-register.ts',
+    // The content mapper of TypeScript 7.1 for flags files
+    'content-mapper-server': 'src/content-mapper-server.ts',
   },
   format: ['esm', 'cjs'],
   splitting: true,

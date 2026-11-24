@@ -1,0 +1,52 @@
+{
+  "Boolean flag": {
+    "prefix": ["flag", "boolean"],
+    "body": [
+      "flag ${1:key} {",
+      "  description: \"${2:What the flag does}\"",
+      "  defaultValue: ${3|false,true|}",
+      "}",
+      "$0"
+    ],
+    "description": "A flag which is on or off"
+  },
+  "String flag": {
+    "prefix": ["string"],
+    "body": [
+      "flag ${1:key} {",
+      "  description: \"${2:What the flag does}\"",
+      "  options: [\"${3:control}\", \"${4:variant}\"]",
+      "  defaultValue: \"${3:control}\"",
+      "}",
+      "$0"
+    ],
+    "description": "A flag with a fixed list of strings"
+  },
+  "Number flag": {
+    "prefix": ["number"],
+    "body": [
+      "flag ${1:key} {",
+      "  description: \"${2:What the flag does}\"",
+      "  defaultValue: ${3:0}",
+      "}",
+      "$0"
+    ],
+    "description": "A flag with a number"
+  },
+  "Object flag": {
+    "prefix": ["object"],
+    "body": [
+      "flag ${1:key} {",
+      "  description: \"${2:What the flag does}\"",
+      "  defaultValue: { ${3:text}: \"${4:Welcome}\" }",
+      "}",
+      "$0"
+    ],
+    "description": "A flag with a JSON value"
+  },
+  "Source": {
+    "prefix": ["source"],
+    "body": ["source ${1:self}"],
+    "description": "The source of the flags of the file: the folder flags/sources/<name>"
+  }
+}

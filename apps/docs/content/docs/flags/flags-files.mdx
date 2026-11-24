@@ -1,0 +1,249 @@
+---
+title: Flags files
+description: Declare the flags of your application in app.flags, and import them like a module.
+---
+
+A flags file declares the flags of your application. You add a flag to `app.flags`, and import it:
+
+```js title="app.flags"
+source self
+
+flag summerSale {
+  key: "summer-sale"
+  description: "Shows the summer sale banner"
+  defaultValue: false
+}
+
+flag checkout {
+  description: "The checkout flow"
+  options: ["control", { value: "express", label: "Express checkout" }]
+  defaultValue: "control"
+}
+```
+
+```ts title="app/page.tsx"
+import { checkout, summerSale } from '../app.flags';
+
+const sale = await summerSale();
+const flow = await checkout(); // 'control' | 'express' | (string & {})
+```
+
+Each flag is a flag like each other: overrides, hooks, the evaluation context, one value per request and Flags Explorer work the same. Your flag management system still decides each value, with its rules and rollouts.
+
+## Why flags files
+
+Your code is the source of truth of which flags exist, and of what the code knows about each flag. Your flag management system is the source of truth of the values.
+
+- **A branch shows its flags.** A new flag is a new block in `app.flags`, so the diff of a pull request shows each flag which the branch adds, and nothing else.
+- **No network in the build.** The build and the type check read only your files. They work offline, in CI, and in a sandbox without credentials.
+- **Agents see the flags.** An agent reads `app.flags` and knows each flag, its type and its options, and adds a flag without access to your flag management system.
+- **A flag works before it exists.** Until you create the flag in your flag management system, it evaluates to its `defaultValue`.
+
+## The format
+
+A flags file has two statements:
+
+- `source <name>` names the default [source](#the-source) of the flags of the file, e.g. `source self`. It is optional, and the default is `self`.
+- `flag <name>` declares a flag. The name is a JavaScript name, e.g. `summerSale`, and it is what you import. See [The name and the key](#the-name-and-the-key).
+
+The body of a flag, in `{ … }`, is optional. It is an object of [JSON5](https://json5.org): JSON, plus keys without quotes, strings in single quotes, and trailing commas. A new line separates two fields, so you need a comma only between two fields on one line. Its fields are `key`, `source` and the options of [`bindFlag`](/docs/flags/provider-flags):
+
+| Field | Value |
+| --- | --- |
+| `key` | The key of the flag in your flag management system. Optional: the default is the name. |
+| `source` | The source of this flag, if it is not the source of the file. |
+| `description` | What the flag does. Your editor shows it on hover. |
+| `type` | `"boolean"`, `"string"`, `"number"` or `"object"`. Optional, see below. |
+| `defaultValue` | The value when the evaluation fails, e.g. before the flag exists in your flag management system. Without it, a failed evaluation throws. |
+| `options` | The values which the code knows, as values or as `{ value: …, label: "…" }`. They do not limit the value. |
+
+The type is `type`, or the type of `defaultValue`, or the type of the options. Without any of them, the flag is a boolean flag, so `flag newFeature` alone declares a boolean flag. An object flag takes an object, an array or `null`, and each of its options must be `{ value: … }`:
+
+```js title="app.flags"
+flag banner {
+  defaultValue: { text: "Welcome", color: "blue" }
+  options: [
+    { value: { text: "Welcome", color: "blue" }, label: "Default" }
+    { value: { text: "Sale!", color: "red" }, label: "Sale" }
+  ]
+}
+```
+
+Comments are `//` and `/* … */`, as in JavaScript.
+
+### Only plain values
+
+A flags file has only plain values: strings, numbers, `true`, `false`, `null`, arrays and objects. Nothing in a flags file runs. References, function calls, operators, template literals, `undefined`, `Infinity` and `NaN` are errors.
+
+### The name and the key
+
+The name after `flag` is the name in your code: you import it. The field `key` is the key of the flag in your flag management system. Without `key`, the key is the name:
+
+```js title="app.flags"
+flag checkout              // the key is "checkout"
+
+flag summerSale {
+  key: "summer-sale"       // the key in your flag management system
+}
+```
+
+```ts
+import { checkout, summerSale } from './app.flags';
+```
+
+So a key can have any characters, e.g. `-` or `.`, and you can rename a flag in your code and keep its key. A name which is not a JavaScript name, e.g. `flag summer-sale`, is an error with the fix: `flag summerSale { key: "summer-sale" }`.
+
+### A flag of another source
+
+A flag can have its own source, for a single case. The source of the file stays the default for the other flags:
+
+```js title="app.flags"
+source self
+
+flag summerSale
+
+flag heroText {
+  key: "hero-text"
+  source: "marketing"
+}
+```
+
+### Import from the source
+
+You can also import a flag from its [source](#the-source). `flags:self` has the flags of the source `self` from all flags files:
+
+```ts title="app/page.tsx"
+import { checkout, summerSale } from 'flags:self';
+import { heroText } from 'flags:marketing';
+```
+
+It is the same flag as the import from its file, so both work in one application. The plugin of your framework writes the modules of `flags:<source>` into `.flags`, which Git ignores, and their types into `flags/generated.d.ts`. Without a framework plugin, `flags sync` writes them. A key or a name in two files of one source is an error. Restart the dev server after you add a file with a new source.
+
+### Errors
+
+The build fails with the position of each error, and a hint:
+
+```txt
+app.flags:5:3 - error: Unknown field "defualtValue" in the flag "summerSale". Did you mean "defaultValue"?
+
+    defualtValue: false
+    ~~~~~~~~~~~~
+```
+
+The SDK checks that each value has the type of its flag, that each option is in `options` only once, and that each flag is in the file only once. A `defaultValue` which is not one of the options is a warning.
+
+## The source
+
+The source of a flags file is the folder `flags/sources/<source>` of your application, in its root or in `src`:
+
+```text
+app.flags            # source self (the default)
+app/
+  marketing.flags    # source marketing
+flags/
+  sources/
+    self/
+      provider.ts    # The OpenFeature provider
+      context.ts     # Optional: getEvaluationContext(request, input)
+      hooks.ts       # Optional: the OpenFeature hooks of the source
+    marketing/
+      provider.ts
+```
+
+With `@vercel/flags-core` in your dependencies, the source `self` needs no folder: it uses the flags of your Vercel project, with `new VercelProvider()`. Add `flags/sources/self/context.ts` to give it an evaluation context. See [Code generation](/docs/flags/code-generation#the-folder-of-a-source) for the files of a source.
+
+You can have more than one flags file, also with the same source, e.g. one file next to each feature. Fewer flags in one file also means fewer conflicts when you merge branches.
+
+## Set it up
+
+### Next.js, SvelteKit, Nuxt and TanStack Start
+
+The plugin of your framework compiles each flags file. You need nothing else: add [the plugin](/docs/flags/code-generation#2-add-the-plugin), and create `app.flags`.
+
+### Hono, Express and Node.js
+
+Without a bundler, start Node.js with the hooks of the SDK:
+
+```sh title="Terminal"
+node --import flags/register server.ts
+```
+
+```ts title="server.ts"
+import { summerSale } from './app.flags';
+```
+
+This needs Node.js 22.15 or newer.
+
+### TypeScript
+
+The SDK writes a declaration file next to each flags file, e.g. `app.d.flags.ts`, when the dev server, the build or `node --import flags/register` compiles it. Every editor and every TypeScript version reads it. Turn on `allowArbitraryExtensions`, and let Git ignore the files:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "allowArbitraryExtensions": true
+  }
+}
+```
+
+```txt title=".gitignore"
+*.d.flags.ts
+```
+
+Before a type check in CI, write them with `flags sync`:
+
+```json title="package.json"
+{
+  "scripts": {
+    "type-check": "flags sync && tsc --noEmit"
+  }
+}
+```
+
+Without a dev server, for example with plain Node.js, run `flags watch` while you edit flags files. It writes the declaration files again after each change.
+
+#### TypeScript 7.1
+
+With **TypeScript 7.1** or newer, you can also add the content mapper of `flags` to `tsconfig.json`, and run `tsc --runExternalCode`. TypeScript then reads the flags files itself, and your editor goes from an import to the flag in `app.flags`. The SDK still writes the declaration files, for editors with an older TypeScript.
+
+```json title="tsconfig.json"
+{
+  "contentMappers": [{ "package": "flags", "extensions": [".flags"] }]
+}
+```
+
+### Format
+
+`flags format` formats the flags files of the current directory, or of the files and folders which you give. `flags format --check` changes nothing, and fails if a file is not formatted, e.g. in CI:
+
+```sh
+npx flags format
+npx flags format --check
+```
+
+The formatter uses two spaces, one field on each line of a flag, and double quotes. A value which is on one line stays on one line while it fits into 80 columns, e.g. `options: ["control", "express"]`. Put a new line after `[` or `{` to keep it on many lines. The comments stay.
+
+`flags format --stdin` formats the standard input, for editors. In [Zed](https://zed.dev), with the extension of flags files, add it to `.zed/settings.json` of the project, and Zed formats flags files when you save them:
+
+```json title=".zed/settings.json"
+{
+  "languages": {
+    "Flags": {
+      "formatter": {
+        "external": {
+          "command": "npx",
+          "arguments": ["--no", "flags", "format", "--stdin", "--stdin-filepath", "{buffer_path}"]
+        }
+      }
+    }
+  }
+}
+```
+
+### GitHub
+
+GitHub does not know flags files yet. JSON5 is the closest language which it knows, and highlights the strings, the keys and the comments:
+
+```txt title=".gitattributes"
+*.flags linguist-language=JSON5
+```

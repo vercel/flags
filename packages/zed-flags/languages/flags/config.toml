@@ -1,0 +1,13 @@
+name = "Flags"
+grammar = "flags"
+path_suffixes = ["flags"]
+line_comments = ["// "]
+block_comment = ["/* ", " */"]
+tab_size = 2
+hard_tabs = false
+brackets = [
+  { start = "{", end = "}", close = true, newline = true },
+  { start = "[", end = "]", close = true, newline = true },
+  { start = "\"", end = "\"", close = true, newline = false, not_in = ["string", "comment"] },
+  { start = "'", end = "'", close = true, newline = false, not_in = ["string", "comment"] },
+]

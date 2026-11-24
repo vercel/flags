@@ -1,0 +1,6 @@
+tsconfig.tsbuildinfo
+# The types of the flags files, written by the Flags SDK on dev, build
+# and `flags sync`
+*.d.flags.ts
+# The types of flags:<source>, written by the Flags SDK in the same way
+flags/generated.d.ts

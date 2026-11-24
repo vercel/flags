@@ -96,10 +96,34 @@ describe('withFlags', () => {
 
     expect(config.turbopack?.rules?.['*.ts']).toEqual([
       {
-        condition: { all: [{ not: 'foreign' }, { content: /use flags/ }] },
+        condition: {
+          all: [
+            { not: 'foreign' },
+            { not: { path: /\.flags(\.js)?$/ } },
+            { content: /use flags/ },
+          ],
+        },
         loaders: ['@flags-sdk/next/use-flags-loader'],
       },
     ]);
+  });
+
+  it('compiles flags files with the loader of flags files', () => {
+    const dir = projectWith();
+    const config = withFlags<NextConfig>(
+      {},
+      { dir, disableCodeGeneration: true },
+    );
+
+    expect(config.turbopack?.rules?.['*.flags']).toEqual({
+      loaders: [
+        {
+          loader: '@flags-sdk/next/flags-file-loader',
+          options: { projectDir: dir },
+        },
+      ],
+      as: '*.js',
+    });
   });
 
   it('throws for a build with webpack', () => {

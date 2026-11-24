@@ -1,0 +1,17 @@
+// The flags of the shop. Each flag has the name which the code imports,
+// and its key in the flag management system. The rules and the rollout
+// stay in the flag management system.
+// See https://flags-sdk.dev/docs/flags/flags-files
+source self
+
+flag summerSale {
+  key: "summer-sale"
+  description: "Shows the summer sale banner"
+  defaultValue: false
+}
+
+flag checkout {
+  description: "The checkout flow"
+  options: ["control", { value: "express", label: "Express checkout" }]
+  defaultValue: "control"
+}

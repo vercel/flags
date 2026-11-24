@@ -1,0 +1,23 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "flags",
+      "camelcase": "Flags",
+      "title": "Flags",
+      "scope": "source.flags",
+      "file-types": ["flags"],
+      "highlights": "queries/highlights.scm",
+      "injection-regex": "^flags$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "The grammar of flags files (*.flags) of the Flags SDK",
+    "authors": [{ "name": "Vercel" }],
+    "links": {
+      "repository": "https://github.com/vercel/flags"
+    }
+  }
+}

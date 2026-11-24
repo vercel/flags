@@ -1,0 +1,25 @@
+{
+  "name": "tree-sitter-flags",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Tree-sitter grammar of flags files (*.flags) of the Flags SDK, for Zed, Neovim, Helix and other editors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vercel/flags.git",
+    "directory": "packages/tree-sitter-flags"
+  },
+  "files": [
+    "grammar.js",
+    "tree-sitter.json",
+    "queries",
+    "src"
+  ],
+  "scripts": {
+    "generate": "tree-sitter generate --abi 14",
+    "test": "tree-sitter test"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "0.27.2"
+  }
+}

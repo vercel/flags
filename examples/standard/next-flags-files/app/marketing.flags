@@ -1,0 +1,9 @@
+// A second source, next to the page which uses it
+source marketing
+
+flag heroText {
+  key: "hero-text"
+  description: "The headline of the home page"
+  options: ["Welcome", "Hello again"]
+  defaultValue: "Welcome"
+}

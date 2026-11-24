@@ -85,9 +85,12 @@ export function usesCacheComponents(config: NextConfig): boolean {
 }
 
 const LOADER = '@flags-sdk/next/use-flags-loader';
+const FLAGS_FILE_LOADER = '@flags-sdk/next/flags-file-loader';
 const MANIFEST_LOADER = '@flags-sdk/next/manifest-loader';
 // The module of the route of the manifest, in the build of this package
 const manifestModule = /[\\/]dist[\\/]manifest\.c?js$/;
+// A flags file, also after Turbopack renamed it with `as: '*.js'`
+const flagsFile = /\.flags(\.js)?$/;
 
 // Calls the compiled route of the manifest, and writes its result. In a
 // separate process, so that the modules of the application do not run in
@@ -161,7 +164,14 @@ function turbopackRules(
   existing: TurbopackRules | undefined,
   projectDir: string,
 ): TurbopackRules {
-  const rules: TurbopackRules = { ...existing };
+  const rules: TurbopackRules = {
+    ...existing,
+    // Flags files become modules with defineSource and source.bindFlag
+    '*.flags': {
+      loaders: [{ loader: FLAGS_FILE_LOADER, options: { projectDir } }],
+      as: '*.js',
+    },
+  };
   for (const extension of sourceExtensions) {
     const glob = `*.${extension}`;
     const current = rules[glob];
@@ -172,7 +182,14 @@ function turbopackRules(
           ? current
           : [current]),
       {
-        condition: { all: [{ not: 'foreign' }, { content: /use flags/ }] },
+        condition: {
+          all: [
+            { not: 'foreign' },
+            // A compiled flags file registers its flags itself
+            { not: { path: flagsFile } },
+            { content: /use flags/ },
+          ],
+        },
         loaders: [LOADER],
       },
       ...(extension === 'js' || extension === 'cjs'
@@ -218,8 +235,11 @@ export type NextConfigFunction<T extends object> = (
  *   that `@flags-sdk/next/precompute` needs no `FLAGS_PRECOMPUTE_SECRET`.
  * - With Cache Components, `FlagValues` encrypts in `'use cache'`, so that
  *   a static page can have encrypted flag values.
+ * - A flags file (`*.flags`) becomes a module of its flags, with the
+ *   source of its `source` (see "Flags files" in the spec of `flags`).
  * - It generates the modules of `flags:<source>` from `flags/sources`, and
- *   points the aliases `flags:<source>` to them in `.flags`.
+ *   points the aliases `flags:<source>` to them in `.flags`. An application
+ *   with flags files uses no catalogs.
  *
  * It supports only Turbopack, and keeps the aliases and the rules of the
  * configuration. A build with webpack throws. The configuration can also be

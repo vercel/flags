@@ -67,6 +67,10 @@
     "./manifest-loader": {
       "import": "./dist/manifest-loader.js",
       "require": "./dist/manifest-loader.cjs"
+    },
+    "./flags-file-loader": {
+      "import": "./dist/flags-file-loader.js",
+      "require": "./dist/flags-file-loader.cjs"
     }
   },
   "typesVersions": {
@@ -114,6 +118,10 @@
       "manifest-loader": [
         "dist/manifest-loader.d.ts",
         "dist/manifest-loader.d.cts"
+      ],
+      "flags-file-loader": [
+        "dist/flags-file-loader.d.ts",
+        "dist/flags-file-loader.d.cts"
       ],
       "*": [
         "dist/*.d.ts",

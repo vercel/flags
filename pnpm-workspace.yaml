@@ -21,6 +21,11 @@ peerDependencyRules:
 
 minimumReleaseAge: 2880
 
+# tree-sitter-cli downloads its binary in its install script, for
+# packages/tree-sitter-flags. No other dependency runs install scripts.
+onlyBuiltDependencies:
+  - tree-sitter-cli
+
 minimumReleaseAgeExclude:
   - 'flags'
   - 'next'

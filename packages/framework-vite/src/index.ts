@@ -10,8 +10,11 @@
  * - The manifest of the flags, e.g. for Flags Explorer: in development at
  *   `/.well-known/flags/manifest.json`, and after a build as
  *   `flags-manifest.json` in the directory of the server output.
+ * - Flags files (`*.flags`): each becomes a module of its flags, with the
+ *   source of its `source` (see "Flags files" in the spec of `flags`).
  * - The modules of `flags:<source>`, generated from the catalogs of
- *   `flags/sources`, unless `disableCodeGeneration` is set.
+ *   `flags/sources`, unless `disableCodeGeneration` is set. An application
+ *   with flags files uses no catalogs.
  *
  * It is also a Rollup plugin, e.g. for the server build of Nitro.
  */
@@ -22,10 +25,14 @@ import { createManifest } from 'flags/manifest';
 import { runtime } from 'flags/runtime';
 import {
   addSelfRegistration,
+  compileFlagsFile,
+  FLAGS_FILE_EXTENSION,
   findConfigModules,
   findFlagsModules,
   hasUseFlagsDirective,
   MANIFEST_FILE,
+  sourceDirectoryCandidates,
+  writeFlagsFileDeclaration,
   writeManifestFromBuild,
 } from 'flags/tooling';
 import type { Plugin, ViteDevServer } from 'vite';
@@ -243,6 +250,36 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
     },
     transform(code, id, transformOptions) {
       const file = id.split('?')[0] ?? id;
+      // A flags file becomes a module with defineSource and source.bindFlag
+      if (
+        file.endsWith(FLAGS_FILE_EXTENSION) &&
+        !file.includes('/node_modules/')
+      ) {
+        const compiled = compileFlagsFile(code, {
+          fileName: file,
+          projectDirectory: root,
+        });
+        // A new provider.ts or context.ts of a source changes the module
+        for (const source of compiled.sources) {
+          for (const directory of sourceDirectoryCandidates(
+            root,
+            source.name,
+          )) {
+            for (const part of ['provider', 'context', 'hooks']) {
+              this.addWatchFile(join(directory, `${part}.ts`));
+            }
+          }
+        }
+        for (const warning of compiled.warnings) {
+          this.warn(`flags: ${file}: ${warning.message}`);
+        }
+        try {
+          writeFlagsFileDeclaration(file, code, root);
+        } catch {
+          // The types are a convenience, the module is what counts
+        }
+        return { code: compiled.code, map: null };
+      }
       if (
         !isServer(this, transformOptions?.ssr, vite) ||
         file.includes('/node_modules/') ||

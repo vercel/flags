@@ -1,0 +1,149 @@
+==================
+Source and a flag without a body
+==================
+
+source self
+flag newFeature
+
+---
+
+(source_file
+  (source_statement
+    name: (name))
+  (flag_statement
+    name: (identifier)))
+
+==================
+A source in quotes, and the key of a flag
+==================
+
+source "my-source"
+flag summerSale { key: "summer-sale" }
+
+---
+
+(source_file
+  (source_statement
+    name: (string
+      (string_content)))
+  (flag_statement
+    name: (identifier)
+    body: (object
+      (pair
+        key: (identifier)
+        value: (string
+          (string_content))))))
+
+==================
+Fields with new lines instead of commas
+==================
+
+flag checkout {
+  description: "The checkout flow"
+  options: [
+    "control"
+    { value: "express", label: 'Express' }
+  ]
+  defaultValue: "control",
+}
+
+---
+
+(source_file
+  (flag_statement
+    name: (identifier)
+    body: (object
+      (pair
+        key: (identifier)
+        value: (string
+          (string_content)))
+      (pair
+        key: (identifier)
+        value: (array
+          (string
+            (string_content))
+          (object
+            (pair
+              key: (identifier)
+              value: (string
+                (string_content)))
+            (pair
+              key: (identifier)
+              value: (string
+                (string_content))))))
+      (pair
+        key: (identifier)
+        value: (string
+          (string_content))))))
+
+==================
+Values and comments
+==================
+
+// A comment
+/* A comment
+   on two lines */
+flag banner {
+  defaultValue: { text: "a \"b\"\n", size: -1.5e3, hex: 0xff, on: true, off: false, none: null } // after
+}
+
+---
+
+(source_file
+  (comment)
+  (comment)
+  (flag_statement
+    name: (identifier)
+    body: (object
+      (pair
+        key: (identifier)
+        value: (object
+          (pair
+            key: (identifier)
+            value: (string
+              (string_content)
+              (escape_sequence)
+              (string_content)
+              (escape_sequence)
+              (escape_sequence)))
+          (pair
+            key: (identifier)
+            value: (number))
+          (pair
+            key: (identifier)
+            value: (number))
+          (pair
+            key: (identifier)
+            value: (true))
+          (pair
+            key: (identifier)
+            value: (false))
+          (pair
+            key: (identifier)
+            value: (null))))
+      (comment))))
+
+==================
+A source with "-" without quotes, and a flag with its own source
+==================
+
+source my-source
+flag summerSale
+flag teaser {
+  source: "marketing"
+}
+
+---
+
+(source_file
+  (source_statement
+    name: (name))
+  (flag_statement
+    name: (identifier))
+  (flag_statement
+    name: (identifier)
+    body: (object
+      (pair
+        key: (identifier)
+        value: (string
+          (string_content))))))
