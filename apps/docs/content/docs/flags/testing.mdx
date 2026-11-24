@@ -123,43 +123,18 @@ it('evaluates the in-memory flag', async () => {
 
 The source `self` of an application which depends on `@vercel/flags-core` can have no `provider.ts`. Then add `flags/sources/self/provider.ts` with `export default new VercelProvider();`, so that the test can mock it.
 
-Add the plugin `flags` of `@flags-sdk/vite` to `vitest.config.ts`, so that Vitest compiles the flags files. Turn off its code generation with `disableCodeGeneration: true`: Vitest runs the plugin as a dev server, so the plugin watches the flags files, and Vitest does not exit after the tests.
+Add the plugin `flags` of `@flags-sdk/vite` to `vitest.config.ts`, so that Vitest compiles the flags files:
 
 ```ts title="vitest.config.ts"
 import { flags } from '@flags-sdk/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [flags({ disableCodeGeneration: true })],
+  plugins: [flags()],
 });
 ```
 
-Then import the flags from their files. To import from `flags:<source>` in tests, run `flags sync` before the tests, and point `flags:<source>` to `.flags/<source>.ts`:
-
-```ts title="vitest.config.ts"
-import path from 'node:path';
-import { flags } from '@flags-sdk/vite';
-import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
-  plugins: [flags({ disableCodeGeneration: true })],
-  resolve: {
-    alias: [
-      { find: /^flags:(.+)$/, replacement: `${path.resolve('.flags')}/$1.ts` },
-    ],
-  },
-});
-```
-
-```json title="package.json"
-{
-  "scripts": {
-    "test": "flags sync && vitest run"
-  }
-}
-```
-
-If your `vitest.config.ts` uses the plugin of your framework, e.g. `flags()` of `@flags-sdk/sveltekit/vite`, also give it `disableCodeGeneration: true` for the tests.
+Under Vitest, the plugin writes the modules of `flags:<source>` one time and points `flags:<source>` to them, so the tests can import the flags from their files or from their sources. It does not watch the flags files, so `vitest run` exits after the tests. The plugin of your framework, e.g. `flags()` of `@flags-sdk/sveltekit/vite`, works the same way.
 
 Close the providers after the tests, e.g. in a setup file of `test.setupFiles` in `vitest.config.ts`:
 

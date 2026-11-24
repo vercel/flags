@@ -1888,6 +1888,9 @@ of "Flags files").
   after `flags sync`.
 - Vite: the plugin writes in its `config` hook, before Vite resolves the
   imports. It watches for `vite dev`, and writes one time for `vite build`.
+  Under Vitest (`process.env.VITEST`), it writes one time too: Vitest runs
+  the plugin with `serve`, but has no HTTP server whose close would end the
+  watch, so `vitest run` would not exit.
 - Nuxt: the module writes before the build, gives the aliases to Vite and
   to Nitro, and adds `flags/generated.d.ts` to the types of Nuxt with the
   hook `prepare:types` (found with `findGeneratedDeclarations`).

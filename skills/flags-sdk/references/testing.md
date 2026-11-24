@@ -106,24 +106,19 @@ it('evaluates the in-memory flag', async () => {
 
 The default source `self` of `@vercel/flags-core` has no `provider.ts` to mock. Add `flags/sources/self/provider.ts` (`export default new VercelProvider()`), or mock the flags file itself (`vi.mock('./app.flags', ...)`).
 
-The test runner must compile the flags files. Add the plugin `flags()` of `@flags-sdk/vite` with `disableCodeGeneration: true`. Without that option, the plugin watches the flags files (Vitest runs it as a dev server), and `vitest run` does not exit ("close timed out after 10000ms"). The same applies to a framework plugin in the Vitest config, e.g. `flags()` of `@flags-sdk/sveltekit/vite`.
+The test runner must compile the flags files. Add the plugin `flags()` of `@flags-sdk/vite` (or the plugin of the framework, e.g. `flags()` of `@flags-sdk/sveltekit/vite`):
 
 ```ts
 // vitest.config.ts
-import path from 'node:path';
 import { flags } from '@flags-sdk/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [flags({ disableCodeGeneration: true })],
-  resolve: {
-    // Only for imports from flags:<source>. Run `flags sync` before the tests.
-    alias: [{ find: /^flags:(.+)$/, replacement: `${path.resolve('.flags')}/$1.ts` }],
-  },
+  plugins: [flags()],
 });
 ```
 
-With imports only from the flags files (e.g. `./app.flags`), leave out the alias and `flags sync`. With `flags:<source>`, use `"test": "flags sync && vitest run"`.
+Under Vitest (`process.env.VITEST`), the plugin writes the modules of `flags:<source>` one time and adds their aliases, and it does not watch the flags files, so `vitest run` exits. Tests can import from `./app.flags` and from `flags:<source>`. After a change of a flags file, restart `vitest` in watch mode.
 
 Close the providers after the tests:
 

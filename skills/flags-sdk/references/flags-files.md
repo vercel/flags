@@ -241,4 +241,4 @@ The flags files only shape the code. At runtime, the provider decides every valu
 
 ## Tests
 
-In Vitest, add `flags({ disableCodeGeneration: true })` of `@flags-sdk/vite`, so that the flags files compile and `vitest run` exits. For imports from `flags:<source>`, run `flags sync` before the tests and alias `flags:<source>` to `.flags/<source>.ts`. See [testing.md](testing.md#with-flags-files).
+In Vitest, add `flags()` of `@flags-sdk/vite`. Under Vitest, it writes the modules of `flags:<source>` one time and does not watch, so `vitest run` exits. See [testing.md](testing.md#with-flags-files).

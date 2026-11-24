@@ -49,7 +49,7 @@ export function myFrameworkFlags() {
 | `bundle`          | More packages to bundle into the server code, e.g. the package of the binding   |
 | `dedupe`          | Packages which the binding imports, which must be the copy of the project       |
 | `projectModules`  | Modules which the binding imports, by the first package which the project has   |
-| `disableCodeGeneration` | Turns off the code generation. By default, the plugin writes `.flags/<source>.ts` and `flags/generated.d.ts` from the flags files: one time for a build, and again after each change of a flags file for the dev server. It adds the aliases `flags:<source>` |
+| `disableCodeGeneration` | Turns off the code generation. By default, the plugin writes `.flags/<source>.ts` and `flags/generated.d.ts` from the flags files: one time for a build and under Vitest, and again after each change of a flags file for the dev server. It adds the aliases `flags:<source>` |
 | `manifest`        | Whether a build writes `flags-manifest.json`. The default is `true`             |
 | `root`            | The directory of the project. The default is the root of Vite                   |
 

@@ -192,7 +192,10 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       // As a plain Rollup plugin, e.g. in Nitro, there is no config hook, so
       // a framework module generates the code itself
       if (!options.disableCodeGeneration) {
-        generation = startCodeGeneration(dir, env.command === 'serve');
+        // Vitest runs the plugin with `serve`, but has no HTTP server whose
+        // close would end the watch, so it writes the modules one time
+        const watch = env.command === 'serve' && !process.env.VITEST;
+        generation = startCodeGeneration(dir, watch);
         aliases = resolveAliases(dir, await generation.ready);
       }
       if (!options.binding && Object.keys(aliases).length === 0) return;

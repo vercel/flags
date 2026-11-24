@@ -68,6 +68,29 @@ describe('code generation of flags:<source>', () => {
   });
 });
 
+describe('code generation under Vitest', () => {
+  it('writes the modules one time for serve, and does not watch', async () => {
+    // Vitest sets VITEST, and runs the plugin with the command serve
+    expect(process.env.VITEST).toBeTruthy();
+    const dir = mkdtempSync(join(tmpdir(), 'flags-vite-'));
+    writeFileSync(join(dir, 'package.json'), '{}');
+    writeFileSync(join(dir, 'app.flags'), 'flag enableSale\n');
+
+    await configOf(flags())({ root: dir }, { command: 'serve' });
+    expect(readFileSync(join(dir, '.flags/self.ts'), 'utf8')).toContain(
+      'enableSale',
+    );
+
+    // A watch would write the module again after this change
+    writeFileSync(join(dir, 'app.flags'), 'flag enableSale\n\nflag checkout\n');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(readFileSync(join(dir, '.flags/self.ts'), 'utf8')).not.toContain(
+      'checkout',
+    );
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
 describe('code generation by default', () => {
   it('writes nothing without flags files, and the types into src/flags', async () => {
     const empty = mkdtempSync(join(tmpdir(), 'flags-vite-'));
