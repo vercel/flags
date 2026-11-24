@@ -61,7 +61,7 @@ Options, the second argument of `new PostHogProvider(client, options)`:
 
 `getProviderData` returns `{ definitions, hints }`, the data which [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer) reads from the endpoint `/.well-known/vercel/flags`. The definitions contain the description, the options and a link to the dashboard of each flag. When the request fails or an option is missing, `definitions` is empty and `hints` tells why.
 
-Flags Explorer cannot yet load this metadata from a provider itself. If you want it in Flags Explorer, serve it from your application.
+`getProviderData` exists only for compatibility with the old endpoint `/.well-known/vercel/flags` of Flags Explorer, which the Flags SDK v5 no longer creates. Flags Explorer cannot yet load this metadata from a provider itself. Until it can, an application which wants the metadata in Flags Explorer serves the result of `getProviderData` from that endpoint. After that, `getProviderData` is no longer needed.
 
 `getProviderData` supports either a project secret API key or a personal API key.
 With a personal API key, it reads the paginated management API:
