@@ -99,7 +99,7 @@
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.7.0",
-    "@opentelemetry/api-logs": "^0.223.0",
+    "@opentelemetry/api-logs": ">=0.203.0 <0.300.0",
     "next": "*",
     "react": "*",
     "react-dom": "*"
