@@ -13,6 +13,7 @@ import { type FSWatcher, readFileSync, watch, writeFileSync } from 'node:fs';
 import { readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { findFiles, findFlagsFiles } from '../find-flags-modules';
+import { GENERATED_DIRECTORY } from '../generated-directory';
 import { formatDiagnostics, renderFlagsFileTypes } from './compile';
 import { FLAGS_FILE_EXTENSION } from './document';
 
@@ -155,7 +156,13 @@ export function watchFlagsFileDeclarations(
     clearTimeout(timer);
     timer = setTimeout(() => {
       running = running
-        .then(() => write())
+        .then(async () => {
+          // No write after the watch ends, e.g. while the folder is removed
+          if (signal.aborted) {
+            return { problems: [] };
+          }
+          return write();
+        })
         .then(({ problems }) => {
           if (problems.length > 0) {
             onProblems(problems);
@@ -172,6 +179,11 @@ export function watchFlagsFileDeclarations(
   for (const directory of directories) {
     try {
       const watcher = watch(directory, { signal }, (_event, name) => {
+        // The output folder .flags ends with the extension too: a write into
+        // it must not schedule the next write
+        if (name === GENERATED_DIRECTORY) {
+          return;
+        }
         if (
           name === null ||
           name.endsWith(FLAGS_FILE_EXTENSION) ||

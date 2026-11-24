@@ -15,7 +15,9 @@ afterEach(async () => {
 
 async function app(): Promise<string> {
   const directory = await mkdtemp(path.join(tmpdir(), 'flags-generate-'));
-  cleanups.push(() => rm(directory, { recursive: true, force: true }));
+  cleanups.push(() =>
+    rm(directory, { recursive: true, force: true, maxRetries: 5 }),
+  );
   await writeFile(path.join(directory, 'package.json'), '{}');
   return directory;
 }
