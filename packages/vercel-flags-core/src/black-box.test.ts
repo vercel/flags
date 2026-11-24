@@ -4788,6 +4788,115 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
+    // With salt 4242, `user_123` is in slot 369 of the layer.
+    const makeLayeredDefinitions = (
+      slots: Packed.experimental_LayerDefinition['slots'],
+    ): BundledDefinitions['definitions'] => ({
+      flagA: {
+        ...definitions.flagA!,
+        experiment: {
+          ...definitions.flagA!.experiment!,
+          layer: { id: 'layer_a', salt: 4242, slots },
+        },
+      },
+    });
+
+    it.each<{
+      caseName: string;
+      slots: Packed.experimental_LayerDefinition['slots'];
+      variantId: string;
+      assignmentReason: string;
+    }>([
+      {
+        caseName: 'an owned slot',
+        slots: [[0, 999]],
+        variantId: 'treatment-a',
+        assignmentReason: 'experiment',
+      },
+      {
+        caseName: 'a slot that is not owned',
+        slots: [],
+        variantId: 'control-a',
+        assignmentReason: 'not-in-layer',
+      },
+    ])('reports the layer ID for $caseName', async ({
+      slots,
+      variantId,
+      assignmentReason,
+    }) => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions: makeLayeredDefinitions(slots) }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity);
+
+      expect(result).toMatchObject({
+        value: variantId,
+        experiment: { layerId: 'layer_a', assignmentReason },
+      });
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId,
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            layerId: 'layer_a',
+            assignmentReason,
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('reports the layer ID for overrides', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions: makeLayeredDefinitions([]) }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await client.experimental_reportOverride!({
+        key: 'flagA',
+        value: 'treatment-a',
+        entities: entity,
+      });
+
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'treatment-a',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            layerId: 'layer_a',
+            assignmentReason: 'override',
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
     it('can disable exposure logging for a single evaluation', async () => {
       const reportExposures = vi.fn();
       const client = createClient<typeof entity>(sdkKey, {

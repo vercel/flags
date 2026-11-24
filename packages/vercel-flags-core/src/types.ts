@@ -152,9 +152,20 @@ export type experimental_EvaluationOptions = {
   experimental_exposureLogging?: boolean;
 };
 
+/**
+ * How an evaluation of a flag that is linked to an experiment received its value.
+ *
+ * - `experiment`: the unit is enrolled and was randomized into a variant.
+ * - `not-enrolled`: the unit is missing, or it is outside the ramp.
+ * - `not-in-layer`: the experiment runs in a layer, and the unit is in a slot
+ *   that the experiment does not own, or the layer data is not valid.
+ * - `targeted`, `split`, `variant`, `rollout`: another flag outcome served the value.
+ * - `override`: the value came from an override.
+ */
 export type experimental_ExperimentAssignmentReason =
   | 'experiment'
   | 'not-enrolled'
+  | 'not-in-layer'
   | 'targeted'
   | 'split'
   | 'variant'
@@ -173,6 +184,8 @@ export type experimental_ExperimentAssignment = {
   rampId?: string;
   /** Percentage of eligible units included in the ramp, from 0 through 100. */
   rampPercentage?: number;
+  /** Identifier of the layer in which the experiment runs. */
+  layerId?: string;
   /** How this evaluation received its value. */
   assignmentReason: experimental_ExperimentAssignmentReason;
 };
@@ -191,6 +204,8 @@ export type experimental_Exposure = {
   rampId?: string;
   /** Percentage of eligible units included in the ramp, from 0 through 100. */
   rampPercentage?: number;
+  /** Identifier of the layer in which the experiment runs. */
+  layerId?: string;
   /** How this evaluation received its value. */
   assignmentReason: experimental_ExperimentAssignmentReason;
 };
@@ -675,6 +690,11 @@ export namespace Original {
     rampId?: string;
     /** Percentage from 0 through 100. */
     rampPercentage?: number;
+    /**
+     * Layer in which the experiment runs. Only present while the experiment
+     * runs in a layer. When present, the slots replace the ramp check.
+     */
+    layer?: Packed.experimental_LayerDefinition;
   };
 
   export type SegmentAllOutcome = {
@@ -922,6 +942,28 @@ export namespace Packed {
     rampId?: string;
     /** Percentage of eligible units included in the ramp, from 0 through 100. */
     rampPercentage?: number;
+    /**
+     * Layer in which the experiment runs. Only present while the experiment
+     * runs in a layer. When present, the slots replace the ramp check.
+     */
+    layer?: experimental_LayerDefinition;
+  };
+
+  /**
+   * Mutual exclusion layer of an experiment. A layer has 1,000 slots, from 0
+   * through 999. A unit is in the slot
+   * `floor(xxHash32(unit, salt) * 1000 / 2 ** 32)`.
+   */
+  export type experimental_LayerDefinition = {
+    /** Layer identifier. */
+    id: string;
+    /** Stable seed used only to put units in slots. */
+    salt: number;
+    /**
+     * Slots that the experiment owns: single slots and inclusive
+     * `[start, end]` ranges, for example `[0, [5, 10], 96]`.
+     */
+    slots: Array<number | [number, number]>;
   };
 
   export type SegmentAllOutcome = 1;

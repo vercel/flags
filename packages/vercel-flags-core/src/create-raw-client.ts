@@ -12,6 +12,7 @@ import {
   type ControllerInstance,
   controllerInstanceMap,
 } from './controller-fns';
+import { getExperimentLayerId } from './evaluate';
 import type {
   BulkEvaluateInput,
   BundledDefinitions,
@@ -112,6 +113,9 @@ export function createCreateRawClient(fns: {
         ...(result.experiment.rampPercentage === undefined
           ? {}
           : { rampPercentage: result.experiment.rampPercentage }),
+        ...(result.experiment.layerId === undefined
+          ? {}
+          : { layerId: result.experiment.layerId }),
         assignmentReason: result.experiment.assignmentReason,
       };
     }
@@ -272,6 +276,7 @@ export function createCreateRawClient(fns: {
                 base: experiment.base,
                 rampId: experiment.rampId,
                 rampPercentage: experiment.rampPercentage,
+                layerId: getExperimentLayerId(experiment),
                 assignmentReason: 'override',
               },
             ],

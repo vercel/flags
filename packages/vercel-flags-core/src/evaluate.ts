@@ -44,6 +44,10 @@ function boundaryFor(numerator: number, denominator: number): number {
 // cumulative cut points are computed once and reused across evaluations.
 const splitBoundariesCache = new WeakMap<object, number[]>();
 const compiledRegexCache = new WeakMap<object, RegExp>();
+const layerSlotsCache = new WeakMap<object, Uint8Array | null>();
+
+/** Number of slots in a layer. Changing it moves every unit to another slot. */
+const LAYER_SLOT_COUNT = 1000;
 
 /**
  * Cumulative hash boundaries for a split, one per variant in index order.
@@ -61,6 +65,87 @@ function getSplitBoundaries(outcome: { weights: number[] }): number[] {
   }
   splitBoundariesCache.set(outcome, boundaries);
   return boundaries;
+}
+
+function isLayerSlot(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value < LAYER_SLOT_COUNT
+  );
+}
+
+/**
+ * Marks the slots that a layer entry list owns, or returns `null` when the
+ * layer data is not valid. Entries can come in any order and can overlap.
+ */
+function parseLayerSlots(layer: {
+  id?: unknown;
+  salt?: unknown;
+  slots?: unknown;
+}): Uint8Array | null {
+  if (
+    typeof layer.id !== 'string' ||
+    !Number.isInteger(layer.salt) ||
+    !Array.isArray(layer.slots)
+  ) {
+    return null;
+  }
+  const owned = new Uint8Array(LAYER_SLOT_COUNT);
+  for (const entry of layer.slots as unknown[]) {
+    if (isLayerSlot(entry)) {
+      owned[entry] = 1;
+      continue;
+    }
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      return null;
+    }
+    const [start, end] = entry;
+    if (!isLayerSlot(start) || !isLayerSlot(end) || start > end) {
+      return null;
+    }
+    owned.fill(1, start, end + 1);
+  }
+  return owned;
+}
+
+/**
+ * Whether the experiment owns the layer slot of the unit. Layer data that is
+ * not valid owns no slot, so the unit is never enrolled.
+ */
+function ownsLayerSlot(layer: unknown, unit: string): boolean {
+  if (typeof layer !== 'object' || layer === null) {
+    return false;
+  }
+  let owned = layerSlotsCache.get(layer);
+  if (owned === undefined) {
+    owned = parseLayerSlots(layer);
+    layerSlotsCache.set(layer, owned);
+  }
+  if (owned === null) {
+    return false;
+  }
+  const salt = (layer as Packed.experimental_LayerDefinition).salt;
+  const slot = Math.floor(
+    (hashInput(unit, salt) * LAYER_SLOT_COUNT) / HASH_SPACE,
+  );
+  return owned[slot] === 1;
+}
+
+/** The layer ID of an experiment, when its layer has a string ID. */
+export function getExperimentLayerId(
+  experiment: Packed.experimental_ExperimentDefinition,
+): string | undefined {
+  const layer: unknown = experiment.layer;
+  if (typeof layer !== 'object' || layer === null) {
+    return undefined;
+  }
+  const { id } = layer as { id?: unknown };
+  if (typeof id !== 'string') {
+    return undefined;
+  }
+  return id;
 }
 
 function getCompiledRegex(rhs: { pattern: string; flags: string }): RegExp {
@@ -448,7 +533,7 @@ function experimentAssignment(
   assignmentReason: experimental_ExperimentAssignmentReason,
 ): experimental_ExperimentAssignment | undefined {
   if (variantId === null) return undefined;
-  return {
+  const assignment: experimental_ExperimentAssignment = {
     id: experiment.id,
     variantId,
     base: experiment.base,
@@ -456,6 +541,11 @@ function experimentAssignment(
     rampPercentage: experiment.rampPercentage,
     assignmentReason,
   };
+  const layerId = getExperimentLayerId(experiment);
+  if (layerId !== undefined) {
+    assignment.layerId = layerId;
+  }
+  return assignment;
 }
 
 function outcomeAssignmentReason(
@@ -532,13 +622,23 @@ function resolveOutcome<T>(
         return assignment(defaultVariant, 'not-enrolled');
       }
 
-      const rampPercentage = experiment.rampPercentage ?? 100;
-      const enrolled =
-        rampPercentage >= 100 ||
-        (rampPercentage > 0 &&
-          hashInput(unitValue, experiment.enrollmentSeed) <
-            boundaryFor(rampPercentage, 100));
-      if (!enrolled) return assignment(defaultVariant, 'not-enrolled');
+      // In a layer, the owned slots are the ramp, so the enrollmentSeed ramp
+      // check does not apply.
+      if (experiment.layer !== undefined) {
+        if (!ownsLayerSlot(experiment.layer, unitValue)) {
+          return assignment(defaultVariant, 'not-in-layer');
+        }
+      } else {
+        const rampPercentage = experiment.rampPercentage ?? 100;
+        const enrolled =
+          rampPercentage >= 100 ||
+          (rampPercentage > 0 &&
+            hashInput(unitValue, experiment.enrollmentSeed) <
+              boundaryFor(rampPercentage, 100));
+        if (!enrolled) {
+          return assignment(defaultVariant, 'not-enrolled');
+        }
+      }
 
       const index = getWeightedVariantIndex(
         params,

@@ -91,6 +91,17 @@ type FlagsClient = {
 4. Evaluate segment-based rules against entity context
 5. Return fallthrough default if no match
 
+### Experiment outcomes and layers
+
+On an `experiment` outcome, `resolveOutcome` reads the unit from `experiment.base`. A missing or non-string unit gets control with reason `not-enrolled`.
+
+- Without `experiment.layer`: the `enrollmentSeed` ramp check (`rampPercentage`) decides enrollment. A unit outside the ramp gets control with reason `not-enrolled`.
+- With `experiment.layer` (`{ id, salt, slots }`): the unit is in slot `floor(xxHash32(unit, salt) * 1000 / 2**32)`. A layer has 1,000 slots. `slots` holds single slots and inclusive `[start, end]` ranges, in any order. If the experiment does not own the slot, the unit gets control with reason `not-in-layer`. The ramp check does not apply, because the owned slots are the ramp.
+- Layer data that is not valid (no string `id`, no integer `salt`, `slots` not an array, or an entry that is not a slot from 0 to 999 or an ascending range of two slots) fails closed: control with reason `not-in-layer`. Evaluation never throws for it. Unknown fields are ignored.
+- An enrolled unit gets a variant from the flag `seed` and the experiment `weights`, with reason `experiment`.
+
+The parsed slot list is cached in a WeakMap keyed by the layer object (`layerSlotsCache`). Assignments and exposures include `layerId` for every reason when the layer has a string `id`. The API owns slot selection; the SDK only checks if the experiment owns the slot of the unit.
+
 ### Controller Options
 
 ```typescript
