@@ -61,7 +61,7 @@ export const checkout = shop.bindFlag('checkout', {
 
 - Each flag has `variants`, a `defaultVariant` and `disabled`. A `contextEvaluator` returns the name of the variant for an evaluation context.
 - The evaluation context is what the source's `getEvaluationContext` returns, so the rules can use the request, e.g. a cookie.
-- With the file system API, the provider is the default export of `flags/sources/self/provider.ts`, e.g. `export default new TypedInMemoryProvider({ ... })`, and the code generation writes the source and the flags. See [Code generation](/docs/flags/code-generation).
+- With flags files, the provider is the default export of `flags/sources/self/provider.ts`, e.g. `export default new TypedInMemoryProvider({ ... })`, and you declare the flags in a flags file. See [Code generation](/docs/flags/code-generation#the-folder-of-a-source).
 - For tests, see [Testing](/docs/flags/testing). You can also set values for one browser with an [override](/docs/tooling/overrides), without changing the provider.
 
 ## A provider object

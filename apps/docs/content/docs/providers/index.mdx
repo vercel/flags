@@ -15,9 +15,9 @@ This means:
 
 Flags do not use a provider directly. They use a **source**: a provider, plus the function which creates the evaluation context for it, plus an optional description of the flag project for tools. Each flag is declared on its source.
 
-### With the file system API
+### With flags files
 
-With a framework with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), a source is a folder. By convention, the main source of an app is `self`, in `flags/sources/self/`. The provider is the default export of `provider.ts`:
+With [flags files](/docs/flags/flags-files), a source is a folder. By convention, the main source of an app is `self`, in `flags/sources/self/`. The provider is the default export of `provider.ts`:
 
 ```ts title="flags/sources/self/provider.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -26,7 +26,7 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 export default new VercelProvider();
 ```
 
-Next to it, `catalog.ts` lists the flags of the source, and the optional `context.ts` creates the evaluation context. [Code generation](/docs/flags/code-generation) writes `.flags/self.ts` from the folder, with the source and one flag for each flag of the catalog, and you import the flags. For [Vercel Flags](/docs/providers/vercel), the folder is optional: with `@vercel/flags-core` in your dependencies, the source `self` has the flags of your Vercel project by default:
+Next to it, the optional `context.ts` creates the evaluation context. You declare the flags of the source in a flags file, e.g. `app.flags`, and import them from the file or from `flags:self` (see [Code generation](/docs/flags/code-generation)). For [Vercel Flags](/docs/providers/vercel), `provider.ts` is optional: with `@vercel/flags-core` in your dependencies, the source `self` uses `new VercelProvider()` by default:
 
 ```ts
 import { summerSale } from 'flags:self';
@@ -64,7 +64,7 @@ export const summerSale = self.bindFlag('summerSale', {
 });
 ```
 
-The generated code of the file system API is the same as this hand-written code. See [Provider flags](/docs/flags/provider-flags) for all options of `defineSource` and `source.bindFlag`.
+A compiled flags file is the same code as this hand-written code. See [Provider flags](/docs/flags/provider-flags) for all options of `defineSource` and `source.bindFlag`.
 
 ## The parts of a source
 

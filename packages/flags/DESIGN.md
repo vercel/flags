@@ -3,10 +3,11 @@ This is the manually written design doc.
 Components
 
 - flag evaluation mechanism (defineFlag, defineSource)
-  - source consists of provider, catalog (one-time get, poll), context fn
+  - source consists of provider, context fn, hooks (`flags/sources/<source>/`: `provider.ts`, `context.ts`, `hooks.ts`)
   - framework injection of scope (request)
-- code generation (creates `flags:site` alias and underlying files)
-  - could actually generate into `flags/sources/<source>/flags.ts`, so protocol would work even without code generation
+- flags files (`*.flags`): the declarations of the flags (name, key, type, options, description, defaultValue). The flag management system keeps the values.
+  - each flags file compiles to one `defineSource` per source and one `source.bindFlag` per flag
+- code generation (creates the `flags:<source>` aliases, `.flags/<source>.ts` and the types) from the flags files only. No network, no credentials.
 
 ```ts
 // creating an inline flag
@@ -15,7 +16,7 @@ defineFlag({
   decide: () => {},
 });
 
-// this can get auto-generated or written manually
+// a flags file compiles to this, or you write it manually
 const source = defineSource({ provider, getEvaluationContext });
 
 // using a flag from a provider

@@ -20,7 +20,7 @@ import { checkout, summerSale } from 'flags:self';
 export const marketingFlags = [summerSale, checkout] as const;
 ```
 
-Any flag works: inline flags and provider flags, generated or hand-written.
+Any flag works: inline flags and provider flags, from flags files or hand-written.
 
 ## 2. Precompute in the proxy
 
@@ -153,7 +153,7 @@ export const heroTest = marketing.bindFlag('heroTest', {
 });
 ```
 
-With the file system API, the same logic goes into `context.ts` of the source, with the typed optional second parameter.
+With flags files, the same logic goes into `context.ts` of the source, with the typed optional second parameter.
 
 ## Suspense fallbacks
 

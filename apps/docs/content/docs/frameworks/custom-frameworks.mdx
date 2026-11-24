@@ -21,7 +21,7 @@ Write a full binding when the framework can give the current request at any time
 
 1. **A framework binding.** The module behind the alias `flags/framework`. It gives the runtime the current request, the configuration, and the errors that the framework must receive.
 2. **A build plugin.** It sets the aliases, registers `'use flags'` modules, and writes the flags manifest. It is optional without a bundler.
-3. **Optional: code generation.** The build plugin generates the modules of `flags:<source>` from the folders of `flags/sources`, and sets the aliases `flags:<source>` (see [Code generation](#code-generation)).
+3. **Optional: flags files and code generation.** The build plugin compiles the flags files (`*.flags`), generates the modules of `flags:<source>` from them, and sets the aliases `flags:<source>` (see [Flags files and code generation](#flags-files-and-code-generation)).
 
 Application code still imports only `flags`.
 
@@ -105,7 +105,7 @@ export function myFrameworkFlags() {
 | `bundle` | More packages to bundle into the server code, for example the package of the binding |
 | `dedupe` | Packages which the binding imports, which must be the copy of the project |
 | `projectModules` | Modules which the binding imports, by the first package which the project has |
-| `disableCodeGeneration` | Turns off the code generation. By default, the plugin generates `.flags/<source>.ts` and `flags/generated.d.ts` from `flags/sources/<source>`: one time for a build, and again after each change of a catalog for the dev server. It adds the aliases `flags:<source>` |
+| `disableCodeGeneration` | Turns off the code generation. By default, the plugin writes `.flags/<source>.ts` and `flags/generated.d.ts` from the flags files: one time for a build, and again after each change of a flags file for the dev server. It adds the aliases `flags:<source>`. The plugin still compiles the flags files |
 | `manifest` | Whether a build writes `flags-manifest.json`. Default: `true` |
 | `root` | The directory of the project. Default: the root of Vite |
 
@@ -140,20 +140,24 @@ Call `runtime.prepare()` before `createManifest`. It sets up the binding and loa
 | `findFlagsModules` | Finds the `'use flags'` modules of a project |
 | `writeManifestFromBuild` | Writes the manifest from the built modules |
 | `MANIFEST_FILE` | `flags-manifest.json` |
-| `generateFlags` | Generates the modules of `flags:<source>` one time |
-| `watchFlags` | Generates them again after each change of a catalog |
+| `compileFlagsFile` | Compiles a flags file into a module |
+| `writeFlagsFileDeclaration` | Writes the declaration file of a flags file, e.g. `app.d.flags.ts` |
+| `generateFlags` | Writes the modules of `flags:<source>` and the types one time |
+| `watchFlags` | Writes them again after each change of a flags file |
 | `findGeneratedDeclarations` | Finds `flags/generated.d.ts` in a directory or its `src` |
 
-## Code generation
+## Flags files and code generation
 
-Code generation is optional. Each source is a folder `flags/sources/<source>` with `catalog.ts`, `provider.ts`, and an optional `context.ts` and `hooks.ts`. By convention, the main source of an application is `flags/sources/self`. The folder `flags` is in the root of the project or in `src`. The build plugin generates `.flags/<source>.ts` and the types in `flags/generated.d.ts` with the functions of `flags/tooling`, and sets the alias `flags:<source>` to each module:
+Flags files are optional. A flags file, e.g. `app.flags`, declares flags (see [Flags files](/docs/flags/flags-files)). Its source is a folder `flags/sources/<source>` with `provider.ts`, and an optional `context.ts` and `hooks.ts`. The folder `flags` is in the root of the project or in `src`. The build plugin does two things with the functions of `flags/tooling`:
 
-- for a build, `generateFlags(dir)` one time, before the bundler resolves the imports;
-- for a dev server, `watchFlags(dir, { signal })`, which generates again after each change of a catalog.
+1. **Compile.** A transform or a loader for `*.flags` calls `compileFlagsFile(text, { fileName })`, and returns its `code`: one `defineSource` for each source, and one `source.bindFlag` for each flag. It throws a `FlagsFileError` with each error. Call `writeFlagsFileDeclaration` to write the types next to the file. Watch the folders of the sources, so that a new `context.ts` changes the module.
+2. **Generate.** It writes `.flags/<source>.ts`, which re-exports the flags of each source from all flags files, and the types in `flags/generated.d.ts`, and sets the alias `flags:<source>` to each module:
+   - for a build, `generateFlags(dir)` one time, before the bundler resolves the imports;
+   - for a dev server, `watchFlags(dir, { signal })`, which writes again after each change of a flags file.
 
-An application which depends on `@vercel/flags-core` has the [default source `self`](/docs/flags/code-generation#the-default-source-self), also without `flags/sources/self`. The application turns it off with `"selfSource": false` in `flags/config.json`. `generateFlags` and `watchFlags` read the file, so your plugin needs no option for it. Find the types with `findGeneratedDeclarations(dir)`: for the default source, they can be in `src/flags/generated.d.ts` without a folder `flags/sources`.
+An application which depends on `@vercel/flags-core` has the [default source `self`](/docs/flags/code-generation#the-default-source-self): its flags files need no `flags/sources/self/provider.ts`, and the compiled module uses `new VercelProvider()`. The application turns it off with `"selfSource": false` in `flags/config.json`. The functions of `flags/tooling` read the file, so your plugin needs no option for it. Find the types with `findGeneratedDeclarations(dir)`: they can be in `flags/generated.d.ts` or in `src/flags/generated.d.ts`.
 
-Both return the aliases, e.g. `{ "flags:self": "./.flags/self.ts" }`. The plugins of the Flags SDK generate the code by default, and have the option `disableCodeGeneration` to turn it off, e.g. `flags({ disableCodeGeneration: true })`. Without a folder `flags/sources` and without the default source, they write nothing. A framework without a bundler has no plugin: the application runs `flags sync` and imports `./.flags/self.ts`. See [Code generation](/docs/flags/code-generation).
+`generateFlags` and `watchFlags` return the aliases, e.g. `{ "flags:self": "./.flags/self.ts" }`. They read only the flags files, so they use no network and no credentials. The plugins of the Flags SDK generate the code by default, and have the option `disableCodeGeneration` to turn it off, e.g. `flags({ disableCodeGeneration: true })`. Without flags files, they write nothing. A framework without a bundler has no plugin: the application starts Node.js with `node --import flags/register`, and imports the flags from their files. See [Code generation](/docs/flags/code-generation).
 
 ## For deployment platforms
 

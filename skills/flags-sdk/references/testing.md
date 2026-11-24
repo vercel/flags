@@ -77,14 +77,14 @@ it('evaluates the in-memory flag', async () => {
 });
 ```
 
-### With code generation
+### With flags files
 
-Mock `provider.ts` of the source, and keep `context.ts`:
+Mock `provider.ts` of the source, and keep `context.ts`. The flags file and `flags:<source>` give the same flag:
 
 ```ts
 // flags.test.ts
 import { expect, it, vi } from 'vitest';
-import { newDashboard } from 'flags:self';
+import { newDashboard } from './app.flags'; // or from 'flags:self'
 
 vi.mock('./flags/sources/self/provider.ts', async () => {
   const { TypedInMemoryProvider } = await import('@openfeature/server-sdk');
@@ -104,27 +104,26 @@ it('evaluates the in-memory flag', async () => {
 });
 ```
 
-Unless the test runner uses the framework plugin, generate the modules first, and alias `flags:<source>`:
+The default source `self` of `@vercel/flags-core` has no `provider.ts` to mock. Add `flags/sources/self/provider.ts` (`export default new VercelProvider()`), or mock the flags file itself (`vi.mock('./app.flags', ...)`).
+
+The test runner must compile the flags files. Add the plugin `flags()` of `@flags-sdk/vite` with `disableCodeGeneration: true`. Without that option, the plugin watches the flags files (Vitest runs it as a dev server), and `vitest run` does not exit ("close timed out after 10000ms"). The same applies to a framework plugin in the Vitest config, e.g. `flags()` of `@flags-sdk/sveltekit/vite`.
 
 ```ts
 // vitest.config.ts
 import path from 'node:path';
+import { flags } from '@flags-sdk/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  plugins: [flags({ disableCodeGeneration: true })],
   resolve: {
+    // Only for imports from flags:<source>. Run `flags sync` before the tests.
     alias: [{ find: /^flags:(.+)$/, replacement: `${path.resolve('.flags')}/$1.ts` }],
   },
 });
 ```
 
-```json
-{
-  "scripts": {
-    "test": "flags sync && vitest"
-  }
-}
-```
+With imports only from the flags files (e.g. `./app.flags`), leave out the alias and `flags sync`. With `flags:<source>`, use `"test": "flags sync && vitest run"`.
 
 Close the providers after the tests:
 

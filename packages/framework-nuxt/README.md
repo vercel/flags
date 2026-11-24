@@ -3,7 +3,7 @@
 The Nuxt package of the [Flags SDK](../flags). It connects the SDK to the
 server of Nuxt (Nitro): the current request, the configuration files, the errors
 of Nitro, the lifecycle of the server, discovery for Flags Explorer, and
-code generation.
+flags files.
 
 ```ts
 // nuxt.config.ts
@@ -20,8 +20,8 @@ export default defineNuxtConfig({ modules: ['@flags-sdk/nuxt'] });
   from `getEvaluationContext`.
 - **The lifecycle.** The providers start with the server and close with it.
 - **Discovery** in `nuxt dev` and in the build.
-- **Code generation.** Import the flags of a source from `flags:<source>`,
-  e.g. `flags:self`.
+- **Flags files.** Declare the flags in `app.flags`, and import them from
+  the file or from their source, e.g. `flags:self`.
 
 ## Installation
 
@@ -93,9 +93,10 @@ flags, the evaluation context, overrides, hooks and tracking.
   `no-store`.
 - `nuxt build` writes `flags-manifest.json` into `.output/server`.
 
-## Code generation
+## Flags files and code generation
 
-The module generates the code by default:
+The module compiles each flags file (`*.flags`), and runs the code
+generation by default:
 
 ```ts
 // nuxt.config.ts
@@ -104,32 +105,44 @@ export default defineNuxtConfig({
 });
 ```
 
-- Each source is a directory `flags/sources/<source>` with `catalog.ts`,
-  `provider.ts`, and an optional `context.ts` and `hooks.ts`. By convention, the main source of the
-  application is `flags/sources/self`.
-- With `@vercel/flags-core` in the dependencies, the source `self` is the
-  default source of Vercel Flags, also without `flags/sources/self`:
-  `new VercelProvider()` and the catalog of `@vercel/flags-core/catalog`.
-  Each file in `flags/sources/self` replaces its part, e.g.
-  `context.ts` adds an evaluation context. Without the credentials of
-  `vercel env pull`, `flags:self` has no flags and the SDK warns. To turn
-  the default source off, set `"selfSource": false` in `flags/config.json`.
-- The module generates `.flags/<source>.ts` one time for `nuxt build`, and
-  watches the catalogs in `nuxt dev`. It adds the aliases `flags:<source>`
-  for Vite and for Nitro:
+```js
+// app.flags
+flag summerSale {
+  defaultValue: false
+}
+```
+
+- A flags file declares the flags: name, key, type, options, description
+  and default value. Your flag management system still decides the values.
+  The build uses no network and no credentials.
+- The source of a flags file is the directory `flags/sources/<source>`
+  with `provider.ts`, and an optional `context.ts` and `hooks.ts`. By
+  convention, the main source of the application is `self`.
+- With `@vercel/flags-core` in the dependencies, the source `self` needs no
+  `provider.ts`: it uses `new VercelProvider()`. Each file in
+  `flags/sources/self` replaces or adds its part, e.g. `context.ts`
+  adds an evaluation context. To turn the default provider off, set
+  `"selfSource": false` in `flags/config.json`.
+- The module writes `.flags/<source>.ts` one time for `nuxt build`, and
+  again after each change of a flags file in `nuxt dev`. Each module
+  re-exports the flags of its source from all flags files. It adds the
+  aliases `flags:<source>` for Vite and for Nitro:
 
   ```ts
   import { summerSale } from 'flags:self';
+  // or from the file, e.g. in server/api: import { summerSale } from '../../app.flags';
   ```
 
+- Without a flags file of a source, there is no `flags:<source>`. An empty
+  `app.flags` gives `flags:self`. A new source needs a restart of the
+  dev server.
 - The types are in `flags/generated.d.ts`. The module adds the file to the
-  types of Nuxt (hook `prepare:types`), so the types work without `paths`.
-  `.flags` has its own `.gitignore`.
-- Without `flags/sources` and without the default source, the module
-  writes nothing. To turn the
-  generation off, use
-  `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
-- Without code generation, write `defineSource` and `source.bindFlag` by hand.
+  types of Nuxt (hook `prepare:types`), so the types work without `paths`, and in a declaration file next to each
+  flags file, e.g. `app.d.flags.ts` (turn on `allowArbitraryExtensions`,
+  and ignore `*.d.flags.ts` in Git). `.flags` has its own `.gitignore`.
+- Without flags files, the module writes nothing. To turn the generation
+  off, use `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`. The flags files still compile.
+- Without flags files, write `defineSource` and `source.bindFlag` by hand.
   Each flag is declared on its source. The runtime has no global source.
 
 ## How it works

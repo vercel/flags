@@ -136,8 +136,8 @@ export const self = defineSource({
 
 Declares a **flag of a source**: the provider of the source decides its value.
 `bindFlag` is a method of the source that [`defineSource`](#definesource)
-returns. With [code generation](/docs/flags/code-generation), the SDK writes
-these calls for you, e.g. in `.flags/self.ts`.
+returns. With [flags files](/docs/flags/flags-files), the SDK compiles
+`app.flags` into these calls for you.
 
 ```ts
 source.bindFlag<K, T, O, In = SourceInput<typeof source>>(
@@ -471,7 +471,7 @@ allowed. The JSON Schema is at
 
 | Setting      | Type      | Description                                                                                                                        |
 | ------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `selfSource` | `boolean` | The [default source `self`](/docs/flags/code-generation#the-default-source-self). `false` turns it off. The default is `true`. |
+| `selfSource` | `boolean` | The default provider `new VercelProvider()` of the [default source `self`](/docs/flags/code-generation#the-default-source-self), for an application which depends on `@vercel/flags-core`. `false` turns it off. The default is `true`. |
 | `overrides`  | `OverridesOptions` | Which override tokens the SDK accepts. See [`OverridesOptions`](#overridesoptions). |
 
 ```json title="flags/config.json"
@@ -731,37 +731,17 @@ const hooks: Hook[] = [
 export default hooks;
 ```
 
-## Code generation types
+## The files of a source
 
-Types for the files of [code generation](/docs/flags/code-generation) in
-`flags/sources/<source>/`. By convention, the main source of an app is
-`self`: the folder `flags/sources/self/` with `catalog.ts`, `provider.ts`
-(default export: the OpenFeature provider) and an optional `context.ts`
-(default export: `getEvaluationContext(request, input)`). The code generation writes
-`.flags/self.ts`, and your code imports from `flags:self`.
-
-- `CatalogLoader`: the default export of `catalog.ts`.
-  `(options: CatalogLoadOptions) => Catalog | AsyncIterable<Catalog> | Promise<Catalog | AsyncIterable<Catalog>>`.
-  Return one catalog, or yield a complete catalog first and again after each
-  change. It runs in Node.js at build time and in development, not in the
-  application.
-- `CatalogLoadOptions`: `{ signal: AbortSignal }`. Stop requests and
-  subscriptions when the signal aborts.
-- `Catalog`: `{ flags: Record<string, CatalogFlag>; project?: Project; revision?: number }`.
-- `CatalogFlag`: `{ variants: readonly unknown[]; description?: string; defaultValue?: unknown }`.
-  The variants become the `options` of the flag, and its type: `boolean`,
-  `string` or `number` if all variants have that type, else `object`.
-  `defaultValue` becomes the `defaultValue` of the flag.
-
-```ts title="flags/sources/self/catalog.ts"
-import type { CatalogLoader } from 'flags';
-
-const loadCatalog: CatalogLoader = () => ({
-  flags: { enableSale: { variants: [false, true], defaultValue: false } },
-});
-
-export default loadCatalog;
-```
+The [flags files](/docs/flags/flags-files) use the folder
+`flags/sources/<source>/` of the source. It has no types of its own. By
+convention, the main source of an app is `self`: the folder
+`flags/sources/self/` with `provider.ts` (default export: the OpenFeature
+provider), an optional `context.ts` (default export:
+`getEvaluationContext(request, input)`, as for [`defineSource`](#definesource))
+and an optional `hooks.ts` (default export: `Hook[]`). An application which
+depends on `@vercel/flags-core` needs no `provider.ts` for `self`. See
+[Code generation](/docs/flags/code-generation#the-folder-of-a-source).
 
 ## Types
 

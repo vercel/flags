@@ -66,7 +66,7 @@ returns a function of the phase itself. The type of the function is
 `NextConfigFunction<T>`, an export of `@flags-sdk/next/plugin`.
 
 `withFlags` must be the outer plugin. It needs the phase to know the
-command (`next dev` watches the catalogs, `next build` generates once,
+command (`next dev` watches the flags files, `next build` generates once,
 `next start` does nothing), and only a configuration function gets the
 phase and can wait for the code generation. Most other plugins take an
 object, so give `withFlags` their result:
@@ -105,11 +105,17 @@ const self = defineSource({
 export const summerSale = self.bindFlag('summerSale');
 ```
 
-The runtime has no global source. Code generation can write the sources
-and flags for you (see "Code generation"). With `@vercel/flags-core`, it
-does so by default: `flags:self` has the flags of your Vercel project, and
-you do not write the code above. If you write the source by hand, set
-`"selfSource": false` in `flags/config.json`.
+The runtime has no global source. A flags file can declare the flags
+for you (see "Flags files and code generation"). With `@vercel/flags-core`,
+the source `self` of a flags file uses `new VercelProvider()`, so you do not
+write the code above:
+
+```js
+// app.flags
+flag summerSale {
+  defaultValue: false
+}
+```
 
 ### 3️⃣ Optional: the configuration files
 
@@ -307,14 +313,15 @@ export default async function Page({
 - Precompute is not a part of the standard of the SDK. It uses only its
   public API.
 
-## Code generation
+## Flags files and code generation
 
-By default, `withFlags` writes the modules of `flags:<source>`
-from the catalogs of `flags/sources/<source>` (see the SPEC of `flags`,
-"Code generation"). By convention, the main source of the application is
-`flags/sources/self` (`catalog.ts`, `provider.ts`, and an optional
-`context.ts` and `hooks.ts`). With `@vercel/flags-core` in the dependencies, the source
-`self` is the default source of Vercel Flags, also without the folder:
+`withFlags` compiles each flags file (`*.flags`) with a Turbopack rule. By
+default, it also writes the modules of `flags:<source>` from the flags files
+(see the SPEC of `flags`, "Flags files" and "Code generation"). The source of
+a flags file is the folder `flags/sources/<source>` (`provider.ts`, and an
+optional `context.ts` and `hooks.ts`). By convention, the main source of the
+application is `self`. With `@vercel/flags-core` in the dependencies, the
+source `self` needs no `provider.ts`: it uses `new VercelProvider()`.
 
 ```ts
 // next.config.ts
@@ -323,36 +330,49 @@ import { withFlags } from '@flags-sdk/next/plugin';
 export default withFlags({});
 ```
 
+```js
+// app.flags
+flag summerSale {
+  defaultValue: false
+}
+
+flag checkout {
+  options: ["control", "express"]
+  defaultValue: "control"
+}
+```
+
 ```ts
 // app/page.tsx
 import { checkout, summerSale } from 'flags:self';
+// or: import { checkout, summerSale } from '../app.flags';
 ```
 
-- `withFlags` returns a function of the phase. `next build` generates
-  `.flags/<source>.ts` one time and closes the catalogs. `next dev` generates and watches the
-  catalogs. `next start` does no catalog work.
+- The code generation reads only the flags files. It uses no network and
+  no credentials.
+- `withFlags` returns a function of the phase. `next build` writes
+  `.flags/<source>.ts` one time. `next dev` writes them again after each
+  change of a flags file. `next start` does no code generation.
 - Next.js loads the configuration more than once, also in its workers. One
   process owns the generation, and the others see its PID in the
   environment.
-- The default source `self` uses `new VercelProvider()` and the catalog of
-  `@vercel/flags-core/catalog`. Each file in `flags/sources/self` replaces
-  its part, e.g. `context.ts` adds an evaluation context. If the flags can
-  not be loaded, e.g. without `vercel env pull`, `flags:self` has no flags
-  and the SDK warns. `"selfSource": false` in `flags/config.json` turns
-  the default source off.
-- The folder `flags` is in the directory of the application or in its
-  `src`. Without `flags/sources` and without the default source,
-  `withFlags` writes nothing.
-- For the types, `withFlags` writes `flags/generated.d.ts` (without
-  `flags/sources`: `src/flags/generated.d.ts` if the application has
-  `src`). TypeScript
-  finds it with its default `include`, so `tsconfig.json` needs no change.
-  Commit the file, or ignore it and run `flags sync` before `tsc`.
+- Without a flags file of a source, there is no `flags:<source>`. An empty
+  `app.flags` gives `flags:self`. A new source needs a restart of
+  `next dev`.
+- Each file in `flags/sources/self` replaces or adds its part, e.g.
+  `context.ts` adds an evaluation context. `"selfSource": false` in
+  `flags/config.json` turns the default provider off.
+- For the types, `withFlags` writes `app.d.flags.ts` next to each flags
+  file (turn on `allowArbitraryExtensions`, and ignore `*.d.flags.ts` in
+  Git), and `flags/generated.d.ts` for `flags:<source>` (in the folder
+  `flags` which exists, else in `src/flags` if the application has `src`).
+  TypeScript finds it with its default `include`. Commit
+  `flags/generated.d.ts`, or ignore it and run `flags sync` before `tsc`.
 - `.flags` has its own `.gitignore`, so `.gitignore` needs no change.
 - `withFlags({}, { disableCodeGeneration: true })` turns the generation off,
-  and returns the configuration object as it is. `withFlags` still points
-  the aliases of `.flags/aliases.json` to the modules, e.g. after
-  `flags sync` or with `flags watch -- next dev`.
+  and returns the configuration object as it is. The flags files still
+  compile. `withFlags` still points the aliases of `.flags/aliases.json` to
+  the modules, e.g. after `flags sync` or with `flags watch -- next dev`.
 
 ## Discovery
 

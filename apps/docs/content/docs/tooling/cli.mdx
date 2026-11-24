@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: The flags command generates code from your sources and writes the flags manifest.
+description: The flags command writes the modules and the types of your flags files, formats them, and writes the flags manifest.
 ---
 
 The `flags` package has a command line tool, `flags`. You do not install anything else:
@@ -11,8 +11,9 @@ npx flags sync
 
 | Command | What it does |
 | --- | --- |
-| [`flags sync`](#flags-sync) | Generates the modules of `flags:<source>` one time, from the catalogs in `flags/sources` and of the default source `self`. |
-| [`flags watch`](#flags-watch) | Generates them again after each change of a catalog, and can start your development server. |
+| [`flags sync`](#flags-sync) | Writes the modules of `flags:<source>` and the types of your [flags files](/docs/flags/flags-files) one time. |
+| [`flags watch`](#flags-watch) | Writes them again after each change of a flags file, and can start your development server. |
+| [`flags format`](#flags-format) | Formats your flags files. |
 | [`flags manifest`](#flags-manifest) | Writes the [flags manifest](/docs/tooling/flags-manifest) of an application without a framework plugin. |
 
 With a framework plugin, the code generation runs for you by default, during the build and in development: `withFlags` for Next.js, `flags()` of `@flags-sdk/sveltekit/vite` or `@flags-sdk/tanstack-start/vite`, and the module `@flags-sdk/nuxt` for Nuxt. You need `flags sync` and `flags watch` for frameworks without a bundler, e.g. Hono, Express or plain Node.js, and for CI steps which run before the build, e.g. the type check.
@@ -20,26 +21,29 @@ With a framework plugin, the code generation runs for you by default, during the
 ## `flags sync`
 
 ```bash
-flags sync [dir] [--production]
+flags sync [dir]
 ```
 
-Runs the catalog of each source in `flags/sources/<source>` one time, and writes `.flags/<source>.ts`, e.g. `.flags/self.ts` for the main source `flags/sources/self`. It also writes the types of `flags:<source>` into `flags/generated.d.ts`. The folder `flags` is in `dir` or in its `src` folder. See [Code generation](/docs/flags/code-generation).
+Reads the flags files of your application one time, and writes:
 
-If your application depends on `@vercel/flags-core`, it also writes the [default source `self`](/docs/flags/code-generation#the-default-source-self) with the flags of your Vercel project, also without `flags/sources/self`. If these flags can not be loaded, e.g. without `vercel env pull`, `flags:self` has no flags, the command warns, and it does not fail.
+- `.flags/<source>.ts` for each source of the flags files, e.g. `.flags/self.ts` for `flags:self`, and `.flags/aliases.json` for the framework plugins;
+- the types of `flags:<source>` in `flags/generated.d.ts`. The folder `flags` is in `dir` or in its `src` folder;
+- a declaration file next to each flags file, e.g. `app.d.flags.ts` for `app.flags`.
+
+See [Code generation](/docs/flags/code-generation).
 
 - `dir` is the directory of your application. The default is the current directory.
-- `--production` loads the `.env` files for production. See [Environment variables](#environment-variables).
-- It reads the static settings of [`flags/config.json`](/docs/flags/configuration#flagsconfigjson). With `"selfSource": false`, it writes no default source `self`, and makes no requests to Vercel Flags for it.
-- It writes a file only when its content changes, and removes the module of a removed source.
-- If a catalog fails, the command fails, and the last generated modules stay.
+- It reads only the flags files. It uses no network and no credentials, so it works offline and in CI.
+- A key or a name in two files of one source is a conflict, and the command fails.
+- It writes a file only when its content changes, and removes the module of a source which no flags file has any more.
+- Without flags files, it writes nothing.
 
-Run it before the type check and the build, e.g. in CI:
+Run it before the type check, e.g. in CI:
 
 ```json title="package.json"
 {
   "scripts": {
-    "type-check": "flags sync && tsc --noEmit",
-    "build": "flags sync && vite build"
+    "type-check": "flags sync && tsc --noEmit"
   }
 }
 ```
@@ -47,34 +51,37 @@ Run it before the type check and the build, e.g. in CI:
 ## `flags watch`
 
 ```bash
-flags watch [dir] [--production] [-- command ...args]
+flags watch [dir] [-- command ...args]
 ```
 
-Generates the modules, then generates them again each time a catalog yields a new catalog, e.g. when someone changes a flag in the dashboard. It takes the same options as `flags sync`.
+Writes the same files as `flags sync`, then writes them again after each change of a flags file.
 
-- With `-- command`, it starts the command after the first generation, and stops when the command ends. Use it to run your development server with up-to-date flags:
+- With `-- command`, it starts the command after the first write, and stops when the command ends. Use it to run your development server with up-to-date types:
 
   ```json title="package.json"
   {
     "scripts": {
-      "dev": "flags watch -- vite dev"
+      "dev": "flags watch -- node --import flags/register --watch server.ts"
     }
   }
   ```
 
+- A conflict is an error on the console. The command does not stop.
 - It stops on `SIGINT` and `SIGTERM`.
-- A change of `provider.ts`, `context.ts`, `hooks.ts`, `catalog.ts` or `flags/config.json` needs a restart.
+- A flags file with a new source needs a restart.
 
-## Environment variables
+## `flags format`
 
-`flags sync` and `flags watch` load the `.env` files of the directory first, so that catalogs have their credentials, e.g. the OIDC token of `vercel env pull`. The order:
+```bash
+flags format [paths...] [--check]
+flags format --stdin [--stdin-filepath <file>]
+```
 
-1. `.env.<mode>.local`
-2. `.env.local`
-3. `.env.<mode>`
-4. `.env`
+Formats the flags files in place: the files which you give, and the flags files of the folders. The default is the current directory. See [Format](/docs/flags/flags-files#format).
 
-An earlier file wins, and a variable which is set already wins over all files. The mode is `production` with `--production` or with `NODE_ENV=production`, and `development` otherwise.
+- `--check` writes nothing, and fails if a file is not formatted, e.g. in CI.
+- `--stdin` formats the standard input to the standard output, for editors. `--stdin-filepath` gives the name of the file for the error messages.
+- A file with a syntax error is not formatted, and the command shows the error.
 
 ## `flags manifest`
 

@@ -3,7 +3,7 @@ title: SvelteKit
 description: Set up the Flags SDK in SvelteKit with one Vite plugin.
 ---
 
-`@flags-sdk/sveltekit` connects the Flags SDK to SvelteKit. It gives each flag the current request through `getRequestEvent()`, loads the configuration files of the folder `flags`, lets `redirect()` and `error()` pass through, generates the modules of `flags:<source>`, and registers your flags for Flags Explorer. There is no `handle` hook to write. Your code imports only `flags`.
+`@flags-sdk/sveltekit` connects the Flags SDK to SvelteKit. It gives each flag the current request through `getRequestEvent()`, loads the configuration files of the folder `flags`, lets `redirect()` and `error()` pass through, compiles your flags files, generates the modules of `flags:<source>`, and registers your flags for Flags Explorer. There is no `handle` hook to write. Your code imports only `flags`.
 
 **Requirements:** SvelteKit 2.20 or newer and Vite 6 or newer.
 
@@ -15,7 +15,7 @@ description: Set up the Flags SDK in SvelteKit with one Vite plugin.
 npm install flags @flags-sdk/sveltekit @vercel/flags-core
 ```
 
-`@vercel/flags-core` has the provider and the catalog of [Vercel Flags](/docs/providers/vercel). It needs no OpenFeature package. Use the provider of your flag management system instead, if you have a different one.
+`@vercel/flags-core` has the provider of [Vercel Flags](/docs/providers/vercel). It needs no OpenFeature package. Use the provider of your flag management system instead, if you have a different one.
 
 ### 2. Add the Vite plugin
 
@@ -25,7 +25,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // Writes .flags/self.ts with the flags of your Vercel project,
+  // Compiles the flags files, writes .flags/self.ts,
   // and points flags:self to it
   plugins: [sveltekit(), flags()],
 });
@@ -33,11 +33,22 @@ export default defineConfig({
 
 ### 3. Create the flag in Vercel
 
-With `@vercel/flags-core` in your dependencies, your application has the source `self` by default: the flags of your Vercel project. You do not create files for it. The plugin uses `new VercelProvider()` and the catalog of `@vercel/flags-core/catalog`.
+With `@vercel/flags-core` in your dependencies, the source `self` uses the provider of Vercel Flags by default: `new VercelProvider()`. You do not create a provider for it.
 
-`VercelProvider` and the catalog use the OIDC token of your project. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project. See [Vercel Flags](/docs/providers/vercel).
+`VercelProvider` uses the OIDC token of your project. Run `vercel link` and `vercel env pull` once, and create a boolean flag `enableSale` in the dashboard of your project, or with `vercel flags create enableSale --kind boolean`. See [Vercel Flags](/docs/providers/vercel).
 
-The context is optional. It tells the provider who the user is, e.g. for targeting rules. Add `src/flags/sources/self/context.ts`. The SDK calls it once per request, and the default provider and catalog stay:
+Then declare the flag in `src/app.flags`. Put it into `src`, since SvelteKit type-checks `src` only:
+
+```js title="src/app.flags"
+flag enableSale {
+  description: "Shows the summer sale"
+  defaultValue: false
+}
+```
+
+The flags file declares the flags of your code, with their keys, types and default values. Vercel Flags still decides each value. The build reads only the file, so it needs no network and no credentials. Turn on `allowArbitraryExtensions` in `tsconfig.json`, and add `*.d.flags.ts` to `.gitignore`. See [Flags files](/docs/flags/flags-files).
+
+The context is optional. It tells the provider who the user is, e.g. for targeting rules. Add `src/flags/sources/self/context.ts`. The SDK calls it once per request, and the default provider stays:
 
 ```ts title="src/flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';
@@ -50,9 +61,9 @@ export default function getEvaluationContext(
 }
 ```
 
-Without `context.ts`, the provider gets only the evaluation context of the call side. In the same way, `provider.ts` or `catalog.ts` replaces the default provider or catalog. See [The default source `self`](/docs/flags/code-generation#the-default-source-self). Put the folder into `src`, since SvelteKit type-checks `src` only.
+Without `context.ts`, the provider gets only the evaluation context of the call side. In the same way, `provider.ts` replaces the default provider. See [The default source `self`](/docs/flags/code-generation#the-default-source-self). Put the folder into `src`, since SvelteKit type-checks `src` only.
 
-With another provider, create `src/flags/sources/self` with `provider.ts` and `catalog.ts`. The catalog can also return a list. To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk`, and return a static catalog (see the [SvelteKit example](https://github.com/vercel/flags/tree/main/examples/standard/sveltekit-codegen)). See [Code generation](/docs/flags/code-generation).
+With another provider, create `src/flags/sources/self/provider.ts`. To try the SDK without an account, export an in-memory provider of `@openfeature/server-sdk` (see the [SvelteKit example](https://github.com/vercel/flags/tree/main/examples/standard/sveltekit-flags-files)). See [Code generation](/docs/flags/code-generation#the-folder-of-a-source).
 
 ### 4. Use the flag in a `load` function
 
@@ -74,7 +85,7 @@ export async function load() {
 <h1>{data.sale ? 'Summer sale!' : 'Welcome'}</h1>
 ```
 
-The plugin writes `.flags/self.ts`, and the types in `src/flags/generated.d.ts`. You do not configure TypeScript or Git. A new flag in your Vercel project becomes a new export of `flags:self`. A second source, e.g. `src/flags/sources/marketing`, becomes `flags:marketing`. See [Code generation](/docs/flags/code-generation).
+You can also import the flag from its file: `import { enableSale } from '../app.flags'`. The plugin writes `.flags/self.ts`, the types of `flags:self` in `src/flags/generated.d.ts`, and `src/app.d.flags.ts`. Git ignores `.flags` by itself. A new flag in `src/app.flags` becomes a new export of `flags:self`. A flags file of a second source, e.g. with `source marketing`, gives `flags:marketing`. See [Code generation](/docs/flags/code-generation).
 
 ## Inline flags
 
@@ -108,9 +119,9 @@ export async function load() {
 
 Set the cookie `beta=1` to see the beta banner.
 
-## Without code generation
+## Without flags files
 
-You can also write the source and its flags by hand. Use `defineSource` and `source.bindFlag`. Without a folder `flags/sources` and without `@vercel/flags-core`, the code generation writes nothing. With `@vercel/flags-core`, set `"selfSource": false` in `src/flags/config.json`, so that the plugin does not generate the default source `self`. To turn off all code generation, use `flags({ disableCodeGeneration: true })`.
+You can also write the source and its flags by hand. Use `defineSource` and `source.bindFlag`. Without flags files, the code generation writes nothing. To turn off the code generation, use `flags({ disableCodeGeneration: true })`.
 
 ```ts title="src/lib/flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -136,7 +147,7 @@ export const enableSale = self.bindFlag('enableSale', {
 });
 ```
 
-Each flag is declared on its source. This is the same code that the code generation writes. See [Flags of a source](/docs/flags/provider-flags).
+Each flag is declared on its source. This is the same code that the SDK compiles a flags file into. See [Flags of a source](/docs/flags/provider-flags).
 
 ## Where you can call flags
 

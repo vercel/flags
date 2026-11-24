@@ -143,4 +143,4 @@ export const betaBanner = self.bindFlag('betaBanner', {
 });
 ```
 
-The code that calls `betaBanner()` does not change. `self` is a source of `defineSource`, see [Flags of a source](/docs/flags/provider-flags). With [code generation](/docs/flags/code-generation), remove the inline flag, and import the flag of the same key from `flags:self` instead. Only the import changes.
+The code that calls `betaBanner()` does not change. `self` is a source of `defineSource`, see [Flags of a source](/docs/flags/provider-flags). With a [flags file](/docs/flags/flags-files), remove the inline flag, add `flag betaBanner { defaultValue: false }` to `app.flags`, and import the flag from `app.flags` or `flags:self` instead. Only the import changes.

@@ -12,7 +12,7 @@ The setup of each provider is a short summary of the documentation of the vendor
 
 ## How to use a provider
 
-The setup is the same for each provider. With a framework with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), use the file system API: the provider goes into the folder of a source, and [code generation](/docs/flags/code-generation) writes the flags. By convention, the main source of an app is `self`.
+The setup is the same for each provider. With a framework with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), use [flags files](/docs/flags/flags-files): the provider goes into the folder of a source, and a flags file declares the flags. By convention, the main source of an app is `self`. Hono, Express and plain Node.js can use flags files too, with `node --import flags/register`.
 
 ### 1. Install the packages
 
@@ -50,29 +50,23 @@ export default function getEvaluationContext(
 
 The SDK gives no field a special meaning. Return what your provider needs, e.g. more attributes for its targeting rules. See [Evaluation context](/docs/flags/evaluation-context).
 
-### 4. List the flags
+### 4. Declare the flags
 
-The default export of `catalog.ts` lists the flags of the source, for the code generation. For a start, it can return a static list:
+Declare the flags of the source in `app.flags`, with the keys of your flag management system:
 
-```ts title="flags/sources/self/catalog.ts"
-import type { CatalogLoader } from 'flags';
-
-const loadCatalog: CatalogLoader = () => ({
-  flags: {
-    checkout: {
-      variants: ['control', 'express'],
-      defaultValue: 'control',
-      description: 'The checkout flow',
-    },
-  },
-});
-
-export default loadCatalog;
+```js title="app.flags"
+flag checkout {
+  description: "The checkout flow"
+  options: ["control", "express"]
+  defaultValue: "control"
+}
 ```
+
+See [Flags files](/docs/flags/flags-files) for the format.
 
 ### 5. Import the flags
 
-After you enable code generation for your framework (see [Code generation](/docs/flags/code-generation)), import the flags from `flags:self`:
+After you add the plugin of your framework (see [Code generation](/docs/flags/code-generation#2-add-the-plugin)), import the flags from `flags:self`, or from `./app.flags`:
 
 ```ts
 import { checkout } from 'flags:self';
@@ -80,9 +74,9 @@ import { checkout } from 'flags:self';
 const variant = await checkout();
 ```
 
-### Without code generation
+### Without flags files
 
-Without a bundler, e.g. with Hono, Express or plain Node.js, or if you prefer to write the code, define the source and the flags by hand. The provider snippets below use this form:
+If you prefer to write the code, define the source and the flags by hand. The provider snippets below use this form:
 
 ```ts title="flags/context.ts"
 import type { FlagsRequest } from 'flags';
@@ -119,7 +113,7 @@ export const checkout = self.bindFlag('checkout', {
 });
 ```
 
-With the file system API, take the `provider` of a snippet below as the default export of `flags/sources/self/provider.ts`.
+With flags files, take the `provider` of a snippet below as the default export of `flags/sources/self/provider.ts`.
 
 Do not call `OpenFeature.setProvider()`: the SDK calls the provider directly, and initializes it before the first evaluation. See [Providers](/docs/providers) for the lifecycle, and [OpenFeature compatibility](/docs/flags/openfeature) for hooks, events and tracking.
 

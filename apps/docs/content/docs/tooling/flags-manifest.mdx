@@ -41,7 +41,7 @@ The rules of a flags module:
 - **No side effects.** Importing the module only defines flags and sources. It must not open network connections, because tools import it to read the flags.
 - **The directive comes first**, as with `'use client'`: only comments, whitespace and other directives can be before it.
 
-You can have as many flags modules as you like, e.g. one for each feature. Two exports with the same key must declare the same flag. The modules which [code generation](/docs/flags/code-generation) writes into `.flags`, e.g. `.flags/self.ts` for `flags:self`, are flags modules too.
+You can have as many flags modules as you like, e.g. one for each feature. Two exports with the same key must declare the same flag. A [flags file](/docs/flags/flags-files), e.g. `app.flags`, is a flags module too: the manifest names the file as the declaration of its flags, e.g. `{ module: 'app.flags', export: 'summerSale' }`. The modules of `flags:<source>` in `.flags` only re-export the flags of the flags files.
 
 The plugins also append a registration to each flags module, which calls `registerFlags` with its exports. Without a plugin, call it yourself where needed: `registerFlags(await import('./flags'))`.
 

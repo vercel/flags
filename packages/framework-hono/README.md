@@ -80,21 +80,24 @@ The middleware reads it only when you pass it as `settings`, e.g. for the
 setting `overrides`. See
 [Configuration](https://flags-sdk.dev/docs/flags/configuration).
 
-## Sources and code generation
+## Sources and flags files
 
-There is no bundler, so there is no plugin for code generation. Each flag
-is declared on its source. Use one of two ways:
+There is no bundler, so there is no plugin. Each flag is declared on its
+source. Use one of two ways:
 
 - Write `defineSource` and `source.bindFlag` by hand.
-- Put each source into `flags/sources/<source>` (`catalog.ts`,
-  `provider.ts`, and an optional `context.ts` and `hooks.ts`). By convention, the main source of the
-  application is `flags/sources/self`. Run `flags sync` (one time) or
-  `flags watch` (after each change of a catalog), and import the generated
-  module:
+- Declare the flags in flags files, e.g. `app.flags`, and start Node.js
+  with `node --import flags/register server.ts` (Node.js 22.15 or newer),
+  which compiles them. The source of a flags file is the folder
+  `flags/sources/<source>` (`provider.ts`, and an optional `context.ts` and
+  `hooks.ts`). Import the flags from the file:
 
   ```ts
-  import { summerSale } from './.flags/self.ts';
+  import { summerSale } from './app.flags';
   ```
+
+  Run `flags sync` (one time) or `flags watch` (after each change of a
+  flags file) for the types.
 
 ## Discovery
 

@@ -38,21 +38,29 @@ A source connects flags to a flag management system. It has three parts:
 - optionally, the **project** in the flag management system, for the links of Flags Explorer,
 - optionally, `getEvaluationContext`, which creates the **evaluation context** from the request, e.g. the user from a cookie.
 
-With a framework with a bundler, a source is a folder. By convention, the main source of an app is `self`, in `flags/sources/self/`:
+The simplest way to declare provider flags is a [flags file](/docs/flags/flags-files), e.g. `app.flags`. It lists the flags of your application, with their keys, types, options and default values:
+
+```js title="app.flags"
+flag summerSale {
+  defaultValue: false
+}
+```
+
+The source of a flags file is a folder. By convention, the main source of an app is `self`, in `flags/sources/self/`:
 
 - `provider.ts` exports the provider, e.g. `export default new VercelProvider()`,
-- `catalog.ts` lists the flags of the source,
-- optionally, `context.ts` exports `getEvaluationContext(request, input)`.
+- optionally, `context.ts` exports `getEvaluationContext(request, input)`,
+- optionally, `hooks.ts` exports the OpenFeature hooks of the source.
 
-With `@vercel/flags-core` in your dependencies, you do not create this folder. The source `self` is then the default source of Vercel Flags: `new VercelProvider()`, and the flags of your Vercel project as the catalog. A file in `flags/sources/self/` replaces its part, e.g. `context.ts` adds the evaluation context.
+With `@vercel/flags-core` in your dependencies, the source `self` needs no `provider.ts`: its provider is `new VercelProvider()`. A file in `flags/sources/self/` replaces or adds its part, e.g. `context.ts` adds the evaluation context.
 
-[Code generation](/docs/flags/code-generation) turns the folder into the module `flags:self`, with the source and one typed flag for each flag of the catalog:
+You import a flag from its file, or from its source. [Code generation](/docs/flags/code-generation) writes the module `flags:self`, with the flags of the source `self` from all flags files:
 
 ```ts
 import { summerSale } from 'flags:self';
 ```
 
-Without a bundler, e.g. with Hono, Express or plain Node.js, you write the same code by hand. The generated code is the same code you would write:
+The SDK compiles a flags file into plain code, the same code you can write by hand:
 
 ```ts
 const self = defineSource({

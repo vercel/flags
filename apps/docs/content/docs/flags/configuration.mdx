@@ -16,7 +16,7 @@ Each concern has one file:
 | `flags/hooks.ts` | The default export: the hooks for all flags | The application |
 | `flags/sources/<source>/hooks.ts` | The default export: the hooks of one source | The application |
 
-Each setting has exactly one place. The code files run only in the application. Only the JSON file is static, so every tool can read it. A source has the same split: `catalog.ts` is read at build time, and `provider.ts`, `context.ts` and `hooks.ts` run in the application.
+Each setting has exactly one place. The code files run only in the application. Only the JSON file is static, so every tool can read it. A source has only code files of the application: `provider.ts`, `context.ts` and `hooks.ts`.
 
 The configuration has no source. Each provider flag is declared on its source, e.g. the source `self` of [`flags/sources/self`](/docs/flags/code-generation).
 
@@ -88,7 +88,7 @@ The static settings. The framework plugins, the CLI (`flags sync`, `flags watch`
 
 | Setting | Meaning |
 | --- | --- |
-| `selfSource` | The default source `self`. `false` turns it off. The default is `true`. See [Code generation](/docs/flags/code-generation#turn-it-off). |
+| `selfSource` | The default provider `new VercelProvider()` of the source `self`, for an application which depends on `@vercel/flags-core`. `false` turns it off. The default is `true`. See [Code generation](/docs/flags/code-generation#turn-it-off). |
 | `overrides` | Which override cookies the SDK accepts. See [`overrides`](#overrides). |
 
 The SDK checks the file strictly. An unknown key or a value of the wrong type is an error, in the plugins, in the CLI and in `runtime.configure`. The key `$schema` is allowed. The [JSON Schema](https://flags-sdk.dev/schemas/config.v1.json) gives your editor completion and checks.

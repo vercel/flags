@@ -14,12 +14,11 @@ const sale = await summerSale();
   Flags, LaunchDarkly, Statsig or any other system, without a wrapper.
 - **Explicit sources.** Each flag is declared on its source. By convention, the main
   source of an application is `flags/sources/self`.
-- **Code generation, if you want it.** Put each source into
-  `flags/sources/<source>`, and import its flags with
-  `import { summerSale } from 'flags:self'`. The generated
-  code is the same as `defineSource` and `source.bindFlag` by hand. With
-  `@vercel/flags-core`, `flags:self` has the flags of your Vercel project,
-  without a folder.
+- **Flags files, if you want them.** Declare your flags in `app.flags`, and
+  import them from the file or with
+  `import { summerSale } from 'flags:self'`. A flags file compiles to the
+  same code as `defineSource` and `source.bindFlag` by hand. The build uses
+  no network and no credentials.
 - **One value for each request.** Each flag is evaluated one time for each
   request, so all parts of a page get the same value.
 - **Typed.** Flags have a type and options, and TypeScript checks the
@@ -150,9 +149,9 @@ export const summerSale = defineFlag({
 ```
 
 `'use flags'` is optional. It lets Flags Explorer find the flags (see
-[Discovery](#discovery)). Code generation can write the sources and flags
-for you, so that you import them from `flags:<source>` (see
-[Code generation](#code-generation)).
+[Discovery](#discovery)). You can also declare the flags in a flags file,
+and import them from the file or from `flags:<source>` (see
+[Flags files](#flags-files)).
 
 ### 4️⃣ Evaluate them on the server
 
@@ -255,45 +254,68 @@ export const newSearch = blog.bindFlag('newSearch');
 A system which the SDK does not list yet adds itself with a pull request
 (see [For framework authors](./FRAMEWORK-AUTHORS.md)).
 
-## Code generation
+## Flags files
 
-Code generation is optional. Each source is a directory
-`flags/sources/<source>` with two files and one optional file:
+Flags files are optional. A flags file (`*.flags`) declares the flags of
+your application. By convention, the main file is `app.flags`:
 
-- `catalog.ts` loads the flags of the flag management system;
-- `provider.ts` exports the OpenFeature provider;
-- `context.ts` (optional) exports `getEvaluationContext(request, input)`.
-  Without it, the provider gets only the evaluation context of the call
-  side.
+```js
+// app.flags
+source self
 
-By convention, the main source is `flags/sources/self`. The SDK generates
-`.flags/self.ts` from it, and your code imports its flags from `flags:self`:
+flag summerSale {
+  key: "summer-sale"
+  description: "Shows the summer sale banner"
+  defaultValue: false
+}
+```
 
 ```ts
+import { summerSale } from './app.flags';
+// The same flag
 import { summerSale } from 'flags:self';
 ```
 
-The framework packages with a bundler generate the modules for you, by
-default, e.g. `withFlags({})` for Next.js. They generate one time for a
-build, and watch the catalogs in development. They also write the types in
-`flags/generated.d.ts`, so you do not configure TypeScript. To turn it off,
-use `disableCodeGeneration: true`. Without a
-bundler, e.g. with Hono or Express, run `flags sync` (or `flags watch`),
-and import `./.flags/self.ts`.
+The flags files declare which flags exist, with their key, type, options,
+description and default value. Your flag management system still decides
+the values. The build and the type check use no network and no
+credentials. A flag works before it exists in your flag management system:
+it returns its `defaultValue`.
+
+The source of a flags file is the directory `flags/sources/<source>`:
+
+- `provider.ts` exports the OpenFeature provider;
+- `context.ts` (optional) exports `getEvaluationContext(request, input)`.
+  Without it, the provider gets only the evaluation context of the call
+  side;
+- `hooks.ts` (optional) exports the OpenFeature hooks of the source.
+
+The framework packages with a bundler compile the flags files, e.g.
+`withFlags({})` for Next.js. By default, they also run the code generation:
+they write `.flags/<source>.ts`, which re-exports the flags of each source
+from all flags files, and the types in `flags/generated.d.ts` and next to
+each flags file (e.g. `app.d.flags.ts`). They write one time for a build,
+and again after each change of a flags file in development. To turn it
+off, use `disableCodeGeneration: true`. Without a bundler, e.g. with Hono or
+Express, start Node.js with `node --import flags/register`, import the
+flags from the flags files, and run `flags sync` (or `flags watch`) for the
+types.
+
+Without a flags file of a source, there is no `flags:<source>`. An empty
+`app.flags` gives `flags:self`.
 
 ### The default source `self`
 
-An application which depends on `@vercel/flags-core` has the source `self`
-by default, with the flags of its Vercel project. It needs no folder
-`flags/sources/self`. Its provider is `new VercelProvider()` of
-`@vercel/flags-core/openfeature`, its catalog is
-`@vercel/flags-core/catalog`, and it has no evaluation context. Each file in
-`flags/sources/self` replaces its part, e.g. `context.ts` adds an evaluation
-context. Each other source needs `provider.ts` and `catalog.ts`.
+An application which depends on `@vercel/flags-core` needs no
+`flags/sources/self/provider.ts`. The provider of the source `self` is
+`new VercelProvider()` of `@vercel/flags-core/openfeature`, and the source
+has no evaluation context. Each file in `flags/sources/self` replaces or
+adds its part, e.g. `context.ts` adds an evaluation context. Each other
+source needs `provider.ts`. You still declare each flag in a flags file.
 
-Run `vercel link` and `vercel env pull` for the credentials. Without them,
-`flags:self` has no flags, and the SDK warns. To turn off the default source,
-set `"selfSource": false` in `flags/config.json`:
+Run `vercel link` and `vercel env pull` for the credentials of the
+provider at runtime. To turn off the default provider, set
+`"selfSource": false` in `flags/config.json`:
 
 ```json
 {
@@ -414,7 +436,8 @@ await runtime.onInvoke(request, () => handle(request));
 - `request` is a Web `Request`, or an object with `headers`, `cookies` or
   `url`.
 - `flags manifest` writes the manifest of the flags after the build.
-- For code generation, run `flags sync`, and import `./.flags/self.ts`.
+- For flags files, start Node.js with `node --import flags/register`, and
+  run `flags sync` for the types.
 - Call `runtime.onShutdown()` when the process stops.
 
 ## The packages

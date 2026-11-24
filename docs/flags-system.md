@@ -6,39 +6,48 @@
 > (`defineSource`), flags of a source use `source.bindFlag(key)`, inline flags use
 > `defineFlag` with `decide`, and code generation is in `flags/tooling` and
 > in the framework plugins (on by default, `disableCodeGeneration` turns it
-> off). "Current implementation" and "Code reading
-> order" below describe the state before the join.
+> off). The catalogs are removed: the flags files (`*.flags`) are the only
+> declarations of the flags, and the code generation reads only them (see
+> "Flags files" and "Code generation" of the SPEC). The sections from
+> "Responsibilities" on describe the design before the join and before the
+> flags files. They are history.
 
 Flags connects server applications, frameworks, and flag providers through shared
 contracts and one evaluation runtime.
 
 **Code generation is optional.** An application can declare flags with
-`defineFlag(...)`, or generate them from provider metadata and import them through
-`flags:<source>`. Both paths must produce the same flag type and use the same
-runtime. The core must work without a catalog, bundler, directive, or build plugin.
-
-This is the proposed major-release design. The implementation gaps and release
-decisions follow the design below.
+`defineFlag(...)` or `source.bindFlag(...)`, or declare them in flags files and
+import them from the file or through `flags:<source>`. All paths produce the same
+flag type and use the same runtime. The core works without a flags file, bundler,
+directive, or build plugin.
 
 ```ts
-// With catalog generation:
-import { newCheckout } from 'flags:site';
+// app.flags declares `flag newCheckout`
+import { newCheckout } from 'flags:self';
 
 const enabled = await newCheckout();
 ```
 
 Manual flags use ordinary module imports; the call stays the same. `'use flags'`
-can support discovery. Every transform must have an explicit API equivalent.
+can support discovery. Every transform has an explicit API equivalent: a flags
+file compiles to one `defineSource` and one `source.bindFlag` for each flag.
 
 ```mermaid
 flowchart LR
-    Catalog[Provider catalog] --> Tooling[Optional generation]
+    File[Flags files] --> Tooling[Compilation and optional generation]
     Tooling --> Flag[Shared flag type]
     Manual[Manual declaration] --> Flag
     Flag --> Runtime[Flags runtime]
     Scope[Framework or explicit request scope] --> Runtime
     Runtime --> Provider[Provider evaluation]
 ```
+
+The flags files are the source of truth of which flags exist and what the code
+knows about them (key, type, options, description, default value). The flag
+management system is the source of truth of the values. The build and the type
+check use no network and no credentials. A source is the folder
+`flags/sources/<source>/` with `provider.ts`, an optional `context.ts` and an
+optional `hooks.ts`.
 
 ## Responsibilities
 
@@ -188,8 +197,8 @@ are optional consumers of the shared contracts.
 ## Code reading order
 
 1. [Sources](../packages/flags/src/source.ts),
-   [catalogs](../packages/flags/src/catalog.ts), and the
-   [generator](../packages/flags/src/codegen.ts): the contracts of a source and
+   [flags files](../packages/flags/src/flags-file/compile.ts), and the
+   [generator](../packages/flags/src/generate.ts): the contracts of a source and
    of the code generation.
 2. [Flags runtime](../packages/flags/src/runtime.ts) and
    [flag API](../packages/flags/src/flag.ts): see the behavior to consolidate.

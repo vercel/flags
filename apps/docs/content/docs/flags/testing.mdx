@@ -95,13 +95,13 @@ it('evaluates the in-memory flag', async () => {
 });
 ```
 
-### With code generation
+### With flags files
 
-The generated module `.flags/self.ts` imports the provider from `flags/sources/self/provider.ts`. Mock that file, and keep `context.ts` as it is:
+A [flags file](/docs/flags/flags-files) imports the provider of its source from `flags/sources/self/provider.ts`. Mock that file, and keep `context.ts` as it is:
 
 ```ts title="flags.test.ts"
 import { expect, it, vi } from 'vitest';
-import { newDashboard } from 'flags:self';
+import { newDashboard } from './app.flags';
 
 vi.mock('./flags/sources/self/provider.ts', async () => {
   const { TypedInMemoryProvider } = await import('@openfeature/server-sdk');
@@ -121,15 +121,32 @@ it('evaluates the in-memory flag', async () => {
 });
 ```
 
-Unless your test runner uses the plugin of your framework, generate the modules before the tests with `flags sync`, and point `flags:<source>` to them:
+The source `self` of an application which depends on `@vercel/flags-core` can have no `provider.ts`. Then add `flags/sources/self/provider.ts` with `export default new VercelProvider();`, so that the test can mock it.
+
+Add the plugin `flags` of `@flags-sdk/vite` to `vitest.config.ts`, so that Vitest compiles the flags files. Turn off its code generation with `disableCodeGeneration: true`: Vitest runs the plugin as a dev server, so the plugin watches the flags files, and Vitest does not exit after the tests.
 
 ```ts title="vitest.config.ts"
-import path from 'node:path';
+import { flags } from '@flags-sdk/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  plugins: [flags({ disableCodeGeneration: true })],
+});
+```
+
+Then import the flags from their files. To import from `flags:<source>` in tests, run `flags sync` before the tests, and point `flags:<source>` to `.flags/<source>.ts`:
+
+```ts title="vitest.config.ts"
+import path from 'node:path';
+import { flags } from '@flags-sdk/vite';
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  plugins: [flags({ disableCodeGeneration: true })],
   resolve: {
-    alias: [{ find: /^flags:(.+)$/, replacement: `${path.resolve('.flags')}/$1.ts` }],
+    alias: [
+      { find: /^flags:(.+)$/, replacement: `${path.resolve('.flags')}/$1.ts` },
+    ],
   },
 });
 ```
@@ -137,10 +154,12 @@ export default defineConfig({
 ```json title="package.json"
 {
   "scripts": {
-    "test": "flags sync && vitest"
+    "test": "flags sync && vitest run"
   }
 }
 ```
+
+If your `vitest.config.ts` uses the plugin of your framework, e.g. `flags()` of `@flags-sdk/sveltekit/vite`, also give it `disableCodeGeneration: true` for the tests.
 
 Close the providers after the tests, e.g. in a setup file of `test.setupFiles` in `vitest.config.ts`:
 

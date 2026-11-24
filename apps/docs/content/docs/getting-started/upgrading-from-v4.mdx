@@ -86,7 +86,7 @@ const self = defineSource({
 export const summerSale = self.bindFlag('summerSale');
 ```
 
-With a framework with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), you can skip the hand-written code and use the file system API instead: put the provider into `flags/sources/self/provider.ts`, the old `identify` into `flags/sources/self/context.ts`, list the flags in `flags/sources/self/catalog.ts`, and import them with `import { summerSale } from 'flags:self'`. See [Code generation](/docs/flags/code-generation).
+You can also skip the hand-written code and use [flags files](/docs/flags/flags-files) instead: put the provider into `flags/sources/self/provider.ts`, the old `identify` into `flags/sources/self/context.ts`, declare the flags in `app.flags`, and import them with `import { summerSale } from 'flags:self'` or from `./app.flags`. See [Code generation](/docs/flags/code-generation).
 
 For other vendors, use their OpenFeature provider. See [OpenFeature providers](/docs/providers/openfeature).
 
@@ -118,8 +118,8 @@ See [Flags Explorer](/docs/tooling/flags-explorer).
 
 1. Install `flags@5` and the package of your framework.
 2. Add the framework setup, e.g. `withFlags` in `next.config.ts`.
-3. Replace each provider adapter with a source of its OpenFeature provider: a folder `flags/sources/<source>/` with code generation, or `defineSource` by hand.
-4. Replace `flag()` with `defineFlag()` for flags with `decide`, and with `source.bindFlag(key)` (or the generated flags of `flags:<source>`) for flags of a provider. Set `type` for each flag that is not a boolean.
+3. Replace each provider adapter with a source of its OpenFeature provider: a folder `flags/sources/<source>/` with flags files, or `defineSource` by hand.
+4. Replace `flag()` with `defineFlag()` for flags with `decide`, and with `source.bindFlag(key)` (or a flag in a flags file) for flags of a provider. Set `type` for each flag that is not a boolean.
 5. Move `identify` to `getEvaluationContext(request, input)` of the source, or to the default export of `context.ts`.
 6. Add `'use flags'` to your flags modules, and replace the discovery endpoint with the manifest route.
 7. Move precompute imports to `@flags-sdk/next/precompute`, and read values with `getPrecomputed`.
