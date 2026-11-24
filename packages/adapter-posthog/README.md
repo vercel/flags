@@ -1,27 +1,6 @@
-# Flags SDK — PostHog Adapter
+# `@flags-sdk/posthog`
 
-The PostHog adapter for [Flags SDK](https://flags-sdk.dev/) supports dynamic server side feature flags powered by [PostHog](https://posthog.com/).
-
-## Setup
-
-Install the adapter
-
-```bash
-pnpm i @flags-sdk/posthog
-```
-
-## Example Usage
-
-```ts
-import { flag } from "flags/next";
-import { postHogAdapter } from "@flags-sdk/posthog";
-
-export const marketingGate = flag<boolean>({
-  // The key in PostHog
-  key: "my_posthog_flag_key_here",
-  adapter: postHogAdapter,
-});
-```
+An [OpenFeature](https://openfeature.dev) server provider for [PostHog](https://posthog.com), for the [Flags SDK](https://flags-sdk.dev) v5, and `getProviderData` to load the flag definitions of PostHog for Flags Explorer.
 
 ## OpenFeature provider
 
@@ -78,39 +57,14 @@ Options, the second argument of `new PostHogProvider(client, options)`:
 
 `track(eventName, context, details)` of OpenFeature calls `client.capture()` with the distinct ID, the groups and the details as the properties.
 
-## Environment variables
-
-Always required, read by `postHogAdapter`:
-
-```bash
-# Regional API host, determines where your data lives
-POSTHOG_HOST=https://us.i.posthog.com # or https://eu.i.posthog.com
-# Settings > Project > Project API Key
-POSTHOG_PROJECT_API_KEY=phc_...
-```
-
-Optional, opts `postHogAdapter` into local evaluation:
-
-```bash
-# Settings > Project > Feature flags secret key
-POSTHOG_SECRET_KEY=phs_...
-```
-
-For the Flags Explorer, read by `getProviderData` only:
-
-```bash
-# Settings > Project > Project secret API keys (feature_flag:read scope)
-POSTHOG_PROJECT_SECRET_API_KEY=phs_...
-# Alternatively: Settings > User > Personal API keys (feature_flag:read scope)
-# POSTHOG_PERSONAL_API_KEY=phx_...
-# Settings > Project > Project ID
-POSTHOG_PROJECT_ID=521742
-```
-
 ## Flags Explorer metadata
 
+`getProviderData` returns `{ definitions, hints }`, the data which [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer) reads from the endpoint `/.well-known/vercel/flags`. The definitions contain the description, the options and a link to the dashboard of each flag. When the request fails or an option is missing, `definitions` is empty and `hints` tells why.
+
+Flags Explorer cannot yet load this metadata from a provider itself. If you want it in Flags Explorer, serve it from your application.
+
 `getProviderData` supports either a project secret API key or a personal API key.
-Existing personal-key calls continue to use the paginated management API:
+With a personal API key, it reads the paginated management API:
 
 ```ts
 import { getProviderData } from "@flags-sdk/posthog";
@@ -134,32 +88,29 @@ Both modes read `POSTHOG_HOST` by default. `appHost` overrides the dashboard hos
 project-key mode also accepts `apiHost` to override the ingestion host. The project
 ID supplies dashboard links in project-key mode; authentication needs only the key.
 Definitions include descriptions (`name`), boolean or multivariate options, and
-payload options. As before, nonempty payloads take precedence over flag values.
+payload options. Nonempty payloads take precedence over flag values.
 Creation timestamps are available only from the personal-key management API.
 
-## Evaluation modes
+Environment variables of `getProviderData`:
 
-- **Remote (default):** with only `POSTHOG_PROJECT_API_KEY` and `POSTHOG_HOST`
-  set, each evaluation calls PostHog. No background polling; request volume scales
-  with traffic. Recommended for serverless.
-- **Local:** set `POSTHOG_SECRET_KEY` (`phs_...`) to opt in. `posthog-node` polls flag
-  definitions (~30s) and evaluates in-process for lower latency. Polling runs **per
-  warm server process** and counts against your PostHog feature flag request quota
-  regardless of user traffic.
+```bash
+# Settings > Project > Project secret API keys (feature_flag:read scope)
+POSTHOG_PROJECT_SECRET_API_KEY=phs_...
+# Alternatively: Settings > User > Personal API keys (feature_flag:read scope)
+# POSTHOG_PERSONAL_API_KEY=phx_...
+# Settings > Project > Project ID
+POSTHOG_PROJECT_ID=521742
+# Regional host, the default of the API host and of the dashboard host
+POSTHOG_HOST=https://us.i.posthog.com # or https://eu.i.posthog.com
+```
 
-`POSTHOG_PERSONAL_API_KEY` and `POSTHOG_PROJECT_SECRET_API_KEY` are used only by the
-Flags Explorer (`getProviderData`) and do not enable local evaluation.
+## Upgrading from v4
 
-## Runtimes
+The v4 adapter (`postHogAdapter`, `createPostHogAdapter`, `resetDefaultPostHogAdapter`) is removed, with the types `PostHogEntities` and `JsonType`. The Flags SDK v5 has no adapters: flags come from [OpenFeature providers](https://flags-sdk.dev/docs/providers/openfeature), which you give to `defineSource({ provider })`. Use `PostHogProvider` of `@flags-sdk/posthog/openfeature`, as above. It reads the flag value and the payload with the type of the flag: a `boolean` or `string` flag reads the value, a `number` or `object` flag reads the payload (`postHogAdapter.payload` in v4).
 
-| Runtime      | Supported |
-| ------------ | --------- |
-| Node         | ✅        |
-| Edge Runtime | ❌        |
+The provider does not read environment variables. Create the client of `posthog-node` yourself, with `POSTHOG_PROJECT_API_KEY`, `POSTHOG_HOST` and, for local evaluation, `POSTHOG_SECRET_KEY`.
 
-Note: `posthog-node` does not support the Edge Runtime.
-
-To use with Routing Middleware and precompute, read more: [Middleware now supports Node.js](https://vercel.com/changelog/middleware-now-supports-node-js)
+`getProviderData` stays, with the same options. The package no longer depends on `flags` or `posthog-node`.
 
 ## Documentation
 

@@ -1,34 +1,6 @@
-# Flags SDK — Statsig Provider
+# `@flags-sdk/statsig`
 
-The [Statsig provider](https://flags-sdk.dev/docs/api-reference/adapters/statsig) for the [Flags SDK](https://flags-sdk.dev/) contains support for Statsig's Feature Gates, Dynamic Config, Experiments, Autotune and Layers.
-
-## Setup
-
-The Statsig provider is available in the `@flags-sdk/statsig` module. You can install it with
-
-```bash
-pnpm i @flags-sdk/statsig
-```
-
-## Provider Instance
-
-You can import the default adapter instance `statigAdapter` from `@flags-sdk/statsig`:
-
-```ts
-import { statsigAdapter } from "@flags-sdk/statsig";
-```
-
-## Example
-
-```ts
-import { flag } from "flags/next";
-import { statsigAdapter } from "@flags-sdk/statsig";
-
-export const marketingGate = flag<boolean>({
-  key: "marketing_gate",
-  adapter: statsigAdapter.featureGate((config) => config.value),
-});
-```
+An [OpenFeature](https://openfeature.dev) server provider for [Statsig](https://statsig.com), for the [Flags SDK](https://flags-sdk.dev) v5, and `getProviderData` to load the definitions of Statsig for Flags Explorer. It supports feature gates, dynamic configs, experiments and layers.
 
 ## OpenFeature provider
 
@@ -77,6 +49,27 @@ If Statsig rejects the key (401 or 403), `initialize()` throws a fatal error (`P
 
 `track(eventName, context, details)` calls `logEvent`. `details.value` becomes the value of the event, and the other details its metadata.
 
-## Documentation
+## Flags Explorer metadata
 
-Please check out the [Statsig provider documentation](https://flags-sdk.dev/docs/api-reference/adapters/statsig) for more information.
+```ts
+import { getProviderData } from "@flags-sdk/statsig";
+
+const data = await getProviderData({
+  // A Statsig Console API key
+  consoleApiKey: process.env.STATSIG_CONSOLE_API_KEY!,
+  // Optional: your Statsig project ID, for the links to the console
+  projectId: process.env.STATSIG_PROJECT_ID,
+});
+```
+
+`getProviderData` is also available from `@flags-sdk/statsig/provider`.
+
+`getProviderData` returns `{ definitions, hints }`, the data which [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer) reads from the endpoint `/.well-known/vercel/flags`. The definitions contain the description, the options and a link to the dashboard of each flag. When the request fails or an option is missing, `definitions` is empty and `hints` tells why.
+
+Flags Explorer cannot yet load this metadata from a provider itself. If you want it in Flags Explorer, serve it from your application.
+
+## Upgrading from v4
+
+The v4 adapter (`statsigAdapter`, `createStatsigAdapter`, `createDefaultStatsigAdapter`, `resetDefaultStatsigAdapter`) is removed, with the re-exports of `statsig-node-lite` (`Statsig`, `StatsigUser`, `DynamicConfig`, ...) and the Global Config data adapter of `statsig-node-vercel`. The Flags SDK v5 has no adapters: flags come from [OpenFeature providers](https://flags-sdk.dev/docs/providers/openfeature), which you give to `defineSource({ provider })`. Use `StatsigProvider` of `@flags-sdk/statsig/openfeature`, as above. It uses the Statsig Server Core SDK (`@statsig/statsig-node-core`), not `statsig-node-lite`.
+
+`getProviderData` stays, with the same options. The package no longer depends on `flags`, `statsig-node-lite`, `statsig-node-vercel`, `@vercel/global-config` or `@vercel/functions`.

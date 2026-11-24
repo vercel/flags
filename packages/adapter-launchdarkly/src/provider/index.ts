@@ -1,4 +1,4 @@
-import type { FlagDefinitionsType, JsonValue, ProviderData } from 'flags';
+import type { FlagDefinitionsType, JsonValue, ProviderData } from '../types';
 
 // See: https://apidocs.launchdarkly.com/tag/Feature-flags#operation/getFeatureFlags
 interface LaunchDarklyApiData {

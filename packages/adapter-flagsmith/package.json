@@ -1,7 +1,7 @@
 {
   "name": "@flags-sdk/flagsmith",
   "version": "2.0.0",
-  "description": "Flagsmith provider for the Flags SDK",
+  "description": "getProviderData of Flagsmith for the Flags Explorer",
   "keywords": [
     "flags-sdk",
     "flagsmith-nodejs",
@@ -48,12 +48,8 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {
-    "@flagsmith/nodejs": "^9.0.3"
-  },
   "devDependencies": {
     "@types/node": "22.14.0",
-    "flags": "npm:flags@4.5.0",
     "msw": "2.6.4",
     "rimraf": "6.1.2",
     "tsup": "8.5.1",

@@ -1,4 +1,4 @@
-import type { FlagDefinitionsType, ProviderData } from 'flags';
+import type { FlagDefinitionsType, ProviderData } from '../types';
 
 interface PostHogFlag {
   id: number;

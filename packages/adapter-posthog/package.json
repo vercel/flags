@@ -1,7 +1,7 @@
 {
   "name": "@flags-sdk/posthog",
   "version": "1.1.0",
-  "description": "PostHog adapter for the Flags SDK",
+  "description": "An OpenFeature provider for PostHog and getProviderData for the Flags Explorer",
   "keywords": [
     "flags-sdk",
     "posthog",
@@ -38,6 +38,10 @@
   "main": "./dist/index.js",
   "typesVersions": {
     "*": {
+      "openfeature": [
+        "dist/openfeature.d.ts",
+        "dist/openfeature.d.cts"
+      ],
       ".": [
         "dist/*.d.ts",
         "dist/*.d.cts"
@@ -56,14 +60,11 @@
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {
-    "posthog-node": "5.45.0"
-  },
   "devDependencies": {
     "@openfeature/server-sdk": "1.23.0",
     "@types/node": "22.14.0",
-    "flags": "npm:flags@4.5.0",
     "msw": "2.6.4",
+    "posthog-node": "5.45.0",
     "rimraf": "6.1.2",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",

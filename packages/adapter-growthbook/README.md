@@ -1,69 +1,39 @@
-# Flags SDK — GrowthBook Provider
+# `@flags-sdk/growthbook`
 
-The [GrowthBook provider](https://flags-sdk.dev/docs/api-reference/adapters/growthbook) for the [Flags SDK](https://flags-sdk.dev/) contains support for GrowthBook's Feature Flags and Experiments.
+Loads the flag definitions of [GrowthBook](https://www.growthbook.io) for Flags Explorer.
 
-## Setup
-
-The GrowthBook provider is available in the `@flags-sdk/growthbook` module. You can install it with
+## Installation
 
 ```bash
-pnpm i @flags-sdk/growthbook
+npm install @flags-sdk/growthbook
 ```
 
-## Provider Instance
-
-You can import the default adapter instance `growthbookAdapter` from `@flags-sdk/growthbook`:
+## Flags Explorer metadata
 
 ```ts
-import { growthBookAdapter } from "@flags-sdk/growthbook";
-```
+import { getProviderData } from "@flags-sdk/growthbook";
 
-## Example
-
-```ts
-import { flag } from "flags/next";
-import { growthBookAdapter } from "@flags-sdk/growthbook";
-
-export const summerBannerFlag = feature<boolean>({
-  key: "summer-banner",
-  adapter: growthBookAdapter.feature(),
+const data = await getProviderData({
+  // A GrowthBook API key or personal access token
+  apiKey: process.env.GROWTHBOOK_API_KEY!,
+  // Optional: only the features of this SDK connection
+  clientKey: process.env.GROWTHBOOK_CLIENT_KEY,
+  // Optional, for self-hosted GrowthBook
+  // appApiHost: "https://api.example.com",
+  // appOrigin: "https://app.example.com",
 });
 ```
 
-## Experimentation (A/B Testing)
+`getProviderData` is also available from `@flags-sdk/growthbook/provider`.
 
-In order to run GrowthBook experiments, you must define a back-end tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system. We recommend defining this callback in your flag definition file (e.g. `flags.ts`).
+`getProviderData` returns `{ definitions, hints }`, the data which [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer) reads from the endpoint `/.well-known/vercel/flags`. The definitions contain the description, the options and a link to the dashboard of each flag. When the request fails or an option is missing, `definitions` is empty and `hints` tells why.
 
-```ts
-import { after } from "next/server";
+Flags Explorer cannot yet load this metadata from a provider itself. If you want it in Flags Explorer, serve it from your application.
 
-growthbookAdapter.setTrackingCallback((experiment, result) => {
-  // Safely fire and forget async calls (Next.js)
-  after(async () => {
-    console.log("Viewed Experiment", {
-      experimentId: experiment.key,
-      variationId: result.key,
-    });
-  });
-});
-```
+## Upgrading from v4
 
-In some situations, you may prefer to use a front-end tracking callback. This requires a bit of implementation glue. See the Vercel [Next.js + GrowthBook example](https://github.com/vercel/examples/tree/main/flags-sdk/growthbook) for details.
+The v4 adapter (`growthbookAdapter`, `createGrowthbookAdapter`) is removed. The Flags SDK v5 has no adapters: flags come from [OpenFeature providers](https://flags-sdk.dev/docs/providers/openfeature), which you give to `defineSource({ provider })`. For GrowthBook, use `@openfeature/growthbook-provider`, see [GrowthBook](https://flags-sdk.dev/docs/providers/openfeature#growthbook).
 
-### Sticky Bucketing
+The re-exports of `@growthbook/growthbook`, e.g. `GrowthBookClient`, are removed too. Import them from `@growthbook/growthbook`.
 
-To implement sticky bucketing (required for Bandits), you may create any `StickyBucketService` instance and apply it to the adapter (recommended in `flags.ts`). We recommend using our Redis service for ease of implementation.
-
-```ts
-import { RedisStickyBucketService } from "@growthbook/growthbook";
-import Redis from "ioredis";
-
-const redis = new Redis(process.env.REDIS_CONNECTION_URL);
-const redisStickyBucketService = new RedisStickyBucketService({ redis });
-
-growthbookAdapter.setStickyBucketService(redisStickyBucketService);
-```
-
-## Documentation
-
-Please check out the [GrowthBook provider documentation](https://flags-sdk.dev/docs/api-reference/adapters/growthbook) for more information.
+`getProviderData` stays, with the same options. The package no longer depends on `flags`.

@@ -1,4 +1,8 @@
-import type { FlagDefinitionType, FlagOptionType, ProviderData } from 'flags';
+import type {
+  FlagDefinitionType,
+  FlagOptionType,
+  ProviderData,
+} from '../types';
 
 type FlagsmithApiData = {
   id: number;

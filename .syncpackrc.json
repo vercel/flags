@@ -113,11 +113,6 @@
       "dependencies": ["tailwind-merge", "shiki"]
     },
     {
-      "label": "Legacy provider adapters retain Vercel Functions 1",
-      "packages": ["@flags-sdk/growthbook", "@flags-sdk/statsig"],
-      "dependencies": ["@vercel/functions"]
-    },
-    {
       "label": "Use root versions for shared Next.js, TypeScript and Node 22 tooling",
       "dependencies": ["next", "typescript", "@types/node"],
       "snapTo": ["vercel-flags"]

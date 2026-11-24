@@ -1,4 +1,4 @@
-import type { JsonValue, ProviderData } from 'flags';
+import type { JsonValue, ProviderData } from '../types';
 
 interface GrowthbookFeature {
   id: string;

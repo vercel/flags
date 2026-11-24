@@ -1,4 +1,4 @@
-import type { JsonValue, ProviderData } from 'flags';
+import type { JsonValue, ProviderData } from '../types';
 
 // See: https://docs.statsig.com/console-api/gates/#get-/console/v1/gates
 interface StatsigFeatureGateResponse {

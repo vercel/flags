@@ -94,7 +94,7 @@ export const summerSale = self.bindFlag('summerSale');
 
 With a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), use the file system API instead: the provider goes into `flags/sources/self/provider.ts`, the old `identify` into `flags/sources/self/context.ts`, the flags into `flags/sources/self/catalog.ts` (for Vercel: `export { default } from '@vercel/flags-core/catalog'`), and you import `import { summerSale } from 'flags:self'`. See [code-generation.md](code-generation.md).
 
-Other vendors: replace the adapter with the vendor's OpenFeature provider ([providers.md](providers.md#openfeature-providers)). Statsig and PostHog have providers in `@flags-sdk/statsig/openfeature` and `@flags-sdk/posthog/openfeature`. Reflag stays on v4.
+Other vendors: replace the adapter with the vendor's OpenFeature provider ([providers.md](providers.md#openfeature-providers)). Statsig and PostHog have providers in `@flags-sdk/statsig/openfeature` and `@flags-sdk/posthog/openfeature`. The v5 versions of `@flags-sdk/flagsmith`, `growthbook`, `launchdarkly`, `posthog` and `statsig` have no adapter. Reflag stays on v4.
 
 ## Step by step
 

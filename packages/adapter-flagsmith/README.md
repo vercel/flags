@@ -1,153 +1,34 @@
-# Flags SDK - Flagsmith Provider
+# `@flags-sdk/flagsmith`
 
-The [Flagsmith provider](https://flags-sdk.dev/docs/api-reference/adapters/flagsmith) for the [Flags SDK](https://flags-sdk.dev/) contains support for Flagsmith's Feature Flags and Remote Configuration.
+Loads the flag definitions of [Flagsmith](https://www.flagsmith.com) for Flags Explorer.
 
-## Setup
-
-The Flagsmith provider is available in the `@flags-sdk/flagsmith` module. You can install it with
+## Installation
 
 ```bash
-npm i @flags-sdk/flagsmith
+npm install @flags-sdk/flagsmith
 ```
 
-Set the required environment variable:
-
-```sh
-export FLAGSMITH_ENVIRONMENT_KEY="your-server-side-environment-key"
-```
-
-## Usage
-
-The Flagsmith adapter provides a `getValue()` method with optional type coercion:
+## Flags Explorer metadata
 
 ```ts
-import { flag } from "flags/next";
-import { flagsmithAdapter } from "@flags-sdk/flagsmith";
-
-// No coercion - returns the raw value from Flagsmith
-export const rawFlag = flag({
-  key: "raw-value",
-  defaultValue: "default",
-  adapter: flagsmithAdapter.getValue(),
-});
-
-// Coerce to string type
-export const buttonColor = flag<string>({
-  key: "button-color",
-  defaultValue: "blue",
-  adapter: flagsmithAdapter.getValue({ coerce: "string" }),
-});
-
-// Coerce to number type
-export const maxItems = flag<number>({
-  key: "max-items",
-  defaultValue: 10,
-  adapter: flagsmithAdapter.getValue({ coerce: "number" }),
-});
-
-// Coerce to boolean type
-export const showBanner = flag<boolean>({
-  key: "show-banner",
-  defaultValue: false,
-  adapter: flagsmithAdapter.getValue({ coerce: "boolean" }),
-});
-```
-
-### Type Coercion Behavior
-
-- **Without `coerce`**: Returns the raw value from Flagsmith (empty/null/undefined values return default)
-- **`coerce: "string"`**: Converts any value to string (returns default for null/undefined/NaN)
-- **`coerce: "number"`**: Converts strings to numbers (returns default if result is NaN or invalid)
-- **`coerce: "boolean"`**:
-  - Converts `"true"`/`"false"` strings (case-insensitive) to boolean
-  - Converts `0` to `false` and `1` to `true`
-  - Falls back to the flag's enabled state for other values
-  - Returns default when flag is disabled
-
-## Custom Adapter
-
-Create a custom adapter by using the `createFlagsmithAdapter` function:
-
-```ts
-import { createFlagsmithAdapter, EntitiesType } from "@flags-sdk/flagsmith";
-
-const identify: Identify<EntitiesType> = dedupe(async () => {
-  return {
-    targetingKey: "user",
-    traits: {
-      id: "e23cc9a8-0287-40aa-8500-6802df91e56a",
-      name: "John Doe",
-      email: "johndoe@flagsmith.com",
-    },
-  };
-});
-
-const adapter = createFlagsmithAdapter({
-  environmentKey: "your-server-side-environment-key",
-  // Additional @flagsmith/nodejs configuration options
-});
-
-export const showBanner = flag<boolean, EntitiesType>({
-  key: "show-banner",
-  identify,
-  adapter: adapter.getValue({ coerce: "boolean" }),
-});
-```
-
-## Flags Discovery Endpoint
-
-To enable the [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer), create a discovery endpoint at `app/.well-known/vercel/flags/route.ts`:
-
-```ts
-import { createFlagsDiscoveryEndpoint } from "flags/next";
 import { getProviderData } from "@flags-sdk/flagsmith";
 
-export const GET = createFlagsDiscoveryEndpoint(async () => {
-  return getProviderData({
-    environmentKey: process.env.FLAGSMITH_ENVIRONMENT_KEY,
-    projectId: process.env.FLAGSMITH_PROJECT_ID,
-  });
+const data = await getProviderData({
+  // Your Flagsmith server-side environment key
+  environmentKey: process.env.FLAGSMITH_ENVIRONMENT_KEY!,
+  // Your Flagsmith project ID, for the links to the dashboard
+  projectId: process.env.FLAGSMITH_PROJECT_ID!,
 });
 ```
 
-This endpoint fetches flag definitions directly from Flagsmith's API and returns them to the Flags Explorer.
+`getProviderData` returns `{ definitions, hints }`, the data which [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer) reads from the endpoint `/.well-known/vercel/flags`. The definitions contain the description, the options and a link to the dashboard of each flag. When the request fails or an option is missing, `definitions` is empty and `hints` tells why.
 
-## Environment Variables
+Flags Explorer cannot yet load this metadata from a provider itself. If you want it in Flags Explorer, serve it from your application.
 
-- `FLAGSMITH_ENVIRONMENT_KEY` (required): Your Flagsmith server-side environment key
-- `FLAGSMITH_PROJECT_ID` (optional): Required for the Flags Discovery Endpoint
+## Upgrading from v4
 
-## Documentation
+The v4 adapter (`flagsmithAdapter`, `createFlagsmithAdapter`) is removed. The Flags SDK v5 has no adapters: flags come from [OpenFeature providers](https://flags-sdk.dev/docs/providers/openfeature), which you give to `defineSource({ provider })`. For Flagsmith, use its OpenFeature server provider. Find it in the [OpenFeature ecosystem](https://openfeature.dev/ecosystem).
 
-Please check out the [Flagsmith provider documentation](https://flags-sdk.dev/providers/flagsmith) for more information.
+The re-exported types of `@flagsmith/nodejs`, e.g. `FlagsmithConfig`, are removed too. Import them from `@flagsmith/nodejs`.
 
-## License
-
-MIT
-
-## Server-side evaluation
-
-The adapter uses `@flagsmith/nodejs` and requires a Node.js runtime. **Remote evaluation is the default**, suitable for serverless deployments: it fetches evaluated flags from Flagsmith without downloading an environment document or starting background polling. Set `FLAGSMITH_ENVIRONMENT_KEY` to your Flagsmith environment key and keep it on the server.
-
-One client is shared per adapter. Use `evaluate([flagA, flagB])` from `flags/next` to batch flags: the Flags SDK groups flags by adapter and `identify` function, and the adapter fetches all values once per batch. Different coercion modes form separate batches to preserve their value types. Individual flag calls use `decide()` and do not share an adapter-level result cache. User identities are passed to `getIdentityFlags` rather than stored as the client's current user. Remote identity evaluation persists supplied traits in Flagsmith.
-
-For a long-running server, opt into **local evaluation** with one option:
-
-```ts
-const adapter = createFlagsmithAdapter({
-  environmentKey: process.env.FLAGSMITH_ENVIRONMENT_KEY,
-  enableLocalEvaluation: true,
-});
-```
-
-Local evaluation requires a **server-side environment key** (starting with `ser.`). It downloads the environment document and polls for updates every 60 seconds. Each new client must initialize this document, so prefer remote evaluation for short-lived serverless instances. Set `environmentRefreshIntervalSeconds` to change the refresh interval and call `await adapter.close()` on shutdown to stop polling. The default `flagsmithAdapter` also exposes `close()`.
-
-Local evaluation does not persist supplied traits to the Flagsmith API. However, `@flagsmith/nodejs` 9.0.3 may retain previously supplied traits for identities with overrides, even when later evaluations of the same identity omit those traits. For example, evaluating an identity with `{ tier: "gold" }` and then with `{}` may still use `tier: "gold"` on the second evaluation.
-
-### Migration from the JavaScript SDK adapter
-
-- Replace client-side environment keys with server-side keys for local evaluation.
-- Use `environmentKey` instead of `environmentID` in custom configuration. `environmentID` is no longer supported.
-- Use server SDK options such as `apiUrl` instead of `api`. Browser SDK options such as `cacheFlags`, `state`, and `onChange` are no longer supported.
-- Pass user identity and traits through the flag's `identify` function.
-- Remote evaluation remains the default. Set `enableLocalEvaluation: true` to opt into local evaluation on a long-running server.
+`getProviderData` stays, with the same options. The package no longer depends on `flags`.
