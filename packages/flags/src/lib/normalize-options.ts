@@ -14,3 +14,29 @@ export function normalizeOptions<T>(
     return option;
   }) as FlagOption<T>[];
 }
+
+export function getOptionLabel(
+  options: FlagOption<unknown>[] | undefined,
+  value: unknown,
+): string | undefined {
+  if (
+    !Array.isArray(options) ||
+    (value !== null &&
+      typeof value !== 'string' &&
+      typeof value !== 'number' &&
+      typeof value !== 'boolean')
+  ) {
+    return undefined;
+  }
+
+  let match: FlagOption<unknown> | undefined;
+  for (const option of options ?? []) {
+    if (option.value === value) {
+      if (match) {
+        return undefined;
+      }
+      match = option;
+    }
+  }
+  return match?.label || undefined;
+}
