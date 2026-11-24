@@ -27,6 +27,7 @@ import {
   verifyFlagOverridesFromPlatform,
 } from '../lib/flag-overrides-platform';
 import { warnFlagValuesLeftOut } from '../lib/flag-values-platform';
+import { logFlagEvaluation } from '../lib/logging';
 import { getOptionLabel, normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import {
@@ -248,16 +249,24 @@ export function flag<
     return value;
   };
 
-  const api = trace(flagImpl, {
-    name: 'flag',
-    isVerboseTrace: false,
-    isIgnoredError: isSvelteKitControlFlow,
-    attributes: { key: definition.key, 'feature_flag.key': definition.key },
-    attributesSuccess: (value) => {
-      const label = getOptionLabel(options, value);
-      return label ? { 'feature_flag.result.variant': label } : {};
+  const api = trace(
+    logFlagEvaluation(
+      flagImpl,
+      definition.key,
+      options,
+      isSvelteKitControlFlow,
+    ),
+    {
+      name: 'flag',
+      isVerboseTrace: false,
+      isIgnoredError: isSvelteKitControlFlow,
+      attributes: { key: definition.key, 'feature_flag.key': definition.key },
+      attributesSuccess: (value) => {
+        const label = getOptionLabel(options, value);
+        return label ? { 'feature_flag.result.variant': label } : {};
+      },
     },
-  });
+  );
 
   return Object.assign(api, {
     key: definition.key,

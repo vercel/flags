@@ -17,6 +17,7 @@ import {
   type Adapter,
   createAccessProof,
   encryptOverrides,
+  setLoggerProvider,
   setTracerProvider,
 } from '..';
 import { VERCEL_FLAGS_DISCOVERY_ISSUER } from '../lib/flags-discovery-platform';
@@ -1324,12 +1325,19 @@ describe('tracing', () => {
   // registered tracer doesn't leak into other test files.
   const traceSymbol = Symbol.for('flags:global-trace');
   const previousTraceProvider = Reflect.get(globalThis, traceSymbol);
+  const loggerSymbol = Symbol.for('flags:global-logger');
+  const previousLogger = Reflect.get(globalThis, loggerSymbol);
 
   afterEach(() => {
     if (previousTraceProvider === undefined) {
       Reflect.deleteProperty(globalThis, traceSymbol);
     } else {
       Reflect.set(globalThis, traceSymbol, previousTraceProvider);
+    }
+    if (previousLogger === undefined) {
+      Reflect.deleteProperty(globalThis, loggerSymbol);
+    } else {
+      Reflect.set(globalThis, loggerSymbol, previousLogger);
     }
     if (previousRequestContext === undefined) {
       Reflect.deleteProperty(globalThis, requestContextSymbol);
@@ -1374,6 +1382,19 @@ describe('tracing', () => {
     return spans;
   }
 
+  function recordEvents() {
+    const events: {
+      eventName?: string;
+      attributes?: Record<string, unknown>;
+    }[] = [];
+    setLoggerProvider({
+      getLogger: () => ({
+        emit: (event: (typeof events)[number]) => events.push(event),
+      }),
+    } as any);
+    return events;
+  }
+
   function makeBulkAdapter<V>(opts: {
     bulkDecide: Adapter<V, any>['bulkDecide'];
   }) {
@@ -1387,6 +1408,70 @@ describe('tracing', () => {
       bulkDecide: opts.bulkDecide,
     });
   }
+
+  it('logs direct results and failures without a tracer', async () => {
+    const a = flag<string>({
+      key: 'a',
+      options: [{ value: 'on', label: 'Enabled' }],
+      decide: () => 'on',
+    });
+    const bad = flag<string>({
+      key: 'bad',
+      decide: () => {
+        throw new Error('boom');
+      },
+    });
+    const events = recordEvents();
+    const headers = new Headers();
+    mocks.headers.mockReturnValueOnce(headers).mockReturnValueOnce(headers);
+
+    await a();
+    await a();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(bad()).rejects.toThrow('boom');
+
+    expect(events.map((event) => [event.eventName, event.attributes])).toEqual([
+      [
+        'feature_flag.evaluation',
+        { 'feature_flag.key': 'a', 'feature_flag.result.variant': 'Enabled' },
+      ],
+      [
+        'feature_flag.evaluation',
+        { 'feature_flag.key': 'a', 'feature_flag.result.variant': 'Enabled' },
+      ],
+      [
+        'feature_flag.evaluation',
+        { 'feature_flag.key': 'bad', 'error.type': 'general' },
+      ],
+    ]);
+  });
+
+  it('logs each bulk result without a flag span', async () => {
+    const adapter = makeBulkAdapter<string>({
+      bulkDecide: vi.fn().mockResolvedValue({ a: 'on' }),
+    });
+    const a = flag<string>({
+      key: 'a',
+      adapter: adapter(),
+      options: [{ value: 'on', label: 'Enabled' }],
+    });
+    const b = flag<string>({
+      key: 'b',
+      adapter: adapter(),
+      defaultValue: 'off',
+    });
+    const events = recordEvents();
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'on', b: 'off' });
+
+    expect(events.map((event) => event.attributes)).toEqual([
+      { 'feature_flag.key': 'a', 'feature_flag.result.variant': 'Enabled' },
+      { 'feature_flag.key': 'b' },
+    ]);
+    expect(spans.filter((span) => span.name === 'flag')).toHaveLength(0);
+  });
 
   it('emits an evaluate span and a batch span with aggregate attributes', async () => {
     const adapter = makeBulkAdapter<string>({

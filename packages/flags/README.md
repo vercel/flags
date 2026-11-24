@@ -12,6 +12,8 @@ From the creators of Next.js, the Flags SDK is a free open-source library that g
 
 See [flags-sdk.dev](https://flags-sdk.dev/) for full docs and examples.
 
+To emit OpenTelemetry `feature_flag.evaluation` log records, install `@opentelemetry/api-logs` and pass a `LoggerProvider` to `setLoggerProvider` from `flags`. Records include the flag key, a uniquely matched labeled variant when available, or a generic error type for failed evaluations. Flag values and evaluation context are not logged.
+
 > Upgrading from version 3? See the [Upgrade to v4](https://github.com/vercel/flags/blob/main/packages/flags/guides/upgrade-to-v4.md) guide.
 
 ## Installation
