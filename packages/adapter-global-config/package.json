@@ -1,13 +1,15 @@
 {
   "name": "@flags-sdk/global-config",
   "version": "0.3.1",
-  "description": "A Flags SDK adapter for Global Config",
+  "description": "An OpenFeature provider for Global Config, for the Flags SDK",
   "keywords": [
     "vercel",
     "flags",
     "vercel flags",
     "feature flags",
-    "flags sdk"
+    "flags sdk",
+    "openfeature",
+    "global config"
   ],
   "license": "MIT",
   "author": "Dominik Ferber <dominik@vercel.com>",
@@ -19,13 +21,23 @@
   "type": "module",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./openfeature": {
+      "types": "./dist/openfeature.d.ts",
+      "import": "./dist/openfeature.js",
+      "require": "./dist/openfeature.cjs"
     }
   },
   "main": "./dist/index.js",
   "typesVersions": {
     "*": {
+      "openfeature": [
+        "dist/openfeature.d.ts",
+        "dist/openfeature.d.cts"
+      ],
       ".": [
         "dist/*.d.ts",
         "dist/*.d.cts"
@@ -47,13 +59,21 @@
     "@vercel/global-config": "^1.5.1"
   },
   "devDependencies": {
+    "@openfeature/server-sdk": "1.23.0",
     "@types/node": "22.14.0",
-    "flags": "npm:flags@4.5.0",
     "rimraf": "6.1.2",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
     "vite": "8.1.7",
     "vitest": "4.1.12"
+  },
+  "peerDependencies": {
+    "@openfeature/server-sdk": "^1.17.0"
+  },
+  "peerDependenciesMeta": {
+    "@openfeature/server-sdk": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

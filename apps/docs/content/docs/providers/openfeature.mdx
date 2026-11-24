@@ -438,6 +438,25 @@ export const tggl = defineSource({
 
 These providers are part of the Flags SDK. The Flags SDK team maintains them.
 
+### Global Config
+
+```bash
+npm install flags @flags-sdk/global-config
+```
+
+```ts title="flags/self.ts"
+import { GlobalConfigProvider } from '@flags-sdk/global-config/openfeature';
+import { defineSource } from 'flags';
+
+export const globalConfig = defineSource({
+  provider: new GlobalConfigProvider(),
+});
+```
+
+The flags are the entries of the item `flags` of a [Global Config](https://vercel.com/docs/global-config) store, e.g. `{ "flags": { "summerSale": true } }`. The provider connects with the environment variable `GLOBAL_CONFIG` (or `EDGE_CONFIG`) on the first evaluation, so importing the source needs no connection. Pass `client` for a different store and `itemKey` for a different item. A value is the same for every visitor, so the source needs no evaluation context. The provider needs no `@openfeature/server-sdk`.
+
+[Global Config provider documentation](https://github.com/vercel/flags/tree/main/packages/adapter-global-config)
+
 ### PostHog
 
 ```bash

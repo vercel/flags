@@ -27,6 +27,7 @@ Do not call `OpenFeature.setProvider()` or `OpenFeature.getClient()`. The SDK ca
   - [Flagsmith](#flagsmith)
   - [Statsig](#statsig)
   - [PostHog](#posthog)
+  - [Global Config](#global-config)
   - [Other providers](#other-providers)
   - [Reflag](#reflag)
 - [Custom providers](#custom-providers)
@@ -502,6 +503,28 @@ export const showBanner = source.bindFlag('showBanner', { defaultValue: false })
 - `targetingKey` is required (else `TARGETING_KEY_MISSING`). `distinctId` also works.
 - `groups`, `personProperties` and `groupProperties` keep their names. Other primitive attributes are person properties.
 - Options (second argument): `onlyEvaluateLocally`, `sendFeatureFlagEvents`, `disableGeoip`, `shutdownOnClose` (default `false`).
+
+### Global Config
+
+`GlobalConfigProvider` of `@flags-sdk/global-config/openfeature` reads flags from one item of a Global Config store (formerly Edge Config), by default the item `flags`: `{ "flags": { "summerSale": true } }`.
+
+```sh
+pnpm add flags @flags-sdk/global-config
+```
+
+```ts
+import { GlobalConfigProvider } from '@flags-sdk/global-config/openfeature';
+import { defineSource } from 'flags';
+
+export const globalConfig = defineSource({
+  provider: new GlobalConfigProvider(), // or { client, itemKey: 'my-flags' }
+});
+```
+
+- It connects with `GLOBAL_CONFIG` (then `EDGE_CONFIG`) on the first evaluation, not at import.
+- A value is the same for every visitor (reason `STATIC`), so the source needs no `getEvaluationContext`.
+- An unknown flag returns the `defaultValue` with `FLAG_NOT_FOUND`, a value of another type with `TYPE_MISMATCH`.
+- It needs no `@openfeature/server-sdk` at runtime. The v4 `globalConfigAdapter` and `createGlobalConfigAdapter` are removed.
 
 ### Other providers
 

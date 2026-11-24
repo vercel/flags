@@ -1,64 +1,88 @@
 # `@flags-sdk/global-config`
 
-## Installation
+An [OpenFeature](https://openfeature.dev) server provider for [Global Config](https://vercel.com/docs/global-config) (formerly Edge Config), for the [Flags SDK](https://flags-sdk.dev) v5.
 
-```bash
-npm install @flags-sdk/global-config
-```
-
-## Usage
-
-## Using the default adapter
-
-This adapter will connect to the Global Config available under the `GLOBAL_CONFIG` environment variable, and read items from a key in the Global Config called `flags`.
-
-```ts
-import { flag } from "flags/next";
-import { globalConfigAdapter } from "@flags-sdk/global-config";
-
-export const exampleFlag = flag({
-  key: "example-flag",
-  adapter: globalConfigAdapter,
-});
-```
-
-Your Global Config should look like this:
+The flags are the entries of one item of a Global Config store, by default the item `flags`:
 
 ```json
 {
   "flags": {
-    "example-flag": true
+    "summerSale": true,
+    "banner": "Free shipping"
   }
 }
 ```
 
-## Using a custom adapter
+## Installation
 
-You can specify a custom adapter which connects to a different Global Config, and reads
+```bash
+npm install flags @flags-sdk/global-config
+```
+
+The provider imports only types of `@openfeature/server-sdk`, so you do not need to install it. With `"skipLibCheck": false` in `tsconfig.json`, install it as a dev dependency for its types.
+
+## Usage
+
+Create a source with the provider, and declare the flags on it:
+
+```ts title="flags.ts"
+'use flags';
+
+import { GlobalConfigProvider } from '@flags-sdk/global-config/openfeature';
+import { defineSource } from 'flags';
+
+const globalConfig = defineSource({
+  provider: new GlobalConfigProvider(),
+});
+
+export const summerSale = globalConfig.bindFlag('summerSale', {
+  defaultValue: false,
+});
+
+export const banner = globalConfig.bindFlag('banner', {
+  type: 'string',
+  defaultValue: '',
+});
+```
 
 ```ts
-import { flag } from "flags/next";
-import { createGlobalConfigAdapter } from "@flags-sdk/global-config";
+const sale = await summerSale();
+```
 
-const globalConfigAdapter = createGlobalConfigAdapter(process.env.GLOBAL_CONFIG, {
-  teamSlug: "your-team-slug",
-  globalConfigItemKey: "my-flags",
-});
+With the file system API, export the provider from `flags/sources/<source>/provider.ts`:
 
-export const exampleFlag = flag({
-  key: "example-flag",
-  adapter: globalConfigAdapter,
+```ts title="flags/sources/config/provider.ts"
+import { GlobalConfigProvider } from '@flags-sdk/global-config/openfeature';
+
+export default new GlobalConfigProvider();
+```
+
+### Options
+
+| Option    | Default                                       | Meaning                                                  |
+| --------- | --------------------------------------------- | -------------------------------------------------------- |
+| `client`  | The environment variable `GLOBAL_CONFIG`, then `EDGE_CONFIG` | A client of `@vercel/global-config`, or a connection string. |
+| `itemKey` | `flags`                                       | The item of the store which contains the flags.          |
+
+```ts
+import { createClient } from '@vercel/global-config';
+
+new GlobalConfigProvider({
+  client: createClient(process.env.OTHER_GLOBAL_CONFIG),
+  itemKey: 'my-flags',
 });
 ```
 
-Your Global Config should look like this:
+## Behavior
 
-```json
-{
-  "my-flags": {
-    "example-flag": true
-  }
-}
-```
+- **No connection at import.** The provider creates the client on the first evaluation. A tool can import the source, e.g. to write the manifest of the flags, without the environment variable.
+- **One read for all flags.** Flags that evaluate at the same time share one read of the item.
+- **The same value for everybody.** A value of Global Config does not depend on the visitor, so the reason is `STATIC`, and the source needs no evaluation context.
+- **Errors return the default value:**
+  - `FLAG_NOT_FOUND` when the item has no entry for the flag;
+  - `TYPE_MISMATCH` when the value has a different type than the flag;
+  - `GENERAL` when the item is missing or the read fails.
 
-Supplying the custom `teamSlug` allows the adapter to generate an `origin` for your flags, which in turn allows the Flags Explorer to link to your Global Config. This is optional and does not affect runtime behavior.
+## Upgrading from v4
+
+The v4 adapter (`globalConfigAdapter`, `createGlobalConfigAdapter`) is removed. Use the provider with a source, as above. The option `globalConfigItemKey` is now `itemKey`. The `teamSlug` option is not needed.

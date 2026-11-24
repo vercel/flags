@@ -1,213 +1,156 @@
-import type { GlobalConfigClient } from '@vercel/global-config';
-import type { ReadonlyRequestCookies } from 'flags';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  createGlobalConfigAdapter,
-  globalConfigAdapter,
-  resetDefaultGlobalConfigAdapter,
-} from '.';
+import type { Provider } from '@openfeature/server-sdk';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { GlobalConfigProvider, type GlobalConfigReader } from '.';
 
-describe('createGlobalConfigAdapter', () => {
-  it('should allow creating an adapter with a client', () => {
-    const fakeGlobalConfigClient = {} as GlobalConfigClient;
-    const adapter = createGlobalConfigAdapter(fakeGlobalConfigClient);
-    expect(adapter).toBeDefined();
-  });
+function clientWith(items: Record<string, unknown>) {
+  return {
+    get: vi.fn(async (key: string) => items[key]),
+  } as unknown as GlobalConfigReader & { get: ReturnType<typeof vi.fn> };
+}
 
-  it('returns the same adapter instance on every call', () => {
-    const fakeGlobalConfigClient = {} as GlobalConfigClient;
-    const adapter = createGlobalConfigAdapter(fakeGlobalConfigClient);
-    expect(adapter()).toBe(adapter());
-  });
+const context = {};
 
-  describe('adapterId', () => {
-    it('shares one adapterId across all adapters from the same factory call', () => {
-      const fakeGlobalConfigClient = {} as GlobalConfigClient;
-      const adapter = createGlobalConfigAdapter(fakeGlobalConfigClient);
-      const a = adapter();
-      const b = adapter();
-      expect(a).toBe(b);
-      expect(a.adapterId).toBeDefined();
-      expect(a.adapterId).toBe(b.adapterId);
-    });
-
-    it('uses different adapterIds across separate factory calls', () => {
-      const fakeGlobalConfigClient = {} as GlobalConfigClient;
-      const adapterA = createGlobalConfigAdapter(fakeGlobalConfigClient);
-      const adapterB = createGlobalConfigAdapter(fakeGlobalConfigClient);
-      expect(adapterA().adapterId).not.toBe(adapterB().adapterId);
-    });
-  });
-
-  describe('bulkDecide', () => {
-    it('resolves all requested flag keys from Global Config in one read', async () => {
-      const fakeGlobalConfigClient = {
-        get: vi.fn(async () => ({
-          'flag-a': true,
-          'flag-b': false,
-          'flag-c': true,
-        })),
-      } as unknown as GlobalConfigClient;
-      const adapter = createGlobalConfigAdapter(fakeGlobalConfigClient);
-      const headers = new Headers();
-
-      const result = await adapter().bulkDecide!({
-        flags: [{ key: 'flag-a' }, { key: 'flag-b' }],
-        entities: {},
-        headers,
-        cookies: {} as ReadonlyRequestCookies,
-      });
-
-      expect(result).toEqual({ 'flag-a': true, 'flag-b': false });
-      expect(fakeGlobalConfigClient.get).toHaveBeenCalledOnce();
-    });
-
-    it('omits keys missing from Global Config so the SDK applies defaultValue', async () => {
-      const fakeGlobalConfigClient = {
-        get: vi.fn(async () => ({ 'flag-a': true })),
-      } as unknown as GlobalConfigClient;
-      const adapter = createGlobalConfigAdapter(fakeGlobalConfigClient);
-      const headers = new Headers();
-
-      const result = await adapter().bulkDecide!({
-        flags: [{ key: 'flag-a' }, { key: 'flag-missing' }],
-        entities: {},
-        headers,
-        cookies: {} as ReadonlyRequestCookies,
-      });
-
-      expect(result).toEqual({ 'flag-a': true });
-    });
-
-    it('shares the per-request cache with decide', async () => {
-      const fakeGlobalConfigClient = {
-        get: vi.fn(async () => ({ 'flag-a': true, 'flag-b': false })),
-      } as unknown as GlobalConfigClient;
-      const adapter = createGlobalConfigAdapter(fakeGlobalConfigClient);
-      const headers = new Headers();
-
-      await adapter().decide({
-        key: 'flag-a',
-        entities: {},
-        headers,
-        cookies: {} as ReadonlyRequestCookies,
-      });
-
-      await adapter().bulkDecide!({
-        flags: [{ key: 'flag-b' }],
-        entities: {},
-        headers,
-        cookies: {} as ReadonlyRequestCookies,
-      });
-
-      expect(fakeGlobalConfigClient.get).toHaveBeenCalledOnce();
-    });
-  });
-
-  it('should allow creating an adapter with a connection string', () => {
-    const adapter = createGlobalConfigAdapter(
-      'https://global-config.vercel.com/ecfg_xxx?token=yyy',
-    );
-    expect(adapter).toBeDefined();
-  });
-
-  it('should allow deciding', async () => {
-    const fakeGlobalConfigClient = {
-      get: vi.fn(async () => ({ 'test-key': true })),
-    } as unknown as GlobalConfigClient;
-    const adapter = createGlobalConfigAdapter(fakeGlobalConfigClient);
-    await expect(
-      adapter().decide({
-        key: 'test-key',
-        entities: {},
-        headers: new Headers(),
-        cookies: {} as ReadonlyRequestCookies,
-      }),
-    ).resolves.toEqual(true);
-    expect(fakeGlobalConfigClient.get).toHaveBeenCalledWith('flags');
-  });
-
-  describe('caching', () => {
-    it('caches for the duration of a request', async () => {
-      const fakeGlobalConfigClient = {
-        get: vi.fn(async () => ({ 'test-key': true })),
-      } as unknown as GlobalConfigClient;
-      const adapter = createGlobalConfigAdapter(fakeGlobalConfigClient);
-
-      const headers = new Headers();
-
-      // call once
-      await expect(
-        adapter().decide({
-          key: 'test-key',
-          entities: {},
-          headers,
-          cookies: {} as ReadonlyRequestCookies,
-        }),
-      ).resolves.toEqual(true);
-
-      // call again with the same headers instance
-      // to simulate a read within the same request
-      await expect(
-        adapter().decide({
-          key: 'test-key',
-          entities: {},
-          headers,
-          cookies: {} as ReadonlyRequestCookies,
-        }),
-      ).resolves.toEqual(true);
-      expect(fakeGlobalConfigClient.get).toHaveBeenCalledWith('flags');
-      expect(fakeGlobalConfigClient.get).toHaveBeenCalledOnce();
-    });
-    it('does not cache between requests', async () => {
-      const fakeGlobalConfigClient = {
-        get: vi.fn(async () => ({ 'test-key': true })),
-      } as unknown as GlobalConfigClient;
-      const adapter = createGlobalConfigAdapter(fakeGlobalConfigClient);
-
-      // call once
-      await expect(
-        adapter().decide({
-          key: 'test-key',
-          entities: {},
-          headers: new Headers(),
-          cookies: {} as ReadonlyRequestCookies,
-        }),
-      ).resolves.toEqual(true);
-
-      // call again with a different headers instance
-      // to simulate a new request
-      await expect(
-        adapter().decide({
-          key: 'test-key',
-          entities: {},
-          headers: new Headers(),
-          cookies: {} as ReadonlyRequestCookies,
-        }),
-      ).resolves.toEqual(true);
-
-      expect(fakeGlobalConfigClient.get).toHaveBeenCalledWith('flags');
-      expect(fakeGlobalConfigClient.get).toHaveBeenCalledTimes(2);
-    });
-  });
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
-describe('globalConfigAdapter', () => {
-  beforeEach(() => {
-    resetDefaultGlobalConfigAdapter();
+describe('GlobalConfigProvider', () => {
+  it('is an OpenFeature provider', () => {
+    // The type check fails if the provider does not match the Provider of
+    // OpenFeature, e.g. for OpenFeature.setProvider()
+    const provider: Provider = new GlobalConfigProvider({
+      client: clientWith({}),
+    });
+    expect(provider.metadata.name).toBe('global-config');
+    expect(provider.runsOn).toBe('server');
   });
 
-  it('default adapter should throw on usage when GLOBAL_CONFIG is not set', () => {
-    expect(() => globalConfigAdapter()).toThrowError(
-      '@flags-sdk/global-config: Missing GLOBAL_CONFIG env var',
-    );
+  it('resolves each type from the item flags', async () => {
+    const provider = new GlobalConfigProvider({
+      client: clientWith({
+        flags: {
+          summerSale: true,
+          banner: 'Free shipping',
+          discount: 15,
+          theme: { color: 'blue' },
+        },
+      }),
+    });
+
+    await expect(
+      provider.resolveBooleanEvaluation('summerSale', false, context),
+    ).resolves.toEqual({ value: true, reason: 'STATIC' });
+    await expect(
+      provider.resolveStringEvaluation('banner', '', context),
+    ).resolves.toEqual({ value: 'Free shipping', reason: 'STATIC' });
+    await expect(
+      provider.resolveNumberEvaluation('discount', 0, context),
+    ).resolves.toEqual({ value: 15, reason: 'STATIC' });
+    await expect(
+      provider.resolveObjectEvaluation('theme', {}, context),
+    ).resolves.toEqual({ value: { color: 'blue' }, reason: 'STATIC' });
   });
 
-  it('should export a default adapter', () => {
-    process.env.GLOBAL_CONFIG =
-      'https://global-config.vercel.com/ecfg_xxx?token=yyy';
-    const adapter = globalConfigAdapter();
-    expect(adapter).toBeDefined();
-    delete process.env.GLOBAL_CONFIG;
+  it('reads a different item with itemKey', async () => {
+    const client = clientWith({ 'my-flags': { summerSale: true } });
+    const provider = new GlobalConfigProvider({ client, itemKey: 'my-flags' });
+
+    await expect(
+      provider.resolveBooleanEvaluation('summerSale', false, context),
+    ).resolves.toMatchObject({ value: true });
+    expect(client.get).toHaveBeenCalledWith('my-flags');
+  });
+
+  it('returns the default value with FLAG_NOT_FOUND for an unknown flag', async () => {
+    const provider = new GlobalConfigProvider({
+      client: clientWith({ flags: {} }),
+    });
+
+    await expect(
+      provider.resolveBooleanEvaluation('missing', true, context),
+    ).resolves.toEqual({
+      value: true,
+      reason: 'ERROR',
+      errorCode: 'FLAG_NOT_FOUND',
+      errorMessage:
+        '@flags-sdk/global-config: The flag "missing" is not in the item "flags" of Global Config.',
+    });
+  });
+
+  it('returns the default value with TYPE_MISMATCH for a value of another type', async () => {
+    const provider = new GlobalConfigProvider({
+      client: clientWith({ flags: { summerSale: 'yes' } }),
+    });
+
+    await expect(
+      provider.resolveBooleanEvaluation('summerSale', false, context),
+    ).resolves.toMatchObject({
+      value: false,
+      reason: 'ERROR',
+      errorCode: 'TYPE_MISMATCH',
+    });
+  });
+
+  it('returns the default value with GENERAL when the item is missing', async () => {
+    const provider = new GlobalConfigProvider({ client: clientWith({}) });
+
+    await expect(
+      provider.resolveStringEvaluation('banner', 'none', context),
+    ).resolves.toMatchObject({
+      value: 'none',
+      reason: 'ERROR',
+      errorCode: 'GENERAL',
+    });
+  });
+
+  it('returns the default value with GENERAL when the read fails', async () => {
+    const provider = new GlobalConfigProvider({
+      client: {
+        get: async () => {
+          throw new Error('network');
+        },
+      } as unknown as GlobalConfigReader,
+    });
+
+    await expect(
+      provider.resolveBooleanEvaluation('summerSale', false, context),
+    ).resolves.toEqual({
+      value: false,
+      reason: 'ERROR',
+      errorCode: 'GENERAL',
+      errorMessage: 'network',
+    });
+  });
+
+  it('reads the item once for flags which evaluate at the same time', async () => {
+    const client = clientWith({ flags: { a: true, b: false } });
+    const provider = new GlobalConfigProvider({ client });
+
+    await Promise.all([
+      provider.resolveBooleanEvaluation('a', false, context),
+      provider.resolveBooleanEvaluation('b', true, context),
+    ]);
+    expect(client.get).toHaveBeenCalledTimes(1);
+
+    // A later evaluation reads the item again
+    await provider.resolveBooleanEvaluation('a', false, context);
+    expect(client.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('needs no environment variable until the first evaluation', async () => {
+    vi.stubEnv('GLOBAL_CONFIG', '');
+    vi.stubEnv('EDGE_CONFIG', '');
+    // A tool can import the source without the environment variable
+    const provider = new GlobalConfigProvider();
+
+    await expect(
+      provider.resolveBooleanEvaluation('summerSale', false, context),
+    ).resolves.toEqual({
+      value: false,
+      reason: 'ERROR',
+      errorCode: 'GENERAL',
+      errorMessage:
+        '@flags-sdk/global-config: Missing the environment variable GLOBAL_CONFIG.',
+    });
   });
 });
