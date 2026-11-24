@@ -90,6 +90,8 @@ With a framework with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), you 
 
 For other vendors, use their OpenFeature provider. See [OpenFeature providers](/docs/providers/openfeature).
 
+`@flags-sdk/vercel` and `@flags-sdk/openfeature` are not used with v5. For Vercel Flags, use `VercelProvider` of `@vercel/flags-core/openfeature`, as above. An OpenFeature provider goes directly into `defineSource({ provider })`, so it needs no adapter of `@flags-sdk/openfeature`. Remove both packages when nothing imports them.
+
 The v5 versions of `@flags-sdk/flagsmith`, `@flags-sdk/growthbook`, `@flags-sdk/launchdarkly`, `@flags-sdk/posthog` and `@flags-sdk/statsig` have no adapter. PostHog and Statsig have an OpenFeature provider in `@flags-sdk/posthog/openfeature` and `@flags-sdk/statsig/openfeature`.
 
 ## The framework setup

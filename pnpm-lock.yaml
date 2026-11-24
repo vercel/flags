@@ -1175,36 +1175,6 @@ importers:
         specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
 
-  packages/adapter-openfeature:
-    devDependencies:
-      '@openfeature/server-sdk':
-        specifier: ^1.17.1
-        version: 1.20.0(@openfeature/core@1.12.0)
-      '@types/node':
-        specifier: 22.14.0
-        version: 22.14.0
-      flags:
-        specifier: npm:flags@4.5.0
-        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      msw:
-        specifier: 2.6.4
-        version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
-      rimraf:
-        specifier: 6.1.2
-        version: 6.1.2
-      tsup:
-        specifier: 8.5.1
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: 8.1.7
-        version: 8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0)
-      vitest:
-        specifier: 4.1.12
-        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
-
   packages/adapter-posthog:
     devDependencies:
       '@openfeature/server-sdk':
@@ -1283,37 +1253,6 @@ importers:
       rimraf:
         specifier: 6.1.2
         version: 6.1.2
-      tsup:
-        specifier: 8.5.1
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: 8.1.7
-        version: 8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0)
-      vitest:
-        specifier: 4.1.12
-        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
-
-  packages/adapter-vercel:
-    dependencies:
-      '@vercel/flags-core':
-        specifier: workspace:*
-        version: link:../vercel-flags-core
-    devDependencies:
-      '@types/node':
-        specifier: 22.14.0
-        version: 22.14.0
-      flags:
-        specifier: npm:flags@4.5.0
-        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      msw:
-        specifier: 2.6.4
-        version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
-      next:
-        specifier: 16.4.6
-        version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
@@ -3152,12 +3091,6 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       '@openfeature/core': ^1.7.0
-
-  '@openfeature/server-sdk@1.20.0':
-    resolution: {integrity: sha512-95L9CCaGVKC6+7rNCmDxjthFvUyPLOUkoYyjg9Y/Cmy0G9D63xrJBsmH6fqHtLifzAu4+E7fWAZ3TIBnnCtr7A==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      '@openfeature/core': ^1.9.0
 
   '@openfeature/server-sdk@1.23.0':
     resolution: {integrity: sha512-JWeLvltJIV0AFgOfbw7hK9b9Rw/5wWq+RMhCIU9sJtAqarxr8hSPglG+JAGGhYdElAz3Qwe9W3ApWyPNkQEyqg==}
@@ -16780,10 +16713,6 @@ snapshots:
       '@openfeature/server-sdk': 1.23.0(@openfeature/core@1.12.0)
 
   '@openfeature/server-sdk@1.18.0(@openfeature/core@1.12.0)':
-    dependencies:
-      '@openfeature/core': 1.12.0
-
-  '@openfeature/server-sdk@1.20.0(@openfeature/core@1.12.0)':
     dependencies:
       '@openfeature/core': 1.12.0
 

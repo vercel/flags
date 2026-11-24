@@ -28,10 +28,8 @@
         "@flags-sdk/flagsmith",
         "@flags-sdk/launchdarkly",
         "@flags-sdk/statsig",
-        "@flags-sdk/vercel",
         "@flags-sdk/reflag",
         "@flags-sdk/posthog",
-        "@flags-sdk/openfeature",
         "@flags-sdk/growthbook"
       ],
       "range": "^"

@@ -107,5 +107,5 @@ Other vendors: replace the adapter with the vendor's OpenFeature provider ([prov
 7. Remove `app/.well-known/vercel/flags/route.ts`. Add `app/.well-known/flags/manifest.json/route.ts` with `export { GET } from '@flags-sdk/next/manifest';`.
 8. Move precompute imports to `@flags-sdk/next/precompute`, and read values with `getPrecomputed`.
 9. Move `FlagValues` to `@flags-sdk/next/flag-values` (prop `flags` or `values`).
-10. Remove `@flags-sdk/vercel` and other v4 adapters when nothing imports them.
+10. Remove `@flags-sdk/vercel`, `@flags-sdk/openfeature` and other v4 adapters when nothing imports them. They are not used with v5: an OpenFeature provider goes directly into `defineSource`.
 11. Run the type check (`flags sync && tsc --noEmit`) and the build. The types point to the remaining changes.

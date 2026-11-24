@@ -2,7 +2,7 @@
 
 The core evaluation engine for [Vercel Flags](https://vercel.com/docs/flags/vercel-flags), the feature flag platform built into Vercel. This package provides direct access to the flag evaluation client, data fetching, and an [OpenFeature](https://openfeature.dev/) provider.
 
-For Next.js and SvelteKit applications, use the [Flags SDK](https://flags-sdk.dev/) with [`@flags-sdk/vercel`](https://flags-sdk.dev/providers/vercel) provider instead. Use `@vercel/flags-core` when you need lower-level control, are working with an unsupported framework, or want to use the OpenFeature standard.
+With the [Flags SDK](https://flags-sdk.dev/) v5, use `VercelProvider` of `@vercel/flags-core/openfeature` as the provider of a source. See [Vercel Flags](https://flags-sdk.dev/docs/providers/vercel). Use `@vercel/flags-core` directly when you need lower-level control, or without the Flags SDK.
 
 ## Installation
 
