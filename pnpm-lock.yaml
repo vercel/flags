@@ -1112,12 +1112,12 @@ importers:
         specifier: ^1.5.1
         version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
     devDependencies:
+      '@openfeature/server-sdk':
+        specifier: 1.23.0
+        version: 1.23.0(@openfeature/core@1.12.0)
       '@types/node':
         specifier: 22.14.0
         version: 22.14.0
-      flags:
-        specifier: npm:flags@4.5.0
-        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       rimraf:
         specifier: 6.1.2
         version: 6.1.2
@@ -1145,40 +1145,6 @@ importers:
       '@vercel/global-config':
         specifier: ^1.5.1
         version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
-    devDependencies:
-      '@types/node':
-        specifier: 22.14.0
-        version: 22.14.0
-      flags:
-        specifier: npm:flags@4.5.0
-        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      msw:
-        specifier: 2.6.4
-        version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
-      rimraf:
-        specifier: 6.1.2
-        version: 6.1.2
-      tsup:
-        specifier: 8.5.1
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: 8.1.7
-        version: 8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0)
-      vitest:
-        specifier: 4.1.12
-        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
-
-  packages/adapter-hypertune:
-    dependencies:
-      '@vercel/global-config':
-        specifier: ^1.5.1
-        version: 1.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
-      hypertune:
-        specifier: 2.8.3
-        version: 2.8.3
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -1269,33 +1235,6 @@ importers:
         specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
 
-  packages/adapter-optimizely:
-    devDependencies:
-      '@types/node':
-        specifier: 22.14.0
-        version: 22.14.0
-      flags:
-        specifier: npm:flags@4.5.0
-        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      msw:
-        specifier: 2.6.4
-        version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
-      rimraf:
-        specifier: 6.1.2
-        version: 6.1.2
-      tsup:
-        specifier: 8.5.1
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: 8.1.7
-        version: 8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0)
-      vitest:
-        specifier: 4.1.12
-        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
-
   packages/adapter-posthog:
     dependencies:
       posthog-node:
@@ -1335,33 +1274,6 @@ importers:
       '@reflag/node-sdk':
         specifier: 1.0.1
         version: 1.0.1
-    devDependencies:
-      '@types/node':
-        specifier: 22.14.0
-        version: 22.14.0
-      flags:
-        specifier: npm:flags@4.5.0
-        version: 4.5.0(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      msw:
-        specifier: 2.6.4
-        version: 2.6.4(@types/node@22.14.0)(typescript@5.9.3)
-      rimraf:
-        specifier: 6.1.2
-        version: 6.1.2
-      tsup:
-        specifier: 8.5.1
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: 8.1.7
-        version: 8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0)
-      vitest:
-        specifier: 4.1.12
-        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.0))
-
-  packages/adapter-split:
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -6820,9 +6732,6 @@ packages:
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
 
-  '@types/retry@0.12.0':
-    resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
-
   '@types/send@1.2.1':
     resolution: {integrity: sha512-arsCikDvlU99zl1g69TcAB3mzZPpxgw0UQnaHeC1Nwb015xp8bknZv5rIfri9xTOcMuaVgvabfIRA7PSZVuZIQ==}
 
@@ -8224,9 +8133,6 @@ packages:
     resolution: {integrity: sha512-9Kr/j4O16ISv8zBBhJoi4bXOYNTkFLOqSL3UDB0njXxCXNezjeyVrJyGOWtgfs/q2km1gwBcfH8q1yEGoMYunA==}
     engines: {node: '>=18'}
 
-  core-js@3.46.0:
-    resolution: {integrity: sha512-vDMm9B0xnqqZ8uSBpZ8sNtRtOdmfShrvT6h2TuQGLs0Is+cR0DYbj/KWP6ALVNbWPpqA/qPLoOuppJN07humpA==}
-
   core-util-is@1.0.3:
     resolution: {integrity: sha512-ZQBvi1DcpJ4GDqanjucZ2Hj3wEO5pZDS89BWbkcrvdxksJorwUDDZamX9ldFkp9aw2lmBDLgkObEA4DWNJ9FYQ==}
 
@@ -8248,9 +8154,6 @@ packages:
   croner@10.0.1:
     resolution: {integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g==}
     engines: {node: '>=18.0'}
-
-  cross-fetch@4.1.0:
-    resolution: {integrity: sha512-uKm5PU+MHTootlWEY+mZ4vvXoCn4fLQxT9dSc1sXVMSFkINTJVN8cAQROpwcKm8bJ/c7rgZVIBWzH5T78sNZZw==}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -8649,10 +8552,6 @@ packages:
   dot-prop@10.2.0:
     resolution: {integrity: sha512-BTJ9aZYL3vCfZlZOBLy9v8TUqWGQ0pzFnygKwFZt5udj6viBoFIBviKPUoZLDCPn1FoXffv6McQFDenrm5Krfw==}
     engines: {node: '>=20'}
-
-  dotenv@16.6.1:
-    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
-    engines: {node: '>=12'}
 
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
@@ -9615,10 +9514,6 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  hypertune@2.8.3:
-    resolution: {integrity: sha512-Lbd/wjXFMfFzeuUjiMi1N+zKvHlzMybZV2cuMm7XmpS+w8wxs3EnYHcZmvueTZY+rnOr9aVxLtpLIHt2EO7qiw==}
-    hasBin: true
-
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
@@ -9990,10 +9885,6 @@ packages:
   json-stable-stringify-without-jsonify@1.0.1:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
 
-  json-stable-stringify@1.3.0:
-    resolution: {integrity: sha512-qtYiSSFlwot9XHtF9bD9c7rwKjr+RecWT//ZnPvSmEjpV5mmPOCN4j8UjY5hbjNkOwZ/jQv3J6R1/pL7RwgMsg==}
-    engines: {node: '>= 0.4'}
-
   json5@1.0.2:
     resolution: {integrity: sha512-g1MWMLBiz8FKi1e4w0UyVL3w+iJceWAFBAaBnnGKOpNa5f8TLktkbre1+s6oICydWAm+HRUGTmI+//xv2hvXYA==}
     hasBin: true
@@ -10005,12 +9896,6 @@ packages:
 
   jsonc-parser@3.3.1:
     resolution: {integrity: sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ==}
-
-  jsonify@0.0.1:
-    resolution: {integrity: sha512-2/Ki0GcmuqSrgFyelQq9M05y7PS0mEwuIzrf3f1fPqkVDVRvZrPZtVSMHxdgo8Aq0sxAOb/cr2aqqA3LeWHVPg==}
-
-  jsonito@0.2.3:
-    resolution: {integrity: sha512-HILfMQB+RD7tYfPEBLepigw7kamYCSFbP4B3807PJrDlUJbl7dihslENhx8eObfScQulhjdIEx6mjzcbwPtlDg==}
 
   jsonpath-plus@10.4.0:
     resolution: {integrity: sha512-T92WWatJXmhBbKsgH/0hl+jxjdXrifi5IKeMY02DWggRxX0UElcbVzPlmgLTbvsPeW1PasQ6xE2Q75stkhGbsA==}
@@ -11135,10 +11020,6 @@ packages:
     resolution: {integrity: sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==}
     engines: {node: '>=10'}
 
-  p-retry@4.6.2:
-    resolution: {integrity: sha512-312Id396EbJdvRONlngUx0NydfrIQ5lsYu0znKVUzVvArzEIt08V1qhtyESbGVd1FGX7UKtiFp5uwKZdM8wIuQ==}
-    engines: {node: '>=8'}
-
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
 
@@ -11780,9 +11661,6 @@ packages:
     resolution: {integrity: sha512-00o4I+DVrefhv+nX0ulyi3biSHCPDe+yLv5o/p6d/UVlirijB8E16FtfwSAi4g3tcqrQ4lRAqQSoFEZJehYEcw==}
     engines: {node: '>= 0.4'}
 
-  regenerator-runtime@0.14.1:
-    resolution: {integrity: sha512-dYnhHh0nJoMfnkZs6GmmhFknAGRrLznOu5nc9ML+EJxGvrx6H7teuevqVqCuPcPK//3eDrrjQhehXVx9cnkGdw==}
-
   regex-recursion@4.3.0:
     resolution: {integrity: sha512-5LcLnizwjcQ2ALfOj95MjcatxyqF5RPySx9yT+PaXu3Gox2vyAtLDjHB8NTJLtMGkvyau6nI3CfpwFCjPUIs/A==}
 
@@ -11904,10 +11782,6 @@ packages:
 
   retry@0.12.0:
     resolution: {integrity: sha512-9LkiTwjUh6rT555DtE9rTX+BKByPfrMzEAtnlEtdEwr3Nkffwiihqe2bWADg+OQRjt9gl6ICdmB/ZFDCGAtSow==}
-    engines: {node: '>= 4'}
-
-  retry@0.13.1:
-    resolution: {integrity: sha512-XQBQ3I8W1Cge0Seh+6gjj03LbmRFWuoszgK9ooCpwYIrhhoO80pfq4cUkU5DkknwfOfFteRwlZ56PYOGYyFWdg==}
     engines: {node: '>= 4'}
 
   reusify@1.1.0:
@@ -20786,8 +20660,6 @@ snapshots:
 
   '@types/resolve@1.20.2': {}
 
-  '@types/retry@0.12.0': {}
-
   '@types/send@1.2.1':
     dependencies:
       '@types/node': 22.14.0
@@ -22791,8 +22663,6 @@ snapshots:
 
   cookie@1.0.2: {}
 
-  core-js@3.46.0: {}
-
   core-util-is@1.0.3: {}
 
   cose-base@1.0.3:
@@ -22811,12 +22681,6 @@ snapshots:
       readable-stream: 4.8.0
 
   croner@10.0.1: {}
-
-  cross-fetch@4.1.0:
-    dependencies:
-      node-fetch: 2.7.0
-    transitivePeerDependencies:
-      - encoding
 
   cross-spawn@7.0.6:
     dependencies:
@@ -23256,8 +23120,6 @@ snapshots:
   dot-prop@10.2.0:
     dependencies:
       type-fest: 5.10.0
-
-  dotenv@16.6.1: {}
 
   dotenv@17.4.2: {}
 
@@ -24561,21 +24423,6 @@ snapshots:
 
   husky@9.0.10: {}
 
-  hypertune@2.8.3:
-    dependencies:
-      cac: 6.7.14
-      core-js: 3.46.0
-      cross-fetch: 4.1.0
-      dotenv: 16.6.1
-      joycon: 3.1.1
-      json-stable-stringify: 1.3.0
-      jsonito: 0.2.3
-      nanoid: 3.3.18
-      p-retry: 4.6.2
-      regenerator-runtime: 0.14.1
-    transitivePeerDependencies:
-      - encoding
-
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
@@ -24999,14 +24846,6 @@ snapshots:
 
   json-stable-stringify-without-jsonify@1.0.1: {}
 
-  json-stable-stringify@1.3.0:
-    dependencies:
-      call-bind: 1.0.8
-      call-bound: 1.0.4
-      isarray: 2.0.5
-      jsonify: 0.0.1
-      object-keys: 1.1.1
-
   json5@1.0.2:
     dependencies:
       minimist: 1.2.8
@@ -25014,10 +24853,6 @@ snapshots:
   json5@2.2.3: {}
 
   jsonc-parser@3.3.1: {}
-
-  jsonify@0.0.1: {}
-
-  jsonito@0.2.3: {}
 
   jsonpath-plus@10.4.0:
     dependencies:
@@ -28116,11 +27951,6 @@ snapshots:
     dependencies:
       p-limit: 3.1.0
 
-  p-retry@4.6.2:
-    dependencies:
-      '@types/retry': 0.12.0
-      retry: 0.13.1
-
   package-json-from-dist@1.0.1: {}
 
   package-manager-detector@1.6.0: {}
@@ -28885,8 +28715,6 @@ snapshots:
       get-proto: 1.0.1
       which-builtin-type: 1.2.1
 
-  regenerator-runtime@0.14.1: {}
-
   regex-recursion@4.3.0:
     dependencies:
       regex-utilities: 2.3.0
@@ -29060,8 +28888,6 @@ snapshots:
       signal-exit: 4.1.0
 
   retry@0.12.0: {}
-
-  retry@0.13.1: {}
 
   reusify@1.1.0: {}
 
