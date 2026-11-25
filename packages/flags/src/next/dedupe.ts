@@ -1,3 +1,5 @@
+import { framework } from './binding';
+
 enum Status {
   UNTERMINATED = 0,
   TERMINATED = 1,
@@ -56,11 +58,9 @@ export function dedupe<A extends Array<unknown>, T>(
   const requestStore: RequestStore<T> = new WeakMap<Headers, CacheNode<T>>();
 
   const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
-    // async import required as turbopack errors in Pages Router
-    // when next/headers is imported at the top-level
-    const { headers } = await import('next/headers');
-
-    const h = await headers();
+    // The headers of the request identify it. The framework gives them, by
+    // default headers() of next/headers.
+    const h = (await framework().getHeaders()) as unknown as Headers;
     let cacheNode = requestStore.get(h);
     if (!cacheNode) {
       cacheNode = createCacheNode<T>();
@@ -141,7 +141,6 @@ export async function clearDedupeCacheForCurrentRequest(
   if (!requestStore) {
     throw new Error('dedupe: cache not found');
   }
-  const { headers } = await import('next/headers');
-  const h = await headers();
+  const h = (await framework().getHeaders()) as unknown as Headers;
   return requestStore.delete(h);
 }

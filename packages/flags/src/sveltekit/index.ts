@@ -1,5 +1,3 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-import { RequestCookies } from '@edge-runtime/cookies';
 import {
   error,
   type Handle,
@@ -29,14 +27,6 @@ import {
 import { warnFlagValuesLeftOut } from '../lib/flag-values-platform';
 import { normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
-import {
-  HeadersAdapter,
-  type ReadonlyHeaders,
-} from '../spec-extension/adapters/headers';
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from '../spec-extension/adapters/request-cookies';
 import type {
   Decide,
   FlagDeclaration,
@@ -45,8 +35,14 @@ import type {
   Identify,
   ResolvedFlagDeclaration,
 } from '../types';
+import {
+  type FlagsRequestContext,
+  flagStorage,
+  isFrameworkSignal,
+  sealCookies,
+  sealHeaders,
+} from './binding';
 import { getPrecomputeSecret, getSecret, loadEnv, tryGetSecret } from './env';
-import { isSvelteKitControlFlow } from './is-sveltekit-control-flow';
 import {
   generatePermutations as _generatePermutations,
   precompute as _precompute,
@@ -60,27 +56,6 @@ function hasOwnProperty<X extends {}, Y extends PropertyKey>(
   prop: Y,
 ): obj is X & Record<Y, unknown> {
   return Object.hasOwn(obj, prop);
-}
-
-const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
-const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
-
-function sealHeaders(headers: Headers): ReadonlyHeaders {
-  const cached = headersMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = HeadersAdapter.seal(headers);
-  headersMap.set(headers, sealed);
-  return sealed;
-}
-
-function sealCookies(headers: Headers): ReadonlyRequestCookies {
-  const cached = cookiesMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = RequestCookiesAdapter.seal(new RequestCookies(headers));
-  cookiesMap.set(headers, sealed);
-  return sealed;
 }
 
 type PromisesMap<T> = {
@@ -132,7 +107,7 @@ function getIdentify<ValueType, EntitiesType>(
  * Used when a flag is called outside of a request context, i.e. outside of the lifecycle of the `handle` hook.
  * This could be the case when the flag is called from routing functions.
  */
-const requestMap = new WeakMap<Request, AsyncLocalContext>();
+const requestMap = new WeakMap<Request, FlagsRequestContext>();
 
 /**
  * Declares a feature flag
@@ -250,7 +225,7 @@ export function flag<
   const api = trace(flagImpl, {
     name: 'flag',
     isVerboseTrace: false,
-    isIgnoredError: isSvelteKitControlFlow,
+    isIgnoredError: isFrameworkSignal,
     attributes: { key: definition.key },
   });
 
@@ -281,19 +256,11 @@ export function getProviderData(flags: Record<string, Flag<any>>): ApiData {
   return { definitions, hints: [] };
 }
 
-interface AsyncLocalContext {
-  request: Request;
-  secret: string | undefined;
-  params: Record<string, string>;
-  usedFlags: Record<string, Promise<JsonValue>>;
-  identifiers: Map<Identify<unknown>, ReturnType<Identify<unknown>>>;
-}
-
 function createContext(
   request: Request,
   secret: string | undefined,
   params?: Record<string, string>,
-): AsyncLocalContext {
+): FlagsRequestContext {
   return {
     request,
     secret,
@@ -302,8 +269,6 @@ function createContext(
     identifiers: new Map(),
   };
 }
-
-const flagStorage = new AsyncLocalStorage<AsyncLocalContext>();
 
 /**
  * Establishes context for flags, so they have access to the
