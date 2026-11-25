@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/flagsmith",
-  "version": "2.0.0",
+  "version": "3.0.0-standard.0",
   "description": "getProviderData of Flagsmith for the Flags Explorer",
   "keywords": [
     "flags-sdk",

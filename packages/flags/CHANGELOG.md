@@ -1,5 +1,44 @@
 # @vercel/flags
 
+## 5.0.0-standard.0
+
+### Major Changes
+
+- [#563](https://github.com/vercel/flags/pull/563) [`bb15db5`](https://github.com/vercel/flags/commit/bb15db5294685fd2e6e21a702f98e38ebc1c67b1) Thanks [@github-actions](https://github.com/apps/github-actions)! - Flags SDK v5: one standard for every framework, built on OpenFeature. Flags come from OpenFeature providers through sources (`defineSource`, `source.bindFlag`), or are inline flags (`defineFlag`). The file system API (`flags/sources/<source>/`) generates `import { … } from 'flags:<source>'`, and the framework packages (`@flags-sdk/next`, `@flags-sdk/sveltekit`, `@flags-sdk/nuxt`, `@flags-sdk/tanstack-start`, `@flags-sdk/hono`, `@flags-sdk/express`, `@flags-sdk/vite`) connect the SDK to each framework. See the guide "Upgrading from v4".
+
+### Minor Changes
+
+- [#618](https://github.com/vercel/flags/pull/618) [`472a030`](https://github.com/vercel/flags/commit/472a03016caa60f4f22e8254d64e6130d3288e6c) Thanks [@dferber90](https://github.com/dferber90)! - `flags/config.ts` and `defineConfig` are replaced by one file for each part of the configuration, in the folder `flags`:
+  
+  - `flags/config.json`: the static settings, e.g. `"selfSource": false` and `"overrides": { "vercel": false }`. The plugins, the CLI and the runtime read it, and an unknown setting is an error. The JSON Schema is `https://flags-sdk.dev/schemas/config.v1.json`.
+  - `flags/hooks.ts`: the hooks for all flags, as the default export.
+  - `flags/sources/<source>/hooks.ts`: the hooks of one source, also of a generated source.
+  
+  The plugin option `disableSelfSource` and the CLI flag `--disable-self-source` are replaced by `"selfSource": false` in `flags/config.json`. A binding builds the configuration with `configFromModules` of `flags/config`.
+  
+  The options of the overrides are the setting `overrides` of `flags/config.json`, also for `runtime.configure({ settings: { overrides } })`. The secret comes only from the environment variable `FLAGS_SECRET`: `overrides.secret` can only be `false`. The option `fetch` of the Vercel overrides is removed; the SDK uses the global `fetch`.
+
+- [#627](https://github.com/vercel/flags/pull/627) [`5dae2ba`](https://github.com/vercel/flags/commit/5dae2bad8e7b5c4f1099fcca84be54df97ad27e8) Thanks [@dferber90](https://github.com/dferber90)! - Flags files: declare the flags of an application in `app.flags` (`flag summerSale { key: "summer-sale", defaultValue: false }`: the name which the code imports, and the key in the flag management system), and import them with `import { summerSale } from './app.flags'`, or from their source with `import { summerSale } from 'flags:self'`, which has the flags of the source from all flags files. A flag can set its own `source`. The framework plugins compile each flags file into `defineSource` and `source.bindFlag`, without the network. `node --import flags/register` does the same without a bundler. For the types, the SDK writes `app.d.flags.ts` next to each file, for `allowArbitraryExtensions`, and TypeScript 7.1 can also read flags files with the content mapper of `flags` (`"contentMappers": [{ "package": "flags", "extensions": [".flags"] }]`). The flags files are the only declarations for the code generation: there are no catalogs, and an empty flags file defines its source, e.g. `flags:self`. `flags format` formats flags files (`--check` for CI, `--stdin` for editors such as Zed), and `formatFlagsFile` of `flags/tooling` is the formatter.
+
+- [#618](https://github.com/vercel/flags/pull/618) [`472a030`](https://github.com/vercel/flags/commit/472a03016caa60f4f22e8254d64e6130d3288e6c) Thanks [@dferber90](https://github.com/dferber90)! - The main export `flags` contains only what an application needs for its flags: `defineSource`, `defineFlag`, `evaluate`, `track`, `FlagEvaluationError`, `DECIDE_REASON`, `OVERRIDE_REASON` and the types. Two new subpaths contain the rest:
+  
+  - `flags/runtime`: `runtime`, `registerFlags`, `registerSources` and the types `Config`, `Settings`, `SetupFramework`, `GetRequest`, `LoadConfig`, `Runtime`, `OverridesOptions`, `VercelOverridesOptions` and `PlatformProject`. For framework bindings and for applications without a framework plugin, e.g. with Express, Hono or plain Node.js. All copies of the package share one runtime.
+  - `flags/explorer`: the protocol of Flags Explorer. `encryptFlagValues`, `decryptFlagValues`, `serializeFlagValues`, `encryptOverrides`, `decryptOverrides`, `signOverrides`, `OverridesError` and their types.
+
+- [#618](https://github.com/vercel/flags/pull/618) [`472a030`](https://github.com/vercel/flags/commit/472a03016caa60f4f22e8254d64e6130d3288e6c) Thanks [@dferber90](https://github.com/dferber90)! - The default source `self`: in an application which depends on `@vercel/flags-core`, the flags of the source `self` in the flags files use `new VercelProvider()`, without `flags/sources/self/`. Each file of `flags/sources/self/` replaces its part, e.g. `context.ts` adds an evaluation context and `provider.ts` replaces the provider. `"selfSource": false` in `flags/config.json` turns it off, for the plugins, the CLI and the compiler of the flags files.
+
+- [#613](https://github.com/vercel/flags/pull/613) [`1207e22`](https://github.com/vercel/flags/commit/1207e2253e355c6c503896cf66857856c706caab) Thanks [@dferber90](https://github.com/dferber90)! - Signed overrides follow the current protocol of the Vercel Toolbar: the scope lists `projectIds` (e.g. all projects of a microfrontends group), and a token can live up to 7 days. On Vercel, the SDK accepts signed overrides also when `FLAGS_SECRET` is set, and reads the OIDC token of the request first. New: `signOverrides(overrides, { ttl })` asks Vercel to sign overrides, e.g. for end-to-end tests without a `FLAGS_SECRET`.
+
+- [#618](https://github.com/vercel/flags/pull/618) [`472a030`](https://github.com/vercel/flags/commit/472a03016caa60f4f22e8254d64e6130d3288e6c) Thanks [@dferber90](https://github.com/dferber90)! - A provider flag is declared on its source: `source.bindFlag(key, options)` replaces `bindFlag({ key, source, ...options })`. `defineSource` returns a `BindableSource`. The options are the same, without `key` and `source`. Inline flags still use `defineFlag({ key, decide })`.
+
+### Patch Changes
+
+- [#575](https://github.com/vercel/flags/pull/575) [`2921a96`](https://github.com/vercel/flags/commit/2921a96e8711c9bd738a4e0338908381ddf41927) Thanks [@luismeyer](https://github.com/luismeyer)! - Align platform-encrypted flag values with Vercel's decryption API by putting the allowed project IDs in the protected header and using the platform JWKS.
+
+- [#614](https://github.com/vercel/flags/pull/614) [`9d1888d`](https://github.com/vercel/flags/commit/9d1888d77e82cdce570ddb035cfb08d4b86f3472) Thanks [@dferber90](https://github.com/dferber90)! - `teamId` is optional in the `project` of a `launchdarkly` source: the links to the dashboard of LaunchDarkly use only `projectId` and `environment`.
+
+- [#614](https://github.com/vercel/flags/pull/614) [`9d1888d`](https://github.com/vercel/flags/commit/9d1888d77e82cdce570ddb035cfb08d4b86f3472) Thanks [@dferber90](https://github.com/dferber90)! - Accept a `FLAGS_SECRET` and a `FLAGS_PRECOMPUTE_SECRET` in standard base64 (with `+`, `/` and `=`), as v4 did. jose 6 decodes only base64url, so v5 rejected these secrets, and a page with `FlagValues` failed to build. The bytes stay the same, so the override tokens and precompute codes of v4 stay valid.
+
 ## 4.5.1
 
 ### Patch Changes

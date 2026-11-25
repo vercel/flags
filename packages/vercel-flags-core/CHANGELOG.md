@@ -1,5 +1,17 @@
 # @vercel/flags-core
 
+## 1.12.0-standard.0
+
+### Minor Changes
+
+- [#563](https://github.com/vercel/flags/pull/563) [`ee725aa`](https://github.com/vercel/flags/commit/ee725aa3107bd35dd2aa8366a6fa80aeae966c92) Thanks [@github-actions](https://github.com/apps/github-actions)! - Add the subpath `@vercel/flags-core/default-provider`. It exports `createDefaultProvider()`, which returns a `VercelProvider`. A framework or a platform can use it as a bundler alias of `flags/default-provider`, so that flags of the Flags SDK without a connection use Vercel Flags.
+
+- [#563](https://github.com/vercel/flags/pull/563) [`397ca22`](https://github.com/vercel/flags/commit/397ca2240adc68ccc10f2b83caed57dc6b86dadd) Thanks [@github-actions](https://github.com/apps/github-actions)! - `VercelProvider` reports an override of the Flags SDK v5 with the reason `override`, as v4 of the Flags SDK did. The SDK resolves an override without the provider, so a hook of the provider reports it. It also reports the override to `experimental_reportOverride` of the client.
+
+### Patch Changes
+
+- [#618](https://github.com/vercel/flags/pull/618) [`472a030`](https://github.com/vercel/flags/commit/472a03016caa60f4f22e8254d64e6130d3288e6c) Thanks [@dferber90](https://github.com/dferber90)! - `VercelProvider` of `@vercel/flags-core/openfeature` no longer imports `@openfeature/server-sdk` at runtime: it uses the string values of the resolution reasons and the error codes. An application which uses the provider with the Flags SDK does not need to install `@openfeature/server-sdk`. The types still come from it, so the provider stays an exact OpenFeature `Provider`, e.g. for `OpenFeature.setProvider()`. With `"skipLibCheck": false`, install `@openfeature/server-sdk` as a dev dependency for the types.
+
 ## 1.11.1
 
 ### Patch Changes

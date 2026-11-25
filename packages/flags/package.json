@@ -1,6 +1,6 @@
 {
   "name": "flags",
-  "version": "4.5.1",
+  "version": "5.0.0-standard.0",
   "description": "Flags SDK by Vercel: the feature flags toolkit, built on OpenFeature",
   "keywords": [
     "feature flags",

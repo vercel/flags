@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/launchdarkly",
-  "version": "1.1.1",
+  "version": "2.0.0-standard.0",
   "description": "getProviderData of LaunchDarkly for the Flags Explorer",
   "keywords": [
     "flags-sdk",

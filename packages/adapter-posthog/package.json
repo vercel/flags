@@ -1,6 +1,6 @@
 {
   "name": "@flags-sdk/posthog",
-  "version": "1.1.0",
+  "version": "2.0.0-standard.0",
   "description": "An OpenFeature provider for PostHog and getProviderData for the Flags Explorer",
   "keywords": [
     "flags-sdk",

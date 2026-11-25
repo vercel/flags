@@ -1,5 +1,17 @@
 # @flags-sdk/posthog
 
+## 2.0.0-standard.0
+
+### Major Changes
+
+- [`be8a194`](https://github.com/vercel/flags/commit/be8a194f5db9957ad3c6acfa848bfa547e493913) Thanks [@dferber90](https://github.com/dferber90)! - The v4 adapter is removed: `postHogAdapter`, `createPostHogAdapter`, `resetDefaultPostHogAdapter` and the types `PostHogEntities` and `JsonType`. The Flags SDK v5 has no adapters. Flags come from OpenFeature providers, which you give to `defineSource({ provider })`. Use `PostHogProvider` of `@flags-sdk/posthog/openfeature`. See https://flags-sdk.dev/docs/providers/openfeature.
+  
+  `PostHogProvider` and `getProviderData` stay. `getProviderData` loads the flag definitions of PostHog for Flags Explorer, with the same options. It exists only for compatibility with the old endpoint `/.well-known/vercel/flags` of Flags Explorer, until Flags Explorer can load this metadata from providers itself. The package no longer depends on `flags` or `posthog-node`: the application creates the client of `posthog-node` for the provider. It exports the types of the data, e.g. `ProviderData`.
+
+### Minor Changes
+
+- [#615](https://github.com/vercel/flags/pull/615) [`d5e05d9`](https://github.com/vercel/flags/commit/d5e05d9b4fb2c7b3be85b0c740c572ff7722e602) Thanks [@dferber90](https://github.com/dferber90)! - Add `@flags-sdk/posthog/openfeature`, an OpenFeature server provider for PostHog. `new PostHogProvider(client, options?)` takes a PostHog client of `posthog-node` 5 or 6, which the application creates. A boolean flag reads whether the flag is enabled, a string flag reads the variant key, and number and object flags read the JSON payload. The `targetingKey` of the evaluation context is the distinct ID. `track` sends an event with `capture`. The provider does not import `flags`.
+
 ## 1.1.0
 
 ### Minor Changes

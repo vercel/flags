@@ -1,5 +1,13 @@
 # @flags-sdk/flagsmith
 
+## 3.0.0-standard.0
+
+### Major Changes
+
+- [`be8a194`](https://github.com/vercel/flags/commit/be8a194f5db9957ad3c6acfa848bfa547e493913) Thanks [@dferber90](https://github.com/dferber90)! - The v4 adapter is removed: `flagsmithAdapter`, `createFlagsmithAdapter` and the re-exported types of `@flagsmith/nodejs`. The Flags SDK v5 has no adapters. Flags come from OpenFeature providers, which you give to `defineSource({ provider })`. See https://flags-sdk.dev/docs/providers/openfeature.
+  
+  `getProviderData` stays, with the same options: it loads the flag definitions of Flagsmith for Flags Explorer. It exists only for compatibility with the old endpoint `/.well-known/vercel/flags` of Flags Explorer, until Flags Explorer can load this metadata from providers itself. The package no longer depends on `flags` or `@flagsmith/nodejs`. It exports the types of the data, e.g. `ProviderData`.
+
 ## 2.0.0
 
 ### Major Changes
