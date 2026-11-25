@@ -102,7 +102,7 @@ On an `experiment` outcome, `resolveOutcome` reads the unit from `experiment.bas
 
 The parsed slot list is cached in a WeakMap keyed by the layer object (`layerSlotsCache`). Assignments and exposures include `layerId` for every reason when the layer has a string `id`. The API owns slot selection; the SDK only checks if the experiment owns the slot of the unit.
 
-The API gives salts from 100,001 to 2,147,483,647, a range that flag seeds (0 to 100,000) never use. A salt equal to the flag seed would make the slot and the variant use the same hash, so all enrolled units could get the same variant. Mutual exclusion holds within one datafile revision: a client with an older or bundled datafile can still enroll a unit in the previous owner of a slot.
+The API gives new salts, flag seeds, and enrollment seeds as random integers from 0 to 2,147,483,647, so a salt is equal to the flag seed only by chance (about 1 in 2.1 billion). If they were equal, the slot and the variant would use the same hash, so all enrolled units could get the same variant. Larger values are not used, because xxHash32 truncates seeds to 32 bits. Mutual exclusion holds within one datafile revision: a client with an older or bundled datafile can still enroll a unit in the previous owner of a slot.
 
 ### Controller Options
 
