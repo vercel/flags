@@ -77,23 +77,12 @@ function isLayerSlot(value: unknown): value is number {
 }
 
 /**
- * Marks the slots that a layer entry list owns, or returns `null` when the
- * layer data is not valid. Entries can come in any order and can overlap.
+ * Marks the slots that a slot list owns, or returns `null` when the slot list
+ * is not valid. Entries can come in any order and can overlap.
  */
-function parseLayerSlots(layer: {
-  id?: unknown;
-  salt?: unknown;
-  slots?: unknown;
-}): Uint8Array | null {
-  if (
-    typeof layer.id !== 'string' ||
-    !Number.isInteger(layer.salt) ||
-    !Array.isArray(layer.slots)
-  ) {
-    return null;
-  }
+function parseLayerSlots(slots: unknown[]): Uint8Array | null {
   const owned = new Uint8Array(LAYER_SLOT_COUNT);
-  for (const entry of layer.slots as unknown[]) {
+  for (const entry of slots) {
     if (isLayerSlot(entry)) {
       owned[entry] = 1;
       continue;
@@ -111,41 +100,74 @@ function parseLayerSlots(layer: {
 }
 
 /**
- * Whether the experiment owns the layer slot of the unit. Layer data that is
- * not valid owns no slot, so the unit is never enrolled.
+ * The parsed slots of a slot list, or `null` when the slot list is not valid.
+ * Each slot list is parsed once.
  */
-function ownsLayerSlot(layer: unknown, unit: string): boolean {
-  if (typeof layer !== 'object' || layer === null) {
+function getLayerSlots(slots: unknown): Uint8Array | null {
+  if (!Array.isArray(slots)) {
+    return null;
+  }
+  let owned = layerSlotsCache.get(slots);
+  if (owned === undefined) {
+    owned = parseLayerSlots(slots);
+    layerSlotsCache.set(slots, owned);
+  }
+  return owned;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Whether the experiment owns the layer slot of the unit. Layer data that is
+ * missing or not valid owns no slot, so the unit is never enrolled.
+ */
+function ownsLayerSlot(
+  layers: unknown,
+  layerId: unknown,
+  experimentId: string,
+  unit: string,
+): boolean {
+  if (
+    typeof layerId !== 'string' ||
+    !isObject(layers) ||
+    !Object.hasOwn(layers, layerId)
+  ) {
     return false;
   }
-  let owned = layerSlotsCache.get(layer);
-  if (owned === undefined) {
-    owned = parseLayerSlots(layer);
-    layerSlotsCache.set(layer, owned);
+  const layer = layers[layerId];
+  if (!isObject(layer)) {
+    return false;
   }
+  const { salt, allocations } = layer;
+  if (
+    typeof salt !== 'number' ||
+    !Number.isInteger(salt) ||
+    !isObject(allocations) ||
+    !Object.hasOwn(allocations, experimentId)
+  ) {
+    return false;
+  }
+  const owned = getLayerSlots(allocations[experimentId]);
   if (owned === null) {
     return false;
   }
-  const salt = (layer as Packed.experimental_LayerDefinition).salt;
   const slot = Math.floor(
     (hashInput(unit, salt) * LAYER_SLOT_COUNT) / HASH_SPACE,
   );
   return owned[slot] === 1;
 }
 
-/** The layer ID of an experiment, when its layer has a string ID. */
+/** The layer ID of an experiment, when it is a string. */
 export function getExperimentLayerId(
   experiment: Packed.experimental_ExperimentDefinition,
 ): string | undefined {
-  const layer: unknown = experiment.layer;
-  if (typeof layer !== 'object' || layer === null) {
+  const layerId: unknown = experiment.layerId;
+  if (typeof layerId !== 'string') {
     return undefined;
   }
-  const { id } = layer as { id?: unknown };
-  if (typeof id !== 'string') {
-    return undefined;
-  }
-  return id;
+  return layerId;
 }
 
 function getCompiledRegex(rhs: { pattern: string; flags: string }): RegExp {
@@ -624,8 +646,15 @@ function resolveOutcome<T>(
 
       // In a layer, the owned slots are the ramp, so the enrollmentSeed ramp
       // check does not apply.
-      if (experiment.layer !== undefined) {
-        if (!ownsLayerSlot(experiment.layer, unitValue)) {
+      if (experiment.layerId !== undefined) {
+        if (
+          !ownsLayerSlot(
+            params.layers,
+            experiment.layerId,
+            experiment.id,
+            unitValue,
+          )
+        ) {
           return assignment(defaultVariant, 'not-in-layer');
         }
       } else {
@@ -857,8 +886,8 @@ export type BulkEvaluationInput<T> = {
 };
 
 /**
- * Evaluates multiple feature flags against the same entities, segments, and
- * environment.
+ * Evaluates multiple feature flags against the same entities, segments,
+ * layers, and environment.
  *
  * Reuses a single shared `EvaluationParams` object across flags so callers
  * avoid the overhead of constructing one per call (and don't need to spawn
@@ -870,12 +899,14 @@ export function bulkEvaluate<T = unknown>(
     entities?: Record<string, unknown>;
     environment: string;
     segments?: EvaluationParams<T>['segments'];
+    layers?: EvaluationParams<T>['layers'];
   },
 ): Record<string, EvaluationResult<T>> {
   const params: EvaluationParams<T> = {
     entities: shared.entities,
     environment: shared.environment,
     segments: shared.segments,
+    layers: shared.layers,
     definition: undefined as unknown as Packed.FlagDefinition,
     defaultValue: undefined,
   };

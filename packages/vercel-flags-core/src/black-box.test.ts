@@ -4791,39 +4791,55 @@ describe('Controller (black-box)', () => {
       await client.shutdown();
     });
 
-    // With salt 4242, `user_123` is in slot 369 of the layer.
-    const makeLayeredDefinitions = (
-      slots: Packed.experimental_LayerDefinition['slots'],
-    ): BundledDefinitions['definitions'] => ({
+    const layeredDefinitions: BundledDefinitions['definitions'] = {
       flagA: {
         ...definitions.flagA!,
         experiment: {
           ...definitions.flagA!.experiment!,
-          layer: { id: 'layer_a', salt: 4242, slots },
+          layerId: 'layer_a',
         },
       },
+    };
+
+    // With salt 4242, `user_123` is in slot 369 of the layer.
+    const makeLayers = (
+      allocations: Packed.experimental_LayerDefinition['allocations'],
+    ): BundledDefinitions['layers'] => ({
+      layer_a: { salt: 4242, allocations },
     });
 
     it.each<{
       caseName: string;
-      slots: Packed.experimental_LayerDefinition['slots'];
+      allocations: Packed.experimental_LayerDefinition['allocations'];
       variantId: string;
       assignmentReason: string;
     }>([
       {
-        caseName: 'an owned slot',
-        slots: [[0, 999]],
+        caseName: 'a single owned slot',
+        allocations: { exp_a: [369] },
+        variantId: 'treatment-a',
+        assignmentReason: 'experiment',
+      },
+      {
+        caseName: 'an owned range',
+        allocations: { exp_a: [[300, 400]] },
         variantId: 'treatment-a',
         assignmentReason: 'experiment',
       },
       {
         caseName: 'a slot that is not owned',
-        slots: [],
+        allocations: { exp_a: [] },
+        variantId: 'control-a',
+        assignmentReason: 'not-in-layer',
+      },
+      {
+        caseName: 'a slot that another experiment owns',
+        allocations: { exp_a: [[0, 368]], exp_c: [[369, 999]] },
         variantId: 'control-a',
         assignmentReason: 'not-in-layer',
       },
     ])('reports the layer ID for $caseName', async ({
-      slots,
+      allocations,
       variantId,
       assignmentReason,
     }) => {
@@ -4833,7 +4849,10 @@ describe('Controller (black-box)', () => {
         stream: false,
         polling: false,
         buildStep: true,
-        datafile: makeBundled({ definitions: makeLayeredDefinitions(slots) }),
+        datafile: makeBundled({
+          definitions: layeredDefinitions,
+          layers: makeLayers(allocations),
+        }),
         experimental_reportExposures: reportExposures,
       });
 
@@ -4870,7 +4889,10 @@ describe('Controller (black-box)', () => {
         stream: false,
         polling: false,
         buildStep: true,
-        datafile: makeBundled({ definitions: makeLayeredDefinitions([]) }),
+        datafile: makeBundled({
+          definitions: layeredDefinitions,
+          layers: makeLayers({ exp_a: [] }),
+        }),
         experimental_reportExposures: reportExposures,
       });
 
@@ -4896,6 +4918,47 @@ describe('Controller (black-box)', () => {
         ],
         entity,
       );
+
+      await client.shutdown();
+    });
+
+    it.each<{
+      caseName: string;
+      layers: BundledDefinitions['layers'];
+      variantId: string;
+      assignmentReason: string;
+    }>([
+      {
+        caseName: 'an owned slot',
+        layers: makeLayers({ exp_a: [369] }),
+        variantId: 'treatment-a',
+        assignmentReason: 'experiment',
+      },
+      {
+        caseName: 'a datafile without layers',
+        layers: undefined,
+        variantId: 'control-a',
+        assignmentReason: 'not-in-layer',
+      },
+    ])('reads the layers of the datafile in bulk evaluations with $caseName', async ({
+      layers,
+      variantId,
+      assignmentReason,
+    }) => {
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions: layeredDefinitions, layers }),
+      });
+
+      const results = await client.bulkEvaluate([{ key: 'flagA' }], entity);
+
+      expect(results.flagA).toMatchObject({
+        value: variantId,
+        experiment: { layerId: 'layer_a', assignmentReason },
+      });
 
       await client.shutdown();
     });

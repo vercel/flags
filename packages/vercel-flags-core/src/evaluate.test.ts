@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bulkEvaluate, evaluate } from './evaluate';
 import {
   Comparator,
+  type EvaluationParams,
   type EvaluationResult,
   OutcomeType,
   type Packed,
@@ -2923,13 +2924,19 @@ describe('experiment metadata', () => {
 });
 
 describe('experiment layers', () => {
+  type Layers = EvaluationParams<unknown>['layers'];
+
   // With salt 4242, `user_123` is in slot 369 and `user_456` is in slot 310:
   // floor(xxHash32(unit, 4242) * 1000 / 2 ** 32).
-  const layer = {
-    id: 'layer_checkout',
-    salt: 4242,
-    slots: [[0, 999]],
-  } satisfies Packed.experimental_LayerDefinition;
+  const makeLayers = (slots: unknown): Layers =>
+    ({
+      layer_checkout: {
+        salt: 4242,
+        allocations: { exp_checkout: slots },
+      },
+    }) as Layers;
+
+  const layers = makeLayers([[0, 999]]);
 
   const experiment = {
     id: 'exp_checkout',
@@ -2939,7 +2946,7 @@ describe('experiment layers', () => {
     enrollmentSeed: 456,
     rampId: 'ramp_1',
     rampPercentage: 100,
-    layer,
+    layerId: 'layer_checkout',
   } satisfies Packed.experimental_ExperimentDefinition;
 
   const definition = {
@@ -2969,9 +2976,6 @@ describe('experiment layers', () => {
       ...overrides,
     } as Packed.experimental_ExperimentDefinition,
   });
-
-  const withLayer = (overrides: Record<string, unknown>) =>
-    withExperiment({ layer: { ...layer, ...overrides } });
 
   const treatment = {
     value: 'treatment',
@@ -3005,10 +3009,7 @@ describe('experiment layers', () => {
     },
   };
 
-  it.each<{
-    caseName: string;
-    slots: Packed.experimental_LayerDefinition['slots'];
-  }>([
+  it.each<{ caseName: string; slots: unknown }>([
     { caseName: 'all slots', slots: [[0, 999]] },
     { caseName: 'a single slot', slots: [369] },
     { caseName: 'a range', slots: [[300, 400]] },
@@ -3023,17 +3024,15 @@ describe('experiment layers', () => {
   }) => {
     expect(
       evaluate({
-        definition: withLayer({ slots }),
+        definition,
+        layers: makeLayers(slots),
         environment: 'production',
         entities: { user: { key: 'user_123' } },
       }),
     ).toEqual(treatment);
   });
 
-  it.each<{
-    caseName: string;
-    slots: Packed.experimental_LayerDefinition['slots'];
-  }>([
+  it.each<{ caseName: string; slots: unknown }>([
     { caseName: 'no slots', slots: [] },
     { caseName: 'the slot before', slots: [368] },
     { caseName: 'the slot after', slots: [370] },
@@ -3045,7 +3044,8 @@ describe('experiment layers', () => {
   }) => {
     expect(
       evaluate({
-        definition: withLayer({ slots }),
+        definition,
+        layers: makeLayers(slots),
         environment: 'production',
         entities: { user: { key: 'user_123' } },
       }),
@@ -3053,28 +3053,88 @@ describe('experiment layers', () => {
   });
 
   it('puts each unit in its own slot with the same layer', () => {
-    const singleSlotDefinition = withLayer({ slots: [369] });
+    const singleSlotLayers = makeLayers([369]);
 
     expect(
       evaluate({
-        definition: singleSlotDefinition,
+        definition,
+        layers: singleSlotLayers,
         environment: 'production',
         entities: { user: { key: 'user_123' } },
       }),
     ).toEqual(treatment);
     expect(
       evaluate({
-        definition: singleSlotDefinition,
+        definition,
+        layers: singleSlotLayers,
         environment: 'production',
         entities: { user: { key: 'user_456' } },
       }),
     ).toEqual(notInLayer);
   });
 
+  it('serves control as not-in-layer when another experiment owns the slot', () => {
+    expect(
+      evaluate({
+        definition,
+        layers: {
+          layer_checkout: {
+            salt: 4242,
+            allocations: {
+              exp_checkout: [[0, 368], 310],
+              exp_other: [[369, 999]],
+            },
+          },
+        },
+        environment: 'production',
+        entities: { user: { key: 'user_123' } },
+      }),
+    ).toEqual(notInLayer);
+  });
+
+  it('enrolls a unit in at most one experiment of the layer', () => {
+    const otherDefinition = {
+      ...definition,
+      experiment: { ...experiment, id: 'exp_other' },
+    } satisfies Packed.FlagDefinition;
+
+    expect(
+      bulkEvaluate(
+        {
+          checkout: { definition },
+          other: { definition: otherDefinition },
+        },
+        {
+          environment: 'production',
+          entities: { user: { key: 'user_123' } },
+          layers: {
+            layer_checkout: {
+              salt: 4242,
+              allocations: {
+                exp_checkout: [[300, 399]],
+                exp_other: [
+                  [0, 299],
+                  [400, 999],
+                ],
+              },
+            },
+          },
+        },
+      ),
+    ).toEqual({
+      checkout: treatment,
+      other: {
+        ...notInLayer,
+        experiment: { ...notInLayer.experiment, id: 'exp_other' },
+      },
+    });
+  });
+
   it('serves control as not-enrolled when the unit is missing', () => {
     expect(
       evaluate({
         definition,
+        layers,
         environment: 'production',
         entities: { user: {} },
       }),
@@ -3090,7 +3150,7 @@ describe('experiment layers', () => {
   it.each<{
     caseName: string;
     rampPercentage: number;
-    slots: Packed.experimental_LayerDefinition['slots'];
+    slots: unknown;
     expected: typeof treatment;
   }>([
     {
@@ -3115,73 +3175,155 @@ describe('experiment layers', () => {
   }) => {
     expect(
       evaluate({
-        definition: withExperiment({
-          rampPercentage,
-          layer: { ...layer, slots },
-        }),
+        definition: withExperiment({ rampPercentage }),
+        layers: makeLayers(slots),
         environment: 'production',
         entities: { user: { key: 'user_123' } },
       }),
     ).toEqual(expected);
   });
 
-  it.each<{ caseName: string; overrides: Record<string, unknown> }>([
-    { caseName: 'the salt is missing', overrides: { salt: undefined } },
-    { caseName: 'the salt is a string', overrides: { salt: '4242' } },
-    { caseName: 'the salt is NaN', overrides: { salt: Number.NaN } },
-    { caseName: 'the salt is not an integer', overrides: { salt: 4242.5 } },
-    { caseName: 'the slots are missing', overrides: { slots: undefined } },
+  it.each<{ caseName: string; layersValue: unknown }>([
+    { caseName: 'the layers are missing', layersValue: undefined },
+    { caseName: 'the layers are null', layersValue: null },
+    { caseName: 'the layers are an array', layersValue: [] },
     {
-      caseName: 'the slots are an object',
-      overrides: { slots: { 0: [0, 999] } },
+      caseName: 'the layer ID is unknown',
+      layersValue: {
+        layer_other: {
+          salt: 4242,
+          allocations: { exp_checkout: [[0, 999]] },
+        },
+      },
     },
-    { caseName: 'a slot is a string', overrides: { slots: [[0, 999], '369'] } },
-    { caseName: 'a slot is null', overrides: { slots: [[0, 999], null] } },
     {
-      caseName: 'a slot is not an integer',
-      overrides: { slots: [[0, 999], 369.5] },
+      caseName: 'the layer is inherited',
+      layersValue: Object.create({
+        layer_checkout: {
+          salt: 4242,
+          allocations: { exp_checkout: [[0, 999]] },
+        },
+      }),
     },
-    { caseName: 'a slot is negative', overrides: { slots: [[0, 999], -1] } },
-    { caseName: 'a slot is above 999', overrides: { slots: [[0, 999], 1000] } },
-    { caseName: 'a range has one entry', overrides: { slots: [[369]] } },
+    { caseName: 'the layer is null', layersValue: { layer_checkout: null } },
     {
-      caseName: 'a range has three entries',
-      overrides: { slots: [[0, 500, 999]] },
+      caseName: 'the layer is a string',
+      layersValue: { layer_checkout: 'layer_checkout' },
     },
-    { caseName: 'a range is reversed', overrides: { slots: [[999, 0]] } },
     {
-      caseName: 'a range has a string end',
-      overrides: { slots: [[0, '999']] },
+      caseName: 'the salt is missing',
+      layersValue: {
+        layer_checkout: { allocations: { exp_checkout: [[0, 999]] } },
+      },
     },
-    { caseName: 'a range ends above 999', overrides: { slots: [[0, 1000]] } },
-    { caseName: 'a range is nested', overrides: { slots: [[0, [1, 999]]] } },
-  ])('fails closed as not-in-layer when $caseName', ({ overrides }) => {
+    {
+      caseName: 'the salt is a string',
+      layersValue: {
+        layer_checkout: {
+          salt: '4242',
+          allocations: { exp_checkout: [[0, 999]] },
+        },
+      },
+    },
+    {
+      caseName: 'the salt is NaN',
+      layersValue: {
+        layer_checkout: {
+          salt: Number.NaN,
+          allocations: { exp_checkout: [[0, 999]] },
+        },
+      },
+    },
+    {
+      caseName: 'the salt is not an integer',
+      layersValue: {
+        layer_checkout: {
+          salt: 4242.5,
+          allocations: { exp_checkout: [[0, 999]] },
+        },
+      },
+    },
+    {
+      caseName: 'the allocations are missing',
+      layersValue: { layer_checkout: { salt: 4242 } },
+    },
+    {
+      caseName: 'the allocations are null',
+      layersValue: { layer_checkout: { salt: 4242, allocations: null } },
+    },
+    {
+      caseName: 'the allocations are an array',
+      layersValue: {
+        layer_checkout: { salt: 4242, allocations: [[0, 999]] },
+      },
+    },
+    {
+      caseName: 'the experiment has no allocation',
+      layersValue: {
+        layer_checkout: {
+          salt: 4242,
+          allocations: { exp_other: [[0, 999]] },
+        },
+      },
+    },
+    {
+      caseName: 'the allocation is inherited',
+      layersValue: {
+        layer_checkout: {
+          salt: 4242,
+          allocations: Object.create({ exp_checkout: [[0, 999]] }),
+        },
+      },
+    },
+  ])('fails closed as not-in-layer when $caseName', ({ layersValue }) => {
     expect(
       evaluate({
-        definition: withLayer(overrides),
+        definition,
+        layers: layersValue as Layers,
         environment: 'production',
         entities: { user: { key: 'user_123' } },
       }),
     ).toEqual(notInLayer);
   });
 
-  it.each<{ caseName: string; layerValue: unknown }>([
-    { caseName: 'the layer is null', layerValue: null },
-    { caseName: 'the layer is a string', layerValue: 'layer_checkout' },
-    { caseName: 'the layer is an array', layerValue: [[0, 999]] },
+  it.each<{ caseName: string; slots: unknown }>([
+    { caseName: 'the slot list is missing', slots: undefined },
+    { caseName: 'the slot list is an object', slots: { 0: [0, 999] } },
+    { caseName: 'a slot is a string', slots: [[0, 999], '369'] },
+    { caseName: 'a slot is null', slots: [[0, 999], null] },
+    { caseName: 'a slot is not an integer', slots: [[0, 999], 369.5] },
+    { caseName: 'a slot is negative', slots: [[0, 999], -1] },
+    { caseName: 'a slot is above 999', slots: [[0, 999], 1000] },
+    { caseName: 'a range has one entry', slots: [[369]] },
+    { caseName: 'a range has three entries', slots: [[0, 500, 999]] },
+    { caseName: 'a range is reversed', slots: [[999, 0]] },
+    { caseName: 'a range has a string end', slots: [[0, '999']] },
+    { caseName: 'a range ends above 999', slots: [[0, 1000]] },
+    { caseName: 'a range is nested', slots: [[0, [1, 999]]] },
+  ])('fails closed as not-in-layer when $caseName', ({ slots }) => {
+    expect(
+      evaluate({
+        definition,
+        layers: makeLayers(slots),
+        environment: 'production',
+        entities: { user: { key: 'user_123' } },
+      }),
+    ).toEqual(notInLayer);
+  });
+
+  it.each<{ caseName: string; layerId: unknown }>([
+    { caseName: 'the layer ID is a number', layerId: 1 },
+    { caseName: 'the layer ID is null', layerId: null },
     {
-      caseName: 'the layer ID is missing',
-      layerValue: { salt: 4242, slots: [[0, 999]] },
-    },
-    {
-      caseName: 'the layer ID is a number',
-      layerValue: { id: 1, salt: 4242, slots: [[0, 999]] },
+      caseName: 'the layer ID is an object',
+      layerId: { id: 'layer_checkout' },
     },
   ])('fails closed as not-in-layer without a layer ID when $caseName', ({
-    layerValue,
+    layerId,
   }) => {
     const result = evaluate({
-      definition: withExperiment({ layer: layerValue }),
+      definition: withExperiment({ layerId }),
+      layers,
       environment: 'production',
       entities: { user: { key: 'user_123' } },
     });
@@ -3196,15 +3338,15 @@ describe('experiment layers', () => {
   it('ignores unknown fields', () => {
     expect(
       evaluate({
-        definition: withExperiment({
-          futureExperimentField: true,
-          layer: {
-            ...layer,
-            slots: [369],
+        definition: withExperiment({ futureExperimentField: true }),
+        layers: {
+          layer_checkout: {
+            salt: 4242,
+            allocations: { exp_checkout: [369], exp_other: [[0, 999]] },
             reservedSlots: [[0, 999]],
             version: 2,
           },
-        }),
+        } as Layers,
         environment: 'production',
         entities: { user: { key: 'user_123' } },
       }),
@@ -3215,6 +3357,7 @@ describe('experiment layers', () => {
     expect(
       evaluate({
         definition,
+        layers,
         environment: 'production',
         entities: { user: { key: 'user_123', country: 'US' } },
       }),
@@ -3250,7 +3393,8 @@ describe('experiment layers', () => {
     assignmentReason,
   }) => {
     const result = evaluate({
-      definition: withExperiment({ layer: undefined }),
+      definition: withExperiment({ layerId: undefined }),
+      layers: makeLayers([]),
       environment: 'production',
       entities,
     });
@@ -3261,7 +3405,8 @@ describe('experiment layers', () => {
 
   it('serves control as not-enrolled at ramp 0 without a layer', () => {
     const result = evaluate({
-      definition: withExperiment({ layer: undefined, rampPercentage: 0 }),
+      definition: withExperiment({ layerId: undefined, rampPercentage: 0 }),
+      layers,
       environment: 'production',
       entities: { user: { key: 'user_123' } },
     });

@@ -311,6 +311,8 @@ export type EvaluationParams<T> = {
   entities?: Record<string, unknown>;
   environment: string;
   segments?: Record<SegmentId, Packed.Segment>;
+  /** Experiment layers keyed by layer ID. */
+  layers?: Record<string, Packed.experimental_LayerDefinition>;
   definition: Packed.FlagDefinition;
   defaultValue?: T;
 };
@@ -604,6 +606,8 @@ export namespace Original {
   export type Data = {
     definitions: Record<string, FlagDefinition>;
     segments?: Original.Segment[];
+    /** Experiment layers keyed by layer ID. */
+    layers?: Record<string, Packed.experimental_LayerDefinition>;
   };
 
   export enum AccessorType {
@@ -691,10 +695,11 @@ export namespace Original {
     /** Percentage from 0 through 100. */
     rampPercentage?: number;
     /**
-     * Layer in which the experiment runs. Only present while the experiment
-     * runs in a layer. When present, the slots replace the ramp check.
+     * ID of the layer in which the experiment runs, a key of the top-level
+     * `layers`. Only present while the experiment runs in a layer. When
+     * present, the slots of the experiment replace the ramp check.
      */
-    layer?: Packed.experimental_LayerDefinition;
+    layerId?: string;
   };
 
   export type SegmentAllOutcome = {
@@ -859,6 +864,8 @@ export namespace Packed {
     definitions: Record<FlagKey, FlagDefinition>;
     /** segments keyed by id */
     segments?: Record<SegmentId, Segment>;
+    /** experiment layers keyed by layer ID */
+    layers?: Record<string, experimental_LayerDefinition>;
   };
 
   export enum AccessorType {
@@ -943,27 +950,26 @@ export namespace Packed {
     /** Percentage of eligible units included in the ramp, from 0 through 100. */
     rampPercentage?: number;
     /**
-     * Layer in which the experiment runs. Only present while the experiment
-     * runs in a layer. When present, the slots replace the ramp check.
+     * ID of the layer in which the experiment runs, a key of the top-level
+     * `layers`. Only present while the experiment runs in a layer. When
+     * present, the slots of the experiment replace the ramp check.
      */
-    layer?: experimental_LayerDefinition;
+    layerId?: string;
   };
 
   /**
-   * Mutual exclusion layer of an experiment. A layer has 1,000 slots, from 0
-   * through 999. A unit is in the slot
-   * `floor(xxHash32(unit, salt) * 1000 / 2 ** 32)`.
+   * Mutual exclusion layer. A layer has 1,000 slots, from 0 through 999. A unit
+   * is in the slot `floor(xxHash32(unit, salt) * 1000 / 2 ** 32)`.
    */
   export type experimental_LayerDefinition = {
-    /** Layer identifier. */
-    id: string;
     /** Stable seed used only to put units in slots. */
     salt: number;
     /**
-     * Slots that the experiment owns: single slots and inclusive
-     * `[start, end]` ranges, for example `[0, [5, 10], 96]`.
+     * Slots of each owner, keyed by owner ID (for example the experiment ID).
+     * A slot list holds single slots and inclusive `[start, end]` ranges, for
+     * example `[0, [5, 10], 96]`.
      */
-    slots: Array<number | [number, number]>;
+    allocations: Record<string, Array<number | [number, number]>>;
   };
 
   export type SegmentAllOutcome = 1;
