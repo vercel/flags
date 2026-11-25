@@ -12,9 +12,8 @@
  *   `flags-manifest.json` in the directory of the server output.
  * - Flags files (`*.flags`): each becomes a module of its flags, with the
  *   source of its `source` (see "Flags files" in the spec of `flags`).
- * - The modules of `flags:<source>`, generated from the catalogs of
- *   `flags/sources`, unless `disableCodeGeneration` is set. An application
- *   with flags files uses no catalogs.
+ * - The modules of `flags:<source>`, generated from the flags files, unless
+ *   `disableCodeGeneration` is set.
  *
  * It is also a Rollup plugin, e.g. for the server build of Nitro.
  */
@@ -85,10 +84,10 @@ export interface FlagsVitePluginOptions {
   readonly projectModules?: Readonly<Record<string, readonly string[]>>;
   /**
    * Turns off the code generation of `flags:<source>`. By default, the
-   * plugin generates the modules from the catalogs of
-   * `flags/sources/<source>`: one time for a build, and again after each
-   * change of a catalog for the dev server, and points the aliases
-   * `flags:<source>` to them. Without `flags/sources`, it writes nothing.
+   * plugin writes the modules of `flags:<source>` and the types of the
+   * flags files: one time for a build, and again after each change of a
+   * flags file for the dev server, and points the aliases `flags:<source>`
+   * to them. Without flags files, it writes nothing.
    */
   readonly disableCodeGeneration?: boolean;
 }
@@ -193,7 +192,10 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
       // As a plain Rollup plugin, e.g. in Nitro, there is no config hook, so
       // a framework module generates the code itself
       if (!options.disableCodeGeneration) {
-        generation = startCodeGeneration(dir, env.command === 'serve');
+        // Vitest runs the plugin with `serve`, but has no HTTP server whose
+        // close would end the watch, so it writes the modules one time
+        const watch = env.command === 'serve' && !process.env.VITEST;
+        generation = startCodeGeneration(dir, watch);
         aliases = resolveAliases(dir, await generation.ready);
       }
       if (!options.binding && Object.keys(aliases).length === 0) return;
@@ -336,7 +338,7 @@ export function flags(options: FlagsVitePluginOptions = {}): Plugin {
     configureServer: {
       order: 'pre',
       handler(server) {
-        // The watch of the catalogs ends with the dev server
+        // The watch of the flags files ends with the dev server
         server.httpServer?.once('close', () => generation?.stop());
         server.middlewares.use(async (request, response, next) => {
           if (request.url?.split('?')[0] !== MANIFEST_PATH) return next();

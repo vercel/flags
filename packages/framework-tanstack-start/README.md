@@ -2,7 +2,7 @@
 
 The TanStack Start package of the [Flags SDK](../flags). It connects the SDK
 to TanStack Start: the current request, the configuration files, the signals of
-TanStack Router, discovery for Flags Explorer, and code generation.
+TanStack Router, discovery for Flags Explorer, and flags files.
 
 ```ts
 // vite.config.ts
@@ -20,8 +20,8 @@ export default defineConfig({
   Start unchanged, also from `getEvaluationContext`.
 - **React and Solid.** The binding uses the packages of your project.
 - **Discovery** in `vite dev` and in the build.
-- **Code generation.** Import the flags of a source from `flags:<source>`,
-  e.g. `flags:self`.
+- **Flags files.** Declare the flags in `app.flags`, and import them from
+  the file or from their source, e.g. `flags:self`.
 
 ## Installation
 
@@ -105,9 +105,10 @@ and tracking.
   the flags modules in a runnable copy of that environment.
 - `vite build` writes `flags-manifest.json` into `.output/server`.
 
-## Code generation
+## Flags files and code generation
 
-The plugin generates the code by default:
+The plugin compiles each flags file (`*.flags`), and runs the code
+generation by default:
 
 ```ts
 // vite.config.ts
@@ -116,30 +117,45 @@ export default defineConfig({
 });
 ```
 
-- Each source is a directory `flags/sources/<source>` with `catalog.ts`,
-  `provider.ts`, and an optional `context.ts` and `hooks.ts`. By convention, the main source of the
-  application is `flags/sources/self`.
-- With `@vercel/flags-core` in the dependencies, the source `self` is the
-  default source of Vercel Flags, also without `flags/sources/self`:
-  `new VercelProvider()` and the catalog of `@vercel/flags-core/catalog`.
-  Each file in `flags/sources/self` replaces its part, e.g.
-  `context.ts` adds an evaluation context. Without the credentials of
-  `vercel env pull`, `flags:self` has no flags and the SDK warns. To turn
-  the default source off, set `"selfSource": false` in `flags/config.json`.
-- The plugin generates `.flags/<source>.ts` one time for `vite build`, and
-  watches the catalogs in `vite dev`. It adds the aliases
-  `flags:<source>`:
+```js
+// app.flags
+flag summerSale {
+  defaultValue: false
+}
+```
+
+- A flags file declares the flags: name, key, type, options, description
+  and default value. Your flag management system still decides the values.
+  The build uses no network and no credentials.
+- The source of a flags file is the directory `flags/sources/<source>`
+  with `provider.ts`, and an optional `context.ts` and `hooks.ts`. By
+  convention, the main source of the application is `self`.
+- With `@vercel/flags-core` in the dependencies, the source `self` needs no
+  `provider.ts`: it uses `new VercelProvider()`. Each file in
+  `flags/sources/self` replaces or adds its part, e.g. `context.ts`
+  adds an evaluation context. To turn the default provider off, set
+  `"selfSource": false` in `flags/config.json`.
+- The plugin writes `.flags/<source>.ts` one time for `vite build`, and
+  again after each change of a flags file in `vite dev`. Each module
+  re-exports the flags of its source from all flags files. It adds the
+  aliases `flags:<source>`:
 
   ```ts
   import { summerSale } from 'flags:self';
+  // or from the file: import { summerSale } from '../app.flags';
   ```
 
-- The types are in `flags/generated.d.ts` (without `flags/sources`, in
-  `src/flags/generated.d.ts`), so `tsconfig.json` needs no change. `.flags` has its own `.gitignore`.
-- Without `flags/sources` and without the default source, the plugin
-  writes nothing. To turn the generation
-  off, use `flags({ disableCodeGeneration: true })`.
-- Without code generation, write `defineSource` and `source.bindFlag` by hand.
+- Without a flags file of a source, there is no `flags:<source>`. An empty
+  `app.flags` gives `flags:self`. A new source needs a restart of the
+  dev server.
+- The types are in `flags/generated.d.ts` (in the folder `flags` which
+  exists, else in `src/flags` if the application has `src`), so
+  `tsconfig.json` needs no `paths`, and in a declaration file next to each
+  flags file, e.g. `app.d.flags.ts` (turn on `allowArbitraryExtensions`,
+  and ignore `*.d.flags.ts` in Git). `.flags` has its own `.gitignore`.
+- Without flags files, the plugin writes nothing. To turn the generation
+  off, use `flags({ disableCodeGeneration: true })`. The flags files still compile.
+- Without flags files, write `defineSource` and `source.bindFlag` by hand.
   Each flag is declared on its source. The runtime has no global source.
 
 ## How it works

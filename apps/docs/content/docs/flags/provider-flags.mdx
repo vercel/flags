@@ -11,8 +11,8 @@ A flag of a source gets its value from a flag management system, e.g. Vercel Fla
 
 There are two ways to get these calls:
 
-- **The file system API**, for frameworks with a bundler (Next.js, SvelteKit, Nuxt, TanStack Start). You put the provider, the evaluation context and the catalog of the source in the folder `flags/sources/self`, and [code generation](/docs/flags/code-generation) writes the `defineSource` and `source.bindFlag` calls for you. You import the flags with `import { summerSale } from 'flags:self'`.
-- **By hand**, for frameworks without a bundler (Hono, Express, plain Node.js), or when you prefer to write the code. This page shows that code. It is the same code that the code generation writes.
+- **[Flags files](/docs/flags/flags-files)**. You declare the flags in `app.flags`, and put the provider and the evaluation context of the source in the folder `flags/sources/self`. The SDK compiles the flags file into the `defineSource` and `source.bindFlag` calls for you. You import the flags from `./app.flags`, or with `import { summerSale } from 'flags:self'` (see [Code generation](/docs/flags/code-generation)).
+- **By hand**, when you prefer to write the code. This page shows that code. It is the same code that the SDK compiles a flags file into.
 
 By convention, the main source of an application is called `self`:
 
@@ -56,7 +56,7 @@ const flow = await checkout();
 `'use flags'` at the top of `flags.ts` is optional. It marks a module that exports only flags, so that Flags Explorer can find them (see [Flags manifest](/docs/tooling/flags-manifest)). That is why the source has its own module.
 
 <Callout type="info">
-  With the file system API, you do not write this module. The folder `flags/sources/self` has a `provider.ts`, a `catalog.ts` and an optional `context.ts`, and the code generation writes `.flags/self.ts` with the same `defineSource` and `source.bindFlag` calls. See [Code generation](/docs/flags/code-generation).
+  With a flags file, you do not write this module. `app.flags` declares the flags, the folder `flags/sources/self` has a `provider.ts` and an optional `context.ts`, and the SDK compiles `app.flags` into the same `defineSource` and `source.bindFlag` calls. See [Flags files](/docs/flags/flags-files).
 </Callout>
 
 ## Sources
@@ -146,7 +146,7 @@ checkout.options; // [{ value: 'control' }, { value: 'express' }]
 
 ## More than one flag management system
 
-Each flag names its own source, so one application can use several systems, or several projects of one system. With the file system API, each source is a folder of `flags/sources`, e.g. `flags/sources/blog`, and you import its flags from `flags:blog`. By hand:
+Each flag names its own source, so one application can use several systems, or several projects of one system. With flags files, each source is a folder of `flags/sources`, e.g. `flags/sources/blog`, its flags are in a flags file with `source blog`, and you import them from that file or from `flags:blog`. By hand:
 
 ```ts title="flags.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';

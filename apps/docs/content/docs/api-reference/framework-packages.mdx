@@ -41,18 +41,19 @@ The Vite plugin. It points `flags/framework` to the SvelteKit binding,
 `/.well-known/flags/manifest.json` in development, and writes
 `flags-manifest.json` after a build.
 
-By default, the plugin also generates the modules of `flags:<source>` from
-`flags/sources/<source>/`, e.g. `.flags/self.ts` for `flags:self`, and their
-types in `flags/generated.d.ts`: one time for a build, and after each change
-of a catalog in development. It points `flags:<source>` to the modules.
-An application which depends on `@vercel/flags-core` also gets the default
-source `self`, with the flags of its Vercel project (see
+The plugin compiles each [flags file](/docs/flags/flags-files) (`*.flags`).
+By default, it also generates the modules of `flags:<source>` from the flags
+files, e.g. `.flags/self.ts` for `flags:self`, and their types in
+`flags/generated.d.ts`: one time for a build, and after each change of a
+flags file in development. It points `flags:<source>` to the modules.
+Without flags files, it writes nothing. For an application which depends on
+`@vercel/flags-core`, the source `self` has the default provider
+`new VercelProvider()` (see
 [The default source `self`](/docs/flags/code-generation#the-default-source-self)).
-Without a folder `flags/sources` and without the default source, it writes
-nothing. To turn off the default source, set `"selfSource": false` in
+To turn off the default provider, set `"selfSource": false` in
 `flags/config.json` (see [Configuration](/docs/flags/configuration#flagsconfigjson)).
-In SvelteKit, put the
-folder into `src/flags`, since SvelteKit type-checks `src` only. See
+In SvelteKit, put the flags files and the folder `flags` into `src`, since
+SvelteKit type-checks `src` only. See
 [Code generation](/docs/flags/code-generation).
 
 | Option                  | Type      | Description                                                                        |
@@ -98,11 +99,10 @@ the Nitro build. It:
   writes `flags-manifest.json` into the server output (`.output/server`);
 - adds a Nitro plugin that calls `runtime.onInit()` when the server starts
   and `runtime.onShutdown()` when it closes;
-- by default, generates the modules of `flags:<source>` from
-  `flags/sources/<source>/` (one time for a build, and after each change of a
-  catalog for `nuxt dev`), adds their aliases to the Vite and Nitro builds,
-  and adds `flags/generated.d.ts` to the types of Nuxt. With
-  `@vercel/flags-core`, this includes the default source `self`.
+- compiles the flags files, and by default generates the modules of
+  `flags:<source>` from them (one time for a build, and after each change of a
+  flags file for `nuxt dev`), adds their aliases to the Vite and Nitro builds,
+  and adds `flags/generated.d.ts` to the types of Nuxt.
 
 | Option                  | Type      | Description                                                                |
 | ----------------------- | --------- | -------------------------------------------------------------------------- |
@@ -179,7 +179,7 @@ function flags(options?: FlagsVitePluginOptions): Plugin;
 | `bundle`          | `readonly string[]`                        | More packages to bundle into the server code, e.g. the package of the binding. `flags` is always bundled when there is a binding.                              |
 | `dedupe`          | `readonly string[]`                        | Packages that the binding imports and that must be the copy of the project, e.g. `@sveltejs/kit` (`resolve.dedupe`).                                           |
 | `projectModules`  | `Readonly<Record<string, readonly string[]>>` | Modules that the binding imports, resolved to the first candidate the project has.                                                                          |
-| `disableCodeGeneration` | `boolean`                            | Turns off the code generation. By default, the plugin generates the modules of `flags:<source>` and `flags/generated.d.ts` from the catalogs of `flags/sources/<source>/`, one time for a build and after each change for the dev server, and points the aliases `flags:<source>` to them. Also for other Vite setups. |
+| `disableCodeGeneration` | `boolean`                            | Turns off the code generation. By default, the plugin generates the modules of `flags:<source>` and `flags/generated.d.ts` from the flags files, one time for a build and after each change for the dev server, and points the aliases `flags:<source>` to them. Also for other Vite setups. The plugin still compiles the flags files. |
 | `manifest`        | `boolean`                                  | Whether a build writes `flags-manifest.json`. The default is `true`.                                                                                           |
 | `root`            | `string`                                   | The directory of the project. The default is the root of Vite.                                                                                                 |
 
@@ -211,9 +211,9 @@ function resolveAliases(dir: string, aliases: FlagsAliases): Record<string, stri
 ```
 
 The code generation of the plugin, for plugins of other
-bundlers, e.g. the Nuxt module. `startCodeGeneration` generates the modules
-one time (`watch: false`), or again after each change of a catalog
-(`watch: true`). It reads `selfSource` of `flags/config.json` itself. Its `CodeGeneration` has `ready`, a promise of the aliases
+bundlers, e.g. the Nuxt module. `startCodeGeneration` generates the modules from
+the flags files one time (`watch: false`), or again after each change of a
+flags file (`watch: true`). Its `CodeGeneration` has `ready`, a promise of the aliases
 when the first modules exist, and `stop()`. `resolveAliases` turns the
 aliases into absolute paths, e.g. `{ 'flags:self': '/app/.flags/self.ts' }`.
 

@@ -3,17 +3,17 @@
  *
  * ```sh
  * flags manifest [dir] [--out <file>]
- * flags sync [dir] [--production]
- * flags watch [dir] [--production] [-- command ...args]
+ * flags sync [dir]
+ * flags watch [dir] [-- command ...args]
  * flags format [paths...] [--check]
  * flags format --stdin [--stdin-filepath <file>]
  * ```
  *
- * `flags sync` writes the modules of `flags:<source>` from the catalogs of
- * `flags/sources` one time (see `generate.ts`). `flags watch` writes them
- * again after each change of a catalog, and can start a command, e.g. a
- * development server, after the first modules exist. Both load the `.env`
- * files of the directory first, for the credentials of the catalogs.
+ * `flags sync` writes the modules of `flags:<source>` and the types of the
+ * flags files one time (see `generate.ts`). `flags watch` writes them again
+ * after each change of a flags file, and can start a command, e.g. a
+ * development server, after the first modules exist. Neither uses the
+ * network.
  *
  * `flags manifest` is for applications without a framework plugin, e.g.
  * Hono on Node.js. It imports the modules with the `'use flags'` directive in `dir` (the
@@ -39,7 +39,6 @@ import { pathToFileURL } from 'node:url';
 import { MANIFEST_FILE } from './build-manifest';
 import type { Config } from './config';
 import { findConfigModules, readSettings } from './config-file';
-import { loadEnvFiles } from './env-files';
 import { findFlagsFiles, findFlagsModules } from './find-flags-modules';
 import { FlagsFileError, formatDiagnostics } from './flags-file/compile';
 import { formatFlagsFile } from './flags-file/format';
@@ -49,8 +48,8 @@ import { runtime } from './runtime';
 
 const usage = [
   'Usage: flags manifest [dir] [--out <file>]',
-  '       flags sync [dir] [--production]',
-  '       flags watch [dir] [--production] [-- command ...args]',
+  '       flags sync [dir]',
+  '       flags watch [dir] [-- command ...args]',
   '       flags format [paths...] [--check]',
   '       flags format --stdin [--stdin-filepath <file>]',
 ].join('\n');
@@ -233,8 +232,7 @@ interface GenerateArgs {
 }
 
 /**
- * Reads `[dir] [--production] [-- command ...args]`, and loads the `.env`
- * files of the directory.
+ * Reads `[dir] [-- command ...args]`.
  */
 function prepareGenerate(args: string[], allowCommand: boolean): GenerateArgs {
   const separator = args.indexOf('--');
@@ -244,34 +242,25 @@ function prepareGenerate(args: string[], allowCommand: boolean): GenerateArgs {
     throw new Error(usage);
   }
   let dir: string | undefined;
-  let production = process.env.NODE_ENV === 'production';
   for (const option of options) {
-    if (option === '--production') {
-      production = true;
-    } else if (option.startsWith('-') || dir !== undefined) {
+    if (option.startsWith('-') || dir !== undefined) {
       throw new Error(usage);
-    } else {
-      dir = option;
     }
+    dir = option;
   }
-  const root = resolve(dir ?? '.');
-  loadEnvFiles(root, production ? 'production' : 'development');
-  return { root, command };
+  return { root: resolve(dir ?? '.'), command };
 }
 
 function describeAliases(root: string, aliases: FlagsAliases): string {
   const names = Object.keys(aliases);
   const flagsFiles = findFlagsFiles(root);
-  if (flagsFiles.length > 0) {
-    const files = `${flagsFiles.length} flags ${flagsFiles.length === 1 ? 'file' : 'files'}`;
-    const modules =
-      names.length > 0 ? ` The sources are ${names.join(', ')}.` : '';
-    return `flags: Wrote the types of ${files}.${modules}`;
+  if (flagsFiles.length === 0) {
+    return 'flags: No flags files (*.flags) in the directory.';
   }
-  if (names.length === 0) {
-    return 'flags: No sources in flags/sources, and no default source self.';
-  }
-  return `flags: Wrote the modules of ${names.join(', ')}.`;
+  const files = `${flagsFiles.length} flags ${flagsFiles.length === 1 ? 'file' : 'files'}`;
+  const modules =
+    names.length > 0 ? ` The sources are ${names.join(', ')}.` : '';
+  return `flags: Wrote the types of ${files}.${modules}`;
 }
 
 /**
@@ -285,7 +274,7 @@ export async function sync(args: string[]): Promise<string> {
 }
 
 /**
- * Writes the modules of the sources after each change of a catalog, until
+ * Writes the modules of the sources after each change of a flags file, until
  * the process gets SIGINT or SIGTERM, or the command ends.
  *
  * @internal
@@ -314,7 +303,7 @@ export async function watch(args: string[]): Promise<string> {
     );
     if (command.length === 0) {
       await done;
-      return 'flags: Stopped watching the catalogs.';
+      return 'flags: Stopped watching the flags files.';
     }
     controller.signal.throwIfAborted();
     // The modules exist before the command starts, e.g. a server
@@ -331,13 +320,13 @@ export async function watch(args: string[]): Promise<string> {
         }
       });
     });
-    // A catalog without updates can end while the command still runs
+    // The watch only ends with the signal, so the command decides the end
     const watchFailure = done.then(() => new Promise<never>(() => {}));
     process.exitCode = await Promise.race([childExit, watchFailure]);
-    return 'flags: The command ended. Stopped watching the catalogs.';
+    return 'flags: The command ended. Stopped watching the flags files.';
   } catch (error) {
     if (controller.signal.aborted) {
-      return 'flags: Stopped watching the catalogs.';
+      return 'flags: Stopped watching the flags files.';
     }
     throw error;
   } finally {

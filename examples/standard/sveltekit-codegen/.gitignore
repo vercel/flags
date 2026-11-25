@@ -1,4 +1,0 @@
-# Written by the Flags SDK on dev, build and `flags sync`
-src/flags/generated.d.ts
-.svelte-kit
-build

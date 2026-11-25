@@ -55,6 +55,11 @@ const importCode = `import { enableSale } from 'flags:self';
 
 const sale = await enableSale();`;
 
+const flagsFileCode = `flag enableSale {
+  description: "Shows the summer sale"
+  defaultValue: false
+}`;
+
 const providerCode = `import { VercelProvider } from '@vercel/flags-core/openfeature';
 
 export default new VercelProvider();`;
@@ -66,7 +71,8 @@ const contextCode = `export default (request) => ({
 const generatedCode = `const source = defineSource({ provider, getEvaluationContext });
 
 export const enableSale = source.bindFlag('enableSale', {
-  options: [false, true],
+  description: 'Shows the summer sale',
+  defaultValue: false,
 });`;
 
 const inlineCode = `import { defineFlag } from 'flags';
@@ -390,7 +396,7 @@ export default async function HomePage({
           <RevealStep
             step="1"
             title="Import a flag, and call it"
-            description="Each flag of your provider is a typed import. Call it on the server, in any framework."
+            description="Each flag of your app is a typed import. Call it on the server, in any framework."
           >
             <HighlightedCode
               code={importCode}
@@ -401,10 +407,16 @@ export default async function HomePage({
           </RevealStep>
           <RevealStep
             step="2"
-            title="It comes from your provider"
-            description="A folder in flags/sources connects a provider. The provider is any OpenFeature provider. The context tells it who the user is."
+            title="Declare it, and connect your provider"
+            description="app.flags declares the flags of your app, so each new flag shows in the diff. A folder in flags/sources connects any OpenFeature provider, and the context tells it who the user is."
           >
             <div className="grid gap-6">
+              <HighlightedCode
+                code={flagsFileCode}
+                lang="js"
+                filename="app.flags"
+                caption="The flags of your app"
+              />
               <HighlightedCode
                 code={providerCode}
                 lang="typescript"
@@ -422,13 +434,13 @@ export default async function HomePage({
           <RevealStep
             step="3"
             title="Behind the scenes"
-            description="Code generation reads the flags of your provider, and writes plain code: one source, and one flag for each key. You can write the same code by hand."
+            description="Your framework plugin compiles the flags file into plain code: one source, and one flag for each entry. Nothing is downloaded. You can write the same code by hand."
           >
             <HighlightedCode
               code={generatedCode}
               lang="typescript"
-              filename=".flags/self.ts"
-              caption="What flags:self contains (simplified)"
+              filename="app.flags (compiled)"
+              caption="What the flags file becomes (simplified)"
             />
           </RevealStep>
           <RevealStep

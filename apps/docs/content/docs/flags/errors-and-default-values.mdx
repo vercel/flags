@@ -89,9 +89,18 @@ OpenFeature requires a default value of the correct type in each call of a provi
 
 Most providers report a problem with an error code, and the flag throws. But a provider can also return its default without an error, e.g. the in-memory provider for a disabled flag. Then the flag returns the placeholder. The SDK can not tell this case from a real value. If the difference matters to you, set a `defaultValue`.
 
-## Generated flags
+## Flags of a flags file
 
-A flag from [code generation](/docs/flags/code-generation) has a `defaultValue` only if its catalog gives one. Set `defaultValue` for each flag in `catalog.ts` where a safe value exists. For the other flags, catch the error where a fallback makes sense:
+A flag of a [flags file](/docs/flags/flags-files) has a `defaultValue` only if you give it one. Set `defaultValue` for each flag in `app.flags` where a safe value exists. Then the flag also works before it exists in your flag management system:
+
+```js title="app.flags"
+flag checkout {
+  options: ["control", "express"]
+  defaultValue: "control"
+}
+```
+
+For the other flags, catch the error where a fallback makes sense:
 
 ```ts title="app/page.tsx"
 import { FlagEvaluationError } from 'flags';

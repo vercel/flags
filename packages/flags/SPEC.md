@@ -93,7 +93,9 @@ writes a deployment adapter.
     `*.flags` files (`flag <key> { … }` with a JSON5 body), and compiled by the framework loaders, with the
     declaration file next to each flags file, or the content mapper of
     TypeScript 7.1, for the types (see "Flags files").
-    Next: remove the catalogs and `flags:<source>`.
+    The catalogs are removed: the flags files are the only declarations
+    of the code generation, and `flags:<source>` stays as the imports by
+    source (see "Code generation").
 
 Not planned now: the migration from v4 (later with a skill or a codemod), and
 the packages of the monorepo that still use v4.
@@ -716,10 +718,10 @@ export default hooks;
 
 - Each setting has exactly one place. The code files run only in the
   application. Only the JSON file is static, so every tool can read it.
-  A source has the same split: `catalog.ts` at build time, and
-  `provider.ts`, `context.ts` and `hooks.ts` in the application.
+  A source has only code files of the application: `provider.ts`,
+  `context.ts` and `hooks.ts`.
 - `settings`: the settings are `selfSource` (a boolean, the default is
-  `true`, see "The default source `self`") and `overrides`
+  `true`, see "The source" of "Flags files") and `overrides`
   (`OverridesOptions`, see "Overrides"). The check is strict: an unknown
   key or a wrong type is an error, in the plugins, in the CLI and in
   `runtime.configure`. `$schema` is allowed. The JSON Schema is
@@ -753,14 +755,15 @@ on its source, with `source.bindFlag(key)`, so it cannot lack a source. A
 `FlagDefinition` without a source fails at the evaluation.
 
 - By convention, the main source of an application is `flags/sources/self`,
-  with `catalog.ts`, `provider.ts` and an optional `context.ts` (see
-  "Code generation"). The application imports its flags from `flags:self`:
+  with `provider.ts` and an optional `context.ts`. The flags of the source
+  are declared in flags files (see "Flags files"). The application imports
+  them from the file, or from `flags:self`:
 
   ```ts
   import { summerSale } from 'flags:self';
   ```
 
-- Without code generation, the application writes the same source by hand,
+- Without flags files, the application writes the same source by hand,
   e.g. in `flags/self.ts`, and declares each flag with `self.bindFlag(key)`.
 - `flags` exports nothing for Vercel, and there is no wrapper package. The
   application uses the OpenFeature provider of Vercel Flags directly:
@@ -768,9 +771,9 @@ on its source, with `source.bindFlag(key)`, so it cannot lack a source. A
   OpenFeature provider, e.g. in `flags/sources/self/provider.ts`.
 - The default is on the level of the files, not in the configuration: an
   application which depends on `@vercel/flags-core` has the default source
-  `self` of Vercel Flags in the code generation (see "The default source
-  `self`"). The runtime still has no default source: each flag is declared
-  on its source.
+  `self` of Vercel Flags in its flags files, with the provider
+  `VercelProvider` (see "The source" of "Flags files"). The runtime still
+  has no default source: each flag is declared on its source.
 
 Earlier drafts had a `defaultSource` in the configuration, a built-in
 default source with the module `flags/default-provider`, a replacement of
@@ -1237,7 +1240,7 @@ export default withFlags({ /* the configuration of Next.js */ });
   failed.
 - Code generation: `withFlags({})` returns a function of the phase, by
   default. `nextConfig` can also be a function of the phase. It generates the modules one time for
-  `phase-production-build`, and watches the catalogs for
+  `phase-production-build`, and watches the flags files for
   `phase-development-server` (see "Code generation"). The workers of
   Next.js load the configuration again, but only one process generates.
 - Not done yet: `onInit` and `onShutdown` (Next.js has no hooks for them,
@@ -1448,8 +1451,9 @@ rollouts and the targeting. Thus:
 - A flag works before it exists in the system: the provider returns
   `FLAG_NOT_FOUND`, and the flag returns its `defaultValue`.
 
-An application with at least one flags file uses no catalogs: the code
-generation of "Code generation" does not run.
+The flags files are the only declarations of the flags for the code
+generation. There are no catalogs of the flag management system (see
+"Code generation").
 
 ### The format
 
@@ -1583,11 +1587,15 @@ import { summerSale } from './app.flags';
   `export { checkout, summerSale } from '../app.flags';`. It has no
   `'use flags'`: the files register their flags, and the manifest names
   the files as the declarations.
-- It writes `.flags/aliases.json` for the framework plugins, as the code
-  generation of catalogs does, and removes the module of a source which
-  no file has any more.
-- It writes `flags/generated.d.ts` (see "Where the types go" of "The
-  default source `self`"), with one `declare module 'flags:<source>'` for
+- It writes `.flags/aliases.json` for the framework plugins, and removes
+  the module of a source which no file has any more.
+- A flags file without flags is valid, and defines its source: an empty
+  `app.flags` gives `flags:self`, with no exports, e.g. before the first
+  flag of a new application. Without a flags file of a source, there is no
+  `flags:<source>`: the bundler can not resolve an import of it, and the
+  type check fails.
+- It writes `flags/generated.d.ts` (see "Where the types go" of "Code
+  generation"), with one `declare module 'flags:<source>'` for
   each source. The type of each flag is the type of its export in its
   file, `(typeof import('../app.flags'))['summerSale']`, with the JSDoc of
   the flag. Thus it works with the content mapper and with the declaration
@@ -1606,8 +1614,7 @@ import { summerSale } from './app.flags';
 ### The source
 
 A source is the folder `flags/sources/<source>` of the
-application (in its root or in `src`), as in "Code generation", but
-without `catalog.ts`:
+application (in its root or in `src`):
 
 | File | Default export |
 | --- | --- |
@@ -1790,14 +1797,13 @@ fails on `contentMappers` (TS18068).
 
 ### Open
 
-- Remove the catalogs (see "Code generation") once flags files replace
-  them. `flags:<source>` stays, as the imports by source of the flags
-  files.
 - `flags check`: compare the flags files with the system, e.g. in CI: the
   flags of the code which the system does not have, the flags of the
   system which no file declares, and different types or options.
-- `flags import`: write a flags file from a catalog, for applications with
-  flags in a system already.
+- `flags import` (or `vercel flags pull`): write or update a flags file
+  from the flags of a system, for applications with flags in a system
+  already. It replaces the automatic download of the removed catalogs
+  with an explicit command, whose result is committed.
 - The platform creates the flags of the manifest in the system after a
   deployment, so that an agent without access to the system can add a
   flag.
@@ -1817,167 +1823,54 @@ fails on `contentMappers` (TS18068).
 
 ## Code generation
 
-An application with flags files does not use code generation (see "Flags
-files"). Flags files are planned to replace it.
+The code generation writes the modules of `flags:<source>` and the types of
+the flags files (see "Imports by source" and "TypeScript" of "Flags
+files"). It reads only the flags files, so it uses no network and no
+credentials, and each build gives the same result.
 
-Code generation is optional. It writes the same code as `defineSource`
-and `source.bindFlag` by hand, from a catalog of the flag management system.
-Then the application imports the flags of a source by its name:
+Earlier drafts generated the modules from catalogs of the flag management
+system: `flags/sources/<source>/catalog.ts` with a `CatalogLoader`, and
+`@vercel/flags-core/catalog` for the default source `self`, which put each
+flag of the Vercel project into `flags:self` without a declaration. They
+are removed. The flags files replace them: each flag of the code is
+declared in the repository, and a branch shows its own flags.
 
-```ts
-import { summerSale } from 'flags:self';
-```
+### Where the types go
 
-By convention, the main source of an application is `flags/sources/self`,
-imported as `flags:self`. An application with more sources adds more
-directories, e.g. `flags/sources/shop` for `flags:shop`. The folder `flags`
-is in the directory of the application, or else in `src`, as for
-`flags/hooks.ts`. Without `flags/sources` and without the default source
-`self` (see below), the generation writes nothing.
-
-`catalog.ts` and the files which it imports can use relative imports
-without an extension. Node.js loads them with its type stripping, and the
-SDK registers a resolve hook (`module.registerHooks`, Node.js 22.15 or
-newer) which tries `.ts`, `.tsx` and `/index.ts`. On older versions, the
-imports need the `.ts` extension.
-
-### The files of a source
-
-Each source is a directory `flags/sources/<source>`, with `catalog.ts` and
-`provider.ts`, and an optional `context.ts` and `hooks.ts`. Each file has a
-default export:
-
-| File | Default export | Runs |
-| --- | --- | --- |
-| `catalog.ts` | A `CatalogLoader`: returns one `Catalog`, or yields a complete `Catalog` first and again after each change | In Node.js, at the generation only |
-| `provider.ts` | The OpenFeature provider | In the application |
-| `context.ts` (optional) | `getEvaluationContext(request, input)`, as for `defineSource` | In the application |
-| `hooks.ts` (optional) | The OpenFeature hooks of the source, for `defineSource({ hooks })` | In the application |
-
-Without `context.ts`, the source has no `getEvaluationContext`: the
-provider gets only the evaluation context of the call side, and the flags
-of the source take no input (`flags/generated.d.ts` declares
-`type Input = undefined`). The generation checks for `context.ts` each time
-it writes the modules.
-
-A `Catalog` has `flags` (for each key: `variants` and an optional
-`description`), an optional `project` (as for `defineSource`, e.g. for the
-links of Flags Explorer) and an optional `revision`. The name of a source
-must match `[a-z][a-z0-9_-]*`.
-
-### The default source `self`
-
-An application which depends on `@vercel/flags-core` (in `dependencies`,
-`devDependencies`, `peerDependencies` or `optionalDependencies` of its
-`package.json`) has the source `self` with the flags of its Vercel project,
-also without `flags/sources/self/`. The dependency is the opt-in: without
-it, there is no `flags:self` of its own, no network request, and no file.
-
-| Part | Default |
-| --- | --- |
-| Provider | `new VercelProvider()` of `@vercel/flags-core/openfeature`: the OIDC token after `vercel link` and `vercel env pull`, or an SDK key in `FLAGS` |
-| Catalog | `loadCatalog` of `@vercel/flags-core/catalog`, resolved from the dependencies of the application. A build takes the first catalog, and the dev server stays connected |
-| Context | None |
-
-- Each file of `flags/sources/self/` replaces its part: `context.ts` adds
-  an evaluation context, `provider.ts` replaces the provider, and
-  `catalog.ts` the catalog. The other parts stay the defaults.
-- Each other source, and `self` without `@vercel/flags-core`, needs
-  `provider.ts` and `catalog.ts`.
-- Without `flags/sources`, the types go into a folder `flags` which
-  exists (in the root or in `src`, e.g. with `flags/hooks.ts`). Without
-  one, they go to `src/flags/generated.d.ts` if the application has `src`,
-  else to `flags/generated.d.ts`, and the generation creates the folder.
-  It removes a `generated.d.ts` with its own header from the other place,
-  so that one file declares the modules.
-  `findGeneratedDeclarations(directory)` finds the file.
-- The catalog sets `project: { system: 'vercel-flags', projectId }`, so the
-  flags have the links of the dashboard.
-- If the default catalog fails before its first catalog, e.g. in CI without
-  credentials, the source has no flags, and the SDK warns:
-
-  ```txt
-  flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: … Run `vercel link` and `vercel env pull`, or set `"selfSource": false` in flags/config.json.
-  ```
-
-  The generation does not fail. An
-  import of a flag of `flags:self` then fails the type check. A
-  `catalog.ts` of the application still fails the generation.
-- `"selfSource": false` in `flags/config.json` turns it off. It is the only
-  opt-out: the plugins, `flags sync` and `flags watch` read the file. It
-  also avoids the network requests of the generation. An application which
-  depends on `@vercel/flags-core` and writes its sources by hand sets it.
-
-### The generated module
-
-`.flags/<source>.ts` starts with `'use flags'`, so the framework plugins
-register it, and `findFlagsModules` finds it (`.flags` is the only hidden
-directory it reads). It has one `defineSource` with `provider.ts` (or
-`new VercelProvider()` for the default source),
-`context.ts` (if the source has one) and the `project` of the catalog (no `project` without
-one), and one `source.bindFlag(key, options)` for each flag, sorted by key:
-
-- `type` comes from the variants (see below for variants of more than one
-  type).
-- `options` are the variants of the catalog. They do not limit the value
-  (see "Options").
-- The JSDoc of each flag has what the catalog knows: the description (if
-  the catalog has one), the variants and the default value, as separate
-  paragraphs. A variant longer than 40 characters is shortened, and the
-  JSDoc shows at most 10 variants. The module and `generated.d.ts` have the
-  same JSDoc, so the editor shows it on hover.
-- The exports have the keys as names (`export { flag_0 as "summerSale" }`),
-  so a key can have any characters. A key that is not a valid name needs a
-  string import, e.g. `import { 'summer-sale' as summerSale } from 'flags:self'`.
-
-The generation imports only `catalog.ts`. It checks that each source has
-`provider.ts` and `catalog.ts` (except the parts of the default source)
-before it runs a catalog. It renders all modules before it
-writes one, and writes a file only when its content changes, with a rename,
-so a watcher never sees half a file. It removes the module of a removed
-source. If a catalog fails, the last modules stay. It also writes
-`.flags/aliases.json` (`{ "flags:shop": "./.flags/shop.ts" }`) for the
-framework plugins, `.flags/catalog.json`, a summary, and `.flags/.gitignore`
-(`*`), so that Git ignores the folder without a change to the `.gitignore`
-of the application.
-
-It also writes `flags/generated.d.ts`, next to `flags/sources`, with one
-ambient `declare module 'flags:<source>'` for each source. The default
+`flags/generated.d.ts` declares the modules `flags:<source>`. The default
 `include` of TypeScript (`**/*.ts`) finds it, so the application needs no
-`paths` and no `allowImportingTsExtensions`. Each source has a named
-interface, `<PascalCase>Source`, e.g. `SelfSource`, so the editor shows a
-short type: `Flag<SelfSource, "enableSale", undefined, boolean>`. The
-application can commit the file, so a type check works before the first
-build, or ignore it and run `flags sync` before `tsc`.
+`paths`.
 
-The type of a flag is `boolean`, `string` or `number` if all its variants
-have that type, else `object`. A flag of the type `object` takes any JSON
-value, as `resolveObjectEvaluation` of OpenFeature does, so a flag whose
-variants mix types, e.g. objects and `null`, also works.
-
-There is no check that the project of the provider is the project of the
-catalog: OpenFeature providers do not give their project.
+- It goes into the folder `flags` which exists, in the root of the
+  application or in `src` (e.g. with `flags/sources` or `flags/hooks.ts`).
+  Without one, it goes to `src/flags/generated.d.ts` if the application has
+  `src`, else to `flags/generated.d.ts`, and the generation creates the
+  folder.
+- It removes a `generated.d.ts` with its own header from the other place,
+  so that one file declares the modules. A file which the SDK did not
+  write stays. `findGeneratedDeclarations(directory)` finds the file.
+- The application can commit the file, so a type check works before the
+  first build, or ignore it and run `flags sync` before `tsc`.
+- Without flags files, the generation writes nothing. If `.flags` exists
+  from an earlier run, it removes the old modules.
 
 ### The commands
 
-- `flags sync [dir] [--production]` generates one time, from the first
-  catalog of each source, and closes the catalogs.
-- `flags watch [dir] [--production] [-- command ...args]` generates again
-  after each change of a catalog. It starts the command after the first
-  generation, and stops when the command ends, or on SIGINT and SIGTERM.
-  A change of a file of a source needs a restart.
-- Both load the `.env` files of the directory first, for the credentials of
-  the catalogs: `.env.<mode>.local`, `.env.local`, `.env.<mode>`, `.env`. An
-  earlier file and a variable which is set already win. The mode is
-  `production` with `--production` or `NODE_ENV=production`.
+- `flags sync [dir]` writes the modules and the types one time. A key or a
+  name in two files of one source fails it.
+- `flags watch [dir] [-- command ...args]` writes them again after each
+  change of a flags file. It starts the command after the first write, and
+  stops when the command ends, or on SIGINT and SIGTERM. A new source needs
+  a restart.
 
 ### In the frameworks
 
-Each framework with a bundler generates the code by default, and has the
-option `disableCodeGeneration` to turn it off. `"selfSource": false` in
-`flags/config.json` turns off only the default source `self`. Its build plugin generates `.flags/<source>.ts` one time for a build, and watches the
-catalogs in development. It adds the aliases `flags:<source>` to the
-bundler.
+Each framework with a bundler runs the code generation by default, and has
+the option `disableCodeGeneration` to turn it off. Its build plugin writes
+the modules one time for a build, and again after each change of a flags
+file in development. It adds the aliases `flags:<source>` to the bundler.
+The loaders compile the flags files in each case (see "In the frameworks"
+of "Flags files").
 
 | Framework | Setup | Opt-out |
 | --- | --- | --- |
@@ -1988,29 +1881,25 @@ bundler.
 | Other Vite frameworks | `flags()` of `@flags-sdk/vite` | `flags({ disableCodeGeneration: true })` |
 
 - Next.js: by default, `withFlags` returns a function of the phase. It
-  generates for `next build`, and watches for `next dev`. The configuration
+  writes for `next build`, and watches for `next dev`. The configuration
   can also be a function of the phase: `withFlags((phase) => ({ ... }))`.
   With `disableCodeGeneration`, `withFlags` returns a configuration object
   as it is, and still reads the aliases of `.flags/aliases.json`, e.g.
   after `flags sync`.
-- Vite: the plugin generates in its `config` hook, before Vite resolves
-  the imports. It watches for `vite dev`, and generates one time for
-  `vite build`.
-- Nuxt: the module generates before the build, gives the aliases to Vite
-  and to Nitro, and adds `flags/generated.d.ts` to the types of Nuxt with
-  the hook `prepare:types` (found with `findGeneratedDeclarations`).
-- A process generates one time for each directory and mode, also when the
-  framework loads the configuration more than once.
+- Vite: the plugin writes in its `config` hook, before Vite resolves the
+  imports. It watches for `vite dev`, and writes one time for `vite build`.
+  Under Vitest (`process.env.VITEST`), it writes one time too: Vitest runs
+  the plugin with `serve`, but has no HTTP server whose close would end the
+  watch, so `vitest run` would not exit.
+- Nuxt: the module writes before the build, gives the aliases to Vite and
+  to Nitro, and adds `flags/generated.d.ts` to the types of Nuxt with the
+  hook `prepare:types` (found with `findGeneratedDeclarations`).
+- A process writes one time for each directory, also when the framework
+  loads the configuration more than once.
 
 Hono, Express and plain Node.js have no bundler, so they have no plugin.
-The application writes `defineSource` and `source.bindFlag` by hand, or runs
-`flags sync` (or `flags watch`) and imports the generated module, e.g.
-`./.flags/self.ts`.
-
-For TypeScript, the application needs no setup: `flags/generated.d.ts`
-declares the modules `flags:<source>`. An application without a bundler
-which imports `./.flags/self.ts` by its path needs
-`allowImportingTsExtensions`, because the module imports `.ts` files.
+`node --import flags/register` compiles the flags files, and the
+application imports its flags from the files.
 
 ## Discovery
 
@@ -2210,7 +2099,7 @@ of Turbopack works on a collection of the whole application.
     through vercel.live, not from the page, with the checks of section 9.2.
 - **A default for `flags/sources/self`.** Done for Vercel Flags, on the
   level of the files: the default source `self` of `@vercel/flags-core`
-  (see "The default source `self`"). The runtime still has no default
+  (see "The source" of "Flags files"). The runtime still has no default
   source (see "No default source"). The OFREP endpoint of Vercel Flags and
   the replacement of `flags/default-provider` are not planned in their
   earlier form.

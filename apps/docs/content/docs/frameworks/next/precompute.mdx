@@ -36,7 +36,7 @@ import { checkout, summerSale } from 'flags:self';
 export const marketingFlags = [summerSale, checkout] as const;
 ```
 
-`summerSale` and `checkout` are flags of the source `self`, from its catalog in `flags/sources/self` (see [Next.js](/docs/frameworks/next)). Any flag works: inline flags and flags of a source, generated or written by hand.
+`summerSale` and `checkout` are flags of the source `self`, declared in `app.flags` (see [Next.js](/docs/frameworks/next)). Any flag works: inline flags and flags of a source, from a flags file or written by hand.
 
 ## 2. Precompute in the proxy
 

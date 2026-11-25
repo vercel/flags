@@ -32,10 +32,9 @@ export interface FlagsPluginOptions {
   readonly dir?: string;
   /**
    * Turns off the code generation of `flags:<source>`. By default,
-   * `withFlags` generates the modules from the catalogs of
-   * `flags/sources/<source>`: one time for `next build`, and again after
-   * each change of a catalog for `next dev`. Without `flags/sources`, it
-   * writes nothing.
+   * `withFlags` writes the modules of `flags:<source>` and the types of the
+   * flags files: one time for `next build`, and again after each change of
+   * a flags file for `next dev`. Without flags files, it writes nothing.
    *
    * With it, `withFlags` returns the configuration itself, not a function
    * of the phase, and still gives Turbopack the aliases of
@@ -237,9 +236,8 @@ export type NextConfigFunction<T extends object> = (
  *   a static page can have encrypted flag values.
  * - A flags file (`*.flags`) becomes a module of its flags, with the
  *   source of its `source` (see "Flags files" in the spec of `flags`).
- * - It generates the modules of `flags:<source>` from `flags/sources`, and
- *   points the aliases `flags:<source>` to them in `.flags`. An application
- *   with flags files uses no catalogs.
+ * - It writes the modules of `flags:<source>` from the flags files, and
+ *   points the aliases `flags:<source>` to them in `.flags`.
  *
  * It supports only Turbopack, and keeps the aliases and the rules of the
  * configuration. A build with webpack throws. The configuration can also be
@@ -274,7 +272,7 @@ export function withFlags<T extends object>(
     return addFlags(config, dir);
   }
   return async (phase, context) => {
-    // `next start` and the other phases do no catalog work
+    // `next start` and the other phases write nothing
     if (!options.disableCodeGeneration) {
       if (phase === PHASE_DEVELOPMENT_SERVER) {
         await prepareCodeGeneration(dir, true);

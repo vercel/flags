@@ -16,18 +16,25 @@ them in the same way as the `@flags-sdk/*` packages. See
 ```ts
 import {
   addSelfRegistration,
+  compileFlagsFile,
   findConfigModules,
+  findFlagsFiles,
   findFlagsModules,
   findGeneratedDeclarations,
+  formatFlagsFile,
   generateFlags,
   GENERATED_DIRECTORY,
   hasUseFlagsDirective,
   MANIFEST_FILE,
   optionIndex,
+  parseFlagsFile,
   readSettings,
   registerFramework,
-  renderSourceModule,
+  renderFlagsFileTypes,
   watchFlags,
+  writeFlagsFileDeclaration,
+  writeFlagsFileDeclarations,
+  writeFlagsFileSources,
   writeManifestFromBuild,
 } from 'flags/tooling';
 ```
@@ -144,24 +151,14 @@ build.
 function generateFlags(directory?: string): Promise<FlagsAliases>;
 ```
 
-The function behind `flags sync`. Reads the catalog of each source in
-`flags/sources/<source>/catalog.ts` once, writes `.flags/<source>.ts`, closes
-the catalogs, and returns the aliases, e.g.
+The function behind `flags sync`. Reads the [flags files](/docs/flags/flags-files)
+of the directory, writes the declaration file of each flags file, the module
+`.flags/<source>.ts` of each source, `.flags/aliases.json` and
+`flags/generated.d.ts`, and returns the aliases, e.g.
 `{ 'flags:self': './.flags/self.ts' }`. The default directory is the current
-directory. See [Code generation](/docs/flags/code-generation).
-
-If the `package.json` of the directory has `@vercel/flags-core` in a
-dependency field, it also generates the default source `self`. Each part
-that `flags/sources/self/` does not have comes from `@vercel/flags-core`:
-the provider `new VercelProvider()`, and the catalog of
-`@vercel/flags-core/catalog`, resolved from the application. Without a folder
-`flags/sources`, it writes the types into a folder `flags` which exists (in
-the directory or in `src`), else into `src/flags/generated.d.ts` if the
-directory has `src`, otherwise into `flags/generated.d.ts`. It removes a
-`generated.d.ts` which it wrote before in the other place. With
-`"selfSource": false` in `flags/config.json`, it does not generate the default
-source. See
-[The default source `self`](/docs/flags/code-generation#the-default-source-self).
+directory. It uses no network. A key or a name in two files of one source
+makes it reject. Without flags files, it writes nothing, and removes the
+modules of an earlier run. See [Code generation](/docs/flags/code-generation).
 
 ### `watchFlags`
 
@@ -172,13 +169,28 @@ function watchFlags(
 ): Promise<WatchResult>;
 ```
 
-The function behind `flags watch`. Generates the modules, and again after each
-change of a catalog, until the signal aborts. Resolves when the first modules
-exist, with `WatchResult`:
+The function behind `flags watch`. Writes the same files as `generateFlags`,
+and again after each change of a flags file or of a folder of a source, until
+the signal aborts. A conflict is an error on the console, and the watch goes
+on. Resolves when the first modules exist, with `WatchResult`:
 
-- `aliases: FlagsAliases`: the aliases after the first generation.
-- `done: Promise<void>`: resolves when all catalogs end or the signal aborts.
-  Rejects when a catalog fails. The files of the last good catalogs stay.
+- `aliases: FlagsAliases`: the aliases after the first write.
+- `done: Promise<void>`: resolves when the signal aborts.
+
+### `writeFlagsFileSources`
+
+```ts
+function writeFlagsFileSources(directory: string): Promise<FlagsFileSourcesResult>;
+```
+
+Writes only the modules of `flags:<source>`, `.flags/aliases.json` and
+`flags/generated.d.ts`. The module of a source re-exports the flags of that
+source from all flags files, e.g.
+`export { checkout, summerSale } from '../app.flags';`. A flags file without
+flags still defines its source. It removes the module of a source which no
+flags file has any more. Returns `{ aliases, conflicts }`: `conflicts` lists
+the flags with a key or a name of another file of the same source. They are
+not in `flags:<source>`.
 
 ### `findGeneratedDeclarations`
 
@@ -189,35 +201,78 @@ function findGeneratedDeclarations(directory: string): Promise<string | undefine
 Finds `flags/generated.d.ts`, the types of `flags:<source>`, in the directory
 or in its `src` directory. Returns the absolute path, or `undefined` if the
 code generation did not write the file. Use it instead of
-`findFlagsDirectory`, since the default source `self` writes the types also
-without a folder `flags/sources`. The Nuxt module uses it to add the types to
-Nuxt.
+`findFlagsDirectory`, since the types can be in a folder `flags` without
+`flags/sources`. The Nuxt module uses it to add the types to Nuxt.
 
-### `renderSourceModule`
+### `findFlagsFiles`
 
 ```ts
-function renderSourceModule(
-  name: string,
-  catalog: Catalog,
-  sourcesPath?: string,
-  files?: SourceFiles,
-): string;
+function findFlagsFiles(projectDir: string): string[];
 ```
 
-Returns the source code of the generated module of one source: a `'use flags'`
-module with one `defineSource` and one `source.bindFlag` per flag of the catalog. The
-type of each flag comes from its variants (mixed types become `object`), the
-variants become its `options`, and the `defaultValue` of the catalog becomes
-its `defaultValue`. Throws for a source name that is not
-`[a-z][a-z0-9_-]*` (case-insensitive).
+The paths of the flags files (`*.flags`) of the project, relative to the
+project and with `/`, in a fixed order.
 
-`sourcesPath` is the path from the generated module to `flags/sources`. The
-default is `'../flags/sources'`. `files` tells which optional files the source
-has. With `{ context: false }`, the module does not import `context.ts`, and
-the source has no `getEvaluationContext`. With `{ provider: 'vercel' }`, the
-module creates `new VercelProvider()` of `@vercel/flags-core/openfeature`
-instead of the import of `provider.ts`, as for the default source `self`. The
-default is `{ context: true, provider: 'file' }`.
+### `compileFlagsFile`
+
+```ts
+function compileFlagsFile(text: string, options: CompileOptions): CompiledFlagsFile;
+```
+
+Compiles a flags file into a `'use flags'` module: the imports of
+`provider.ts`, `context.ts` and `hooks.ts` of each source, one `defineSource`
+for each source of the flags of the file, and one `source.bindFlag` for each
+flag, exported under its name. For the source `self` of an application which
+depends on `@vercel/flags-core`, without `provider.ts`, the module creates
+`new VercelProvider()`. Throws a `FlagsFileError` with the position of each
+error. The framework loaders use it.
+
+- `CompileOptions`: `{ fileName: string; projectDirectory?: string; selfRegistration?: boolean }`.
+  `projectDirectory` is the directory with `flags/sources`. The default is the
+  nearest directory of the file with a `package.json`. `selfRegistration`
+  adds `registerFlags` at the end of the module. The default is `true`.
+- `CompiledFlagsFile`: `{ code, document, sources, ... }`. `code` is
+  JavaScript, which is also valid TypeScript.
+
+### `renderFlagsFileTypes`
+
+```ts
+function renderFlagsFileTypes(
+  text: string,
+  options: { fileName: string; projectDirectory?: string },
+): FlagsFileTypes;
+```
+
+The types of a flags file: one declaration for each flag, with the type that
+`source.bindFlag` gives in hand-written code. It never throws: a flag with an
+error is left out, and the diagnostics say why.
+
+### `writeFlagsFileDeclaration` and `writeFlagsFileDeclarations`
+
+```ts
+function writeFlagsFileDeclaration(file: string, text: string, projectDirectory: string): boolean;
+function writeFlagsFileDeclarations(projectDirectory: string): Promise<FlagsFileDeclarationsResult>;
+```
+
+`writeFlagsFileDeclaration` writes the declaration file of one flags file,
+e.g. `app.d.flags.ts` for `app.flags`, if it changed, and returns whether it
+wrote the file. The framework loaders call it when they compile a file.
+`writeFlagsFileDeclarations` writes the declaration file of each flags file
+of the project, and removes the declaration files of removed flags files. It
+returns `{ files, problems }`. `watchFlagsFileDeclarations(projectDirectory, signal)`
+writes them again after each change.
+
+### `parseFlagsFile` and `formatFlagsFile`
+
+```ts
+function parseFlagsFile(text: string): FlagsFileDocument;
+function formatFlagsFile(text: string, options?: { fileName?: string }): string;
+```
+
+`parseFlagsFile` reads a flags file. It never throws: an error is a
+diagnostic with its position, and a flag with an error is not in `flags`.
+`formatFlagsFile` formats a flags file, as `flags format` does. It throws a
+`FlagsFileError` if the file has a syntax error.
 
 ### `GENERATED_DIRECTORY`
 
@@ -241,12 +296,10 @@ their content. Precompute uses it to encode values.
 - `WatchResult`: the result of `watchFlags`.
 - `ConfigModule`: `'flags/hooks' | 'flags/settings'`,
   the modules which a plugin replaces with the files of the configuration.
-- `SourceFiles`: `{ context?: boolean; provider?: 'file' | 'vercel'; hooks?: boolean }`,
-  the files of a source, for `renderSourceModule`. `context` is `true` if the
-  source has `context.ts`. The default is `true`. `provider` is `'file'` for
-  `provider.ts`, and `'vercel'` for `new VercelProvider()`. The default is
-  `'file'`. `hooks` is `true` if the source has `hooks.ts`. The default is
-  `false`.
+- `FlagsFileSourcesResult`: the result of `writeFlagsFileSources`.
+- `FlagsFileDeclarationsResult`: the result of `writeFlagsFileDeclarations`.
+- `FlagsFileDocument`, `FlagsFileFlag`, `FlagsFileDiagnostic`: the result of
+  `parseFlagsFile`.
 
 ## `flags/manifest`
 
@@ -349,24 +402,24 @@ The `flags` package has a `flags` command.
 
 ```sh
 flags manifest [dir] [--out <file>]
-flags sync [dir] [--production]
-flags watch [dir] [--production] [-- command ...args]
+flags sync [dir]
+flags watch [dir] [-- command ...args]
+flags format [paths...] [--check]
+flags format --stdin [--stdin-filepath <file>]
 ```
 
 See [CLI](/docs/tooling/cli) for a guide.
 
 ### `flags sync`
 
-Writes the modules of `flags:<source>` from the catalogs in
-`flags/sources/<source>/` once, into `.flags/<source>.ts`. Loads the `.env`
-files of the directory first, for the credentials of the catalogs. Reads
-`flags/config.json`, e.g. `"selfSource": false` to turn off the default source
-`self`.
+Writes the modules of `flags:<source>` and the types of the flags files once:
+`.flags/<source>.ts`, `flags/generated.d.ts` and the `*.d.flags.ts` files. It
+reads only the flags files, and uses no network. A key or a name in two files
+of one source makes it fail.
 
-| Argument       | Description                                                                                           |
-| -------------- | ----------------------------------------------------------------------------------------------------- |
-| `dir`          | The directory of the application. The default is the current directory.                               |
-| `--production` | Loads the `.env` files for production. The default is production when `NODE_ENV` is `production`.    |
+| Argument | Description                                                             |
+| -------- | ----------------------------------------------------------------------- |
+| `dir`    | The directory of the application. The default is the current directory. |
 
 ```sh
 flags sync
@@ -374,12 +427,24 @@ flags sync
 
 ### `flags watch`
 
-Like `flags sync`, and writes the modules again after each change of a
-catalog. With `-- command`, it starts the command after the first modules
+Like `flags sync`, and writes the modules and the types again after each
+change of a flags file. With `-- command`, it starts the command after the first modules
 exist, e.g. a development server, and stops when the command ends.
 
 ```sh
 flags watch -- vite dev
+```
+
+### `flags format`
+
+Formats the flags files in place: the files which you give, and the flags
+files of the folders. The default is the current directory. `--check` writes
+nothing, and fails if a file is not formatted. `--stdin` formats the standard
+input to the standard output, for editors. `--stdin-filepath` gives the name
+of the file for the error messages.
+
+```sh
+flags format --check
 ```
 
 ### `flags manifest`

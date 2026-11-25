@@ -1,8 +1,18 @@
 # Frameworks
 
-The flags and the call sites are the same in every framework. A framework package only gives the SDK the current request, loads the configuration files (`flags/hooks.ts`, `flags/config.json`), lets framework signals through, registers `'use flags'` modules, generates `flags:<source>`, and serves the manifest in development.
+The flags and the call sites are the same in every framework. A framework package only gives the SDK the current request, loads the configuration files (`flags/hooks.ts`, `flags/config.json`), lets framework signals through, registers `'use flags'` modules, compiles the flags files, writes the modules of `flags:<source>`, and serves the manifest in development.
 
-The source folder is the same in every framework with a bundler (see [code-generation.md](code-generation.md)). With `@vercel/flags-core` in `package.json`, the source `self` is the default source of Vercel Flags: no folder is needed. Add only the file of the part that you replace, e.g. the context:
+The flags files and the source folder are the same in every framework (see [flags-files.md](flags-files.md)). Declare the flags in `app.flags` (SvelteKit: `src/app.flags`), and import them from the file or from `flags:self`:
+
+```js
+// app.flags
+flag enableSale {
+  description: "Shows the summer sale"
+  defaultValue: false
+}
+```
+
+With `@vercel/flags-core` in `package.json`, the source `self` uses `new VercelProvider()`: no folder is needed. Add only the file of the part that you replace or add, e.g. the context:
 
 ```ts
 // flags/sources/self/context.ts (optional; SvelteKit: src/flags/sources/self/context.ts)
@@ -15,7 +25,7 @@ export default function getEvaluationContext(
 }
 ```
 
-With another provider, or without `@vercel/flags-core`, the folder needs both files:
+With another provider, or without `@vercel/flags-core`, the folder needs `provider.ts`:
 
 ```ts
 // flags/sources/self/provider.ts
@@ -24,14 +34,9 @@ import { VercelProvider } from '@vercel/flags-core/openfeature';
 export default new VercelProvider();
 ```
 
-```ts
-// flags/sources/self/catalog.ts
-export { default } from '@vercel/flags-core/catalog';
-```
+Without a folder `flags`, the types of `flags:<source>` go to `src/flags/generated.d.ts` if the app has `src/`, else `flags/generated.d.ts`. To turn the default provider off, set `"selfSource": false` in `flags/config.json`. Each plugin and the CLI read this file. There is no plugin option for it.
 
-Without `flags/sources`, the types of the default source go to `src/flags/generated.d.ts` if the app has `src/`, else `flags/generated.d.ts`. To turn the default source off, e.g. when the sources are written by hand, set `"selfSource": false` in `flags/config.json`. Each plugin and the CLI read this file. There is no plugin option for it.
-
-To try the SDK without an account, export `new TypedInMemoryProvider({...})` of `@openfeature/server-sdk` from `provider.ts`, and return a static catalog (see [code-generation.md](code-generation.md#static-catalog)).
+To try the SDK without an account, export `new TypedInMemoryProvider({...})` of `@openfeature/server-sdk` from `provider.ts`, and declare the same flags in `app.flags`.
 
 ## Table of contents
 
@@ -64,8 +69,8 @@ export default withFlags({
 - `withFlags` returns a phase function. It must be the outer plugin: `withFlags(withVercelToolbar()(nextConfig))`.
 - A phase function config: `withFlags((phase) => ({ ... }))`.
 - The folder `flags` outside the app directory or its `src`: `withFlags({}, { dir: '/path/to/the/app' })`.
-- No default source `self`: `"selfSource": false` in `flags/config.json`.
-- Without code generation: `withFlags({}, { disableCodeGeneration: true })`. It returns the object, and still reads `.flags/aliases.json`, e.g. after `flags sync` or with `flags watch -- next dev`.
+- No default provider for `self`: `"selfSource": false` in `flags/config.json`.
+- Without code generation: `withFlags({}, { disableCodeGeneration: true })`. It returns the object, and still reads `.flags/aliases.json`, e.g. after `flags sync` or with `flags watch -- next dev`. The loader still compiles the flags files.
 
 Use a flag in a server component or a route handler:
 
@@ -224,11 +229,11 @@ export default defineConfig({
 });
 ```
 
-- Put the source folder (or only `context.ts` for the default source) into `src/flags/sources/self/`, since SvelteKit type-checks `src` only. The types go into `src/flags/generated.d.ts`. The configuration files go into `src/flags/` too, e.g. `src/flags/hooks.ts` and `src/flags/config.json`.
+- Put the flags files into `src`, e.g. `src/app.flags`, and the source folder (or only `context.ts` for the default source) into `src/flags/sources/self/`, since SvelteKit type-checks `src` only. The types go into `src/flags/generated.d.ts`. The configuration files go into `src/flags/` too, e.g. `src/flags/hooks.ts` and `src/flags/config.json`.
 - No `handle` hook is needed. The binding reads the request with `getRequestEvent()`.
 - Flags work in `load` of `+page.server.ts` and `+layout.server.ts`, form actions, `+server.ts`, and `hooks.server.ts`. Do not import `flags` in universal `+page.ts` files or components.
 - `redirect()` and `error()` pass through, also from `getEvaluationContext`.
-- No default source `self`: `"selfSource": false` in `src/flags/config.json`.
+- No default provider for `self`: `"selfSource": false` in `src/flags/config.json`.
 - Without code generation: `flags({ disableCodeGeneration: true })`.
 
 ```ts
@@ -276,7 +281,7 @@ export default defineNuxtConfig({
 - It starts the providers with the Nitro server and closes them at shutdown. Do not call `runtime.onInit()` or `runtime.onShutdown()`.
 - Flags run only on the Nitro server. Evaluate them in server routes, and load the values with `useFetch`. Do not import `flags` or `flags:self` in components or composables.
 - `createError()` passes through, also from `getEvaluationContext`.
-- No default source `self`: `"selfSource": false` in `flags/config.json`.
+- No default provider for `self`: `"selfSource": false` in `flags/config.json`.
 - Without code generation: `modules: [['@flags-sdk/nuxt', { disableCodeGeneration: true }]]`.
 
 ```ts
@@ -328,7 +333,7 @@ export default defineConfig({
 - No middleware is needed. The binding reads the request with `getRequest()`.
 - Route loaders also run in the browser, so call flags in a server function. Server routes can call flags directly.
 - `redirect()` and `notFound()` pass through, also from `getEvaluationContext`.
-- No default source `self`: `"selfSource": false` in `flags/config.json`. Without `flags/sources`, its types go into `src/flags/generated.d.ts`.
+- No default provider for `self`: `"selfSource": false` in `flags/config.json`. Without a folder `flags`, the types go into `src/flags/generated.d.ts`.
 - Without code generation: `flags({ disableCodeGeneration: true })`.
 
 ```tsx
@@ -374,7 +379,7 @@ Manifest: `vite dev` serves `/.well-known/flags/manifest.json`. `vite build` wri
 
 ## Hono
 
-Hono 4 or newer. There is no bundler, so write the source by hand (or use `flags sync` and import `./.flags/self.ts` by its path).
+Hono 4 or newer. There is no bundler. Use flags files with `node --import flags/register src/server.ts` (Node.js 22.15 or newer), and import the flags from the files, e.g. `import { enableSale } from './app.flags'`. `flags sync` writes the types. Or write the source by hand, as below.
 
 ```sh
 pnpm add flags @flags-sdk/hono @vercel/flags-core
@@ -453,7 +458,7 @@ process.on('SIGTERM', () => {
 
 ## Express
 
-Express 4 or newer. Write the source and the flags by hand, as for Hono.
+Express 4 or newer. Use flags files with `node --import flags/register`, or write the source and the flags by hand, as for Hono.
 
 ```sh
 pnpm add flags @flags-sdk/express @vercel/flags-core

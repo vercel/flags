@@ -43,7 +43,7 @@ export const self = defineSource({
 });
 ```
 
-Then create `src/flags.ts` with the flags. It is the same file as in the [other frameworks](/docs/frameworks#without-a-bundler-sources-by-hand):
+Then create `src/flags.ts` with the flags. It is the same file as in the [other frameworks](/docs/frameworks#without-a-bundler-flags-files-or-sources-by-hand):
 
 ```ts title="src/flags.ts"
 'use flags';
@@ -69,7 +69,7 @@ export const betaBanner = defineFlag({
 `'use flags'` marks a module that exports only flags, for the [flags manifest](/docs/tooling/flags-manifest). That is why the source has its own module. To try the example, install `@openfeature/server-sdk`. For a real project, use the provider of your flag management system, for example `new VercelProvider()` of [Vercel Flags](/docs/providers/vercel).
 
 <Callout type="info">
-  You can also use the folder `flags/sources/self` of the [file system API](/docs/flags/code-generation) without a bundler: `flags sync` writes `.flags/self.ts`, and you import it by its path, e.g. `import { enableSale } from '../.flags/self.ts'`. See [Code generation](/docs/flags/code-generation#without-a-framework-plugin).
+  You can also declare the flags in a [flags file](/docs/flags/flags-files), e.g. `src/app.flags`, and start Node.js with `node --import flags/register src/server.ts` (Node.js 22.15 or newer). The hooks compile the file, and you import the flags from it: `import { enableSale } from './app.flags'`. The provider goes into `flags/sources/self/provider.ts`, unless the source `self` uses the default provider of `@vercel/flags-core`. `flags sync` writes the types before a type check. See [Code generation](/docs/flags/code-generation#without-a-framework-plugin).
 </Callout>
 
 ### 3. Add the middleware

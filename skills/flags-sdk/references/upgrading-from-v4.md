@@ -27,7 +27,7 @@ Full guide: https://flags-sdk.dev/docs/getting-started/upgrading-from-v4
 - v4 override cookies (`vercel-flag-overrides`, encrypted with `FLAGS_SECRET`) still work.
 - v4 precompute codes stay valid if you set `FLAGS_PRECOMPUTE_SECRET` to the old `FLAGS_SECRET` during the upgrade.
 - `decide` now receives `(request, context)` instead of `{ headers, cookies, entities }`. Read cookies with `request?.cookies?.get(name)?.value`.
-- Each provider flag is declared on its source, with `source.bindFlag(key)`. With code generation, the default source `self` of Vercel Flags needs no declaration.
+- Each provider flag is declared on its source, with `source.bindFlag(key)` or in a flags file (`app.flags`). With `@vercel/flags-core`, the source `self` of the flags files needs no `provider.ts`.
 - Set `type` for each flag that is not a boolean. v5 does not infer it from `defaultValue`.
 
 ## Inline flags
@@ -92,7 +92,7 @@ const self = defineSource({
 export const summerSale = self.bindFlag('summerSale');
 ```
 
-With a bundler (Next.js, SvelteKit, Nuxt, TanStack Start), use the file system API instead: the provider goes into `flags/sources/self/provider.ts`, the old `identify` into `flags/sources/self/context.ts`, the flags into `flags/sources/self/catalog.ts` (for Vercel: `export { default } from '@vercel/flags-core/catalog'`), and you import `import { summerSale } from 'flags:self'`. See [code-generation.md](code-generation.md).
+Or use flags files instead: the flags go into `app.flags` (e.g. `flag summerSale { defaultValue: false }`), the provider into `flags/sources/self/provider.ts` (not needed for Vercel with `@vercel/flags-core`), the old `identify` into `flags/sources/self/context.ts`, and you import `import { summerSale } from './app.flags'` or `from 'flags:self'`. See [flags-files.md](flags-files.md).
 
 Other vendors: replace the adapter with the vendor's OpenFeature provider ([providers.md](providers.md#openfeature-providers)). Statsig and PostHog have providers in `@flags-sdk/statsig/openfeature` and `@flags-sdk/posthog/openfeature`. The v5 versions of `@flags-sdk/flagsmith`, `growthbook`, `launchdarkly`, `posthog` and `statsig` have no adapter. Reflag stays on v4.
 
@@ -100,8 +100,8 @@ Other vendors: replace the adapter with the vendor's OpenFeature provider ([prov
 
 1. Install `flags@5` and the package of your framework.
 2. Add the framework setup, e.g. `withFlags` in `next.config.ts` (as the outer plugin).
-3. Replace each provider adapter with a source of its OpenFeature provider: a folder `flags/sources/<source>/` with code generation, or `defineSource` by hand.
-4. Replace `flag()` with `defineFlag()` for flags with `decide`, and with `source.bindFlag(key)` (or the generated flags of `flags:<source>`) for provider flags. Set `type` for each flag that is not a boolean.
+3. Replace each provider adapter with a source of its OpenFeature provider: a folder `flags/sources/<source>/` with flags files, or `defineSource` by hand.
+4. Replace `flag()` with `defineFlag()` for flags with `decide`, and with `source.bindFlag(key)` (or a `flag` block in a flags file) for provider flags. Set `type` for each flag that is not a boolean.
 5. Move `identify` to `getEvaluationContext(request, input)` of the source, or to the default export of `context.ts`. Remove `dedupe`.
 6. Add `'use flags'` to the flags modules. Move other exports (sources, precompute groups, helpers) to other modules.
 7. Remove `app/.well-known/vercel/flags/route.ts`. Add `app/.well-known/flags/manifest.json/route.ts` with `export { GET } from '@flags-sdk/next/manifest';`.

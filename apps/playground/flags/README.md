@@ -1,23 +1,19 @@
 # Playground sources
 
-The playground uses the Flags SDK (`packages/flags`) with code generation.
-Each directory in `sources` is a source, and the pages import its flags by
-name, e.g. `import { flag0 } from 'flags:site'`.
+The playground declares its flags in `site.flags`, a flags file of the
+source `site`, and the page imports them from the source:
+`import { flag0 } from 'flags:site'`.
 
 | File | Responsibility |
 | --- | --- |
-| `sources/<source>/catalog.ts` | `@vercel/flags-core/catalog`: the flags of Vercel Flags, from its stream, with the OIDC token. Runs at build time and in development only. |
+| `../site.flags` | The flags: name, key, type, options and description. The values stay in Vercel Flags. |
 | `sources/<source>/provider.ts` | The OpenFeature provider: `VercelProvider` of `@vercel/flags-core/openfeature`. |
 | `sources/<source>/context.ts` | `getEvaluationContext(request, input)`: the visitor from a cookie. |
 
-`withFlags({})` in `next.config.ts` generates `.flags/<source>.ts` and
-`flags/generated.d.ts` (the types of `flags:<source>`) one time during
-`pnpm build`, and watches the catalogs during `pnpm dev`. `pnpm flags:sync` generates one time without Next.js. The
-generated module is a `'use flags'` module with one `defineSource` and one
-`source.bindFlag` for each flag.
-
-A flag whose variants mix types, e.g. objects and `null`, gets the type
-`object`, which takes any JSON value, as the object method of OpenFeature
-does.
+`withFlags({})` in `next.config.ts` compiles the flags files, and writes
+`.flags/<source>.ts` and `flags/generated.d.ts` (the types of
+`flags:<source>`) one time during `pnpm build`, and after each change of a
+flags file during `pnpm dev`. `pnpm flags:sync` writes them one time
+without Next.js. Nothing is downloaded at build time.
 
 Run `vercel link` and `vercel env pull` for the OIDC token of the project.

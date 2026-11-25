@@ -77,14 +77,14 @@ it('evaluates the in-memory flag', async () => {
 });
 ```
 
-### With code generation
+### With flags files
 
-Mock `provider.ts` of the source, and keep `context.ts`:
+Mock `provider.ts` of the source, and keep `context.ts`. The flags file and `flags:<source>` give the same flag:
 
 ```ts
 // flags.test.ts
 import { expect, it, vi } from 'vitest';
-import { newDashboard } from 'flags:self';
+import { newDashboard } from './app.flags'; // or from 'flags:self'
 
 vi.mock('./flags/sources/self/provider.ts', async () => {
   const { TypedInMemoryProvider } = await import('@openfeature/server-sdk');
@@ -104,27 +104,21 @@ it('evaluates the in-memory flag', async () => {
 });
 ```
 
-Unless the test runner uses the framework plugin, generate the modules first, and alias `flags:<source>`:
+The default source `self` of `@vercel/flags-core` has no `provider.ts` to mock. Add `flags/sources/self/provider.ts` (`export default new VercelProvider()`), or mock the flags file itself (`vi.mock('./app.flags', ...)`).
+
+The test runner must compile the flags files. Add the plugin `flags()` of `@flags-sdk/vite` (or the plugin of the framework, e.g. `flags()` of `@flags-sdk/sveltekit/vite`):
 
 ```ts
 // vitest.config.ts
-import path from 'node:path';
+import { flags } from '@flags-sdk/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  resolve: {
-    alias: [{ find: /^flags:(.+)$/, replacement: `${path.resolve('.flags')}/$1.ts` }],
-  },
+  plugins: [flags()],
 });
 ```
 
-```json
-{
-  "scripts": {
-    "test": "flags sync && vitest"
-  }
-}
-```
+Under Vitest (`process.env.VITEST`), the plugin writes the modules of `flags:<source>` one time and adds their aliases, and it does not watch the flags files, so `vitest run` exits. Tests can import from `./app.flags` and from `flags:<source>`. After a change of a flags file, restart `vitest` in watch mode.
 
 Close the providers after the tests:
 

@@ -249,46 +249,19 @@ describe('Cache Components', () => {
 });
 
 describe('code generation of flags:<source>', () => {
+  // An app with a flags file of the source shop
   function projectWithSource() {
     const dir = projectWith();
-    const source = join(dir, 'flags/sources/shop');
-    mkdirSync(source, { recursive: true });
     writeFileSync(
-      join(source, 'catalog.ts'),
-      "export default () => ({ flags: { 'summer-sale': { variants: [false, true] } } });",
+      join(dir, 'app.flags'),
+      'source shop\n\nflag summerSale {\n  key: "summer-sale"\n}\n',
     );
-    // The generation must not run them
-    writeFileSync(join(source, 'provider.ts'), "throw new Error('no');");
-    writeFileSync(join(source, 'context.ts'), "throw new Error('no');");
     return dir;
   }
 
-  // An app which depends on @vercel/flags-core, with a fake package
-  function projectWithVercelFlags() {
+  it('defines flags:self with a flags file without flags', async () => {
     const dir = projectWith();
-    writeFileSync(
-      join(dir, 'package.json'),
-      JSON.stringify({ dependencies: { '@vercel/flags-core': '1.0.0' } }),
-    );
-    const core = join(dir, 'node_modules/@vercel/flags-core');
-    mkdirSync(core, { recursive: true });
-    writeFileSync(
-      join(core, 'package.json'),
-      JSON.stringify({
-        name: '@vercel/flags-core',
-        type: 'module',
-        exports: { './catalog': './catalog.js' },
-      }),
-    );
-    writeFileSync(
-      join(core, 'catalog.js'),
-      "export const loadCatalog = () => ({ flags: { 'summer-sale': { variants: [false, true] } } });",
-    );
-    return dir;
-  }
-
-  it('generates the default source self for an app with @vercel/flags-core', async () => {
-    const dir = projectWithVercelFlags();
+    writeFileSync(join(dir, 'app.flags'), '// No flags yet\n');
 
     const resolved = await withFlags<NextConfig>(
       {},
@@ -298,16 +271,6 @@ describe('code generation of flags:<source>', () => {
     expect(resolved.turbopack?.resolveAlias).toMatchObject({
       'flags:self': './.flags/self.ts',
     });
-  });
-
-  it('generates no default source with "selfSource": false in flags/config.json', async () => {
-    const dir = projectWithVercelFlags();
-    mkdirSync(join(dir, 'flags'));
-    writeFileSync(join(dir, 'flags/config.json'), '{ "selfSource": false }');
-
-    await withFlags<NextConfig>({}, { dir })('phase-production-build');
-
-    expect(existsSync(join(dir, '.flags'))).toBe(false);
   });
 
   it('points flags:<source> to the modules of .flags/aliases.json', () => {
@@ -336,7 +299,7 @@ describe('code generation of flags:<source>', () => {
       'flags/framework': '@flags-sdk/next/binding',
     });
     expect(readFileSync(join(dir, '.flags/shop.ts'), 'utf8')).toContain(
-      'source.bindFlag("summer-sale"',
+      'export { summerSale } from "../app.flags";',
     );
     // The types of flags:shop, without paths in tsconfig.json
     expect(readFileSync(join(dir, 'flags/generated.d.ts'), 'utf8')).toContain(
@@ -344,7 +307,7 @@ describe('code generation of flags:<source>', () => {
     );
   });
 
-  it('writes nothing for an app without flags/sources', async () => {
+  it('writes nothing for an app without flags files', async () => {
     const dir = projectWith();
     const config = withFlags<NextConfig>({}, { dir });
 
@@ -354,7 +317,7 @@ describe('code generation of flags:<source>', () => {
     expect(existsSync(join(dir, 'flags'))).toBe(false);
   });
 
-  it('does no catalog work for next start', async () => {
+  it('writes nothing for next start', async () => {
     const dir = projectWithSource();
     const config = withFlags<NextConfig>({}, { dir });
 

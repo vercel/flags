@@ -117,7 +117,7 @@ import { checkout, summerSale } from 'flags:self';
 import { heroText } from 'flags:marketing';
 ```
 
-It is the same flag as the import from its file, so both work in one application. The plugin of your framework writes the modules of `flags:<source>` into `.flags`, which Git ignores, and their types into `flags/generated.d.ts`. Without a framework plugin, `flags sync` writes them. A key or a name in two files of one source is an error. Restart the dev server after you add a file with a new source.
+It is the same flag as the import from its file, so both work in one application. The plugin of your framework writes the modules of `flags:<source>` into `.flags`, which Git ignores, and their types into `flags/generated.d.ts`. Without a framework plugin, `flags sync` writes them. A key or a name in two files of one source is an error. Restart the dev server after you add a file with a new source. See [Code generation](/docs/flags/code-generation).
 
 ### Errors
 
@@ -150,7 +150,7 @@ flags/
       provider.ts
 ```
 
-With `@vercel/flags-core` in your dependencies, the source `self` needs no folder: it uses the flags of your Vercel project, with `new VercelProvider()`. Add `flags/sources/self/context.ts` to give it an evaluation context. See [Code generation](/docs/flags/code-generation#the-folder-of-a-source) for the files of a source.
+With `@vercel/flags-core` in your dependencies, the source `self` needs no folder: its provider is `new VercelProvider()`. You still declare each flag in a flags file. Add `flags/sources/self/context.ts` to give it an evaluation context. See [Code generation](/docs/flags/code-generation#the-folder-of-a-source) for the files of a source.
 
 You can have more than one flags file, also with the same source, e.g. one file next to each feature. Fewer flags in one file also means fewer conflicts when you merge branches.
 

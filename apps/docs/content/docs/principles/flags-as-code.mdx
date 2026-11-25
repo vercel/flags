@@ -40,10 +40,11 @@ export const summerSale = self.bindFlag('summerSale', {
 ```
 
 `source.bindFlag` declares a flag whose value comes from a flag management system,
-through a [source](/docs/flags/provider-flags). With
-[code generation](/docs/flags/code-generation), you do not write this code:
-the SDK writes it from the catalog of `flags/sources/self/`, and you import
-the flag with `import { summerSale } from 'flags:self'`. If the code decides the value,
+through a [source](/docs/flags/provider-flags). With a
+[flags file](/docs/flags/flags-files), you do not write this code: you declare
+the flag in `app.flags`, the SDK compiles the file into the same code, and you
+import the flag with `import { summerSale } from 'flags:self'`. The flags file
+is in your repository, so each flag of your code shows in its diff. If the code decides the value,
 use `defineFlag` with a `decide` function instead. Both return the same kind of
 flag, and you call both the same way. See
 [the two kinds of flags](/docs/flags).

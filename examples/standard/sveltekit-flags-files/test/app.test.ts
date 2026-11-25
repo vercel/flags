@@ -34,7 +34,7 @@ async function flagsOfPage(cookie: string) {
   return JSON.parse((match[1] ?? '').replaceAll('&quot;', '"'));
 }
 
-test('evaluates the generated flag of flags:self with the request', async () => {
+test('evaluates the flag of src/app.flags with the request', async () => {
   assert.deepEqual(await flagsOfPage('user=alice'), { sale: true });
   assert.deepEqual(await flagsOfPage('user=bob'), { sale: false });
 });

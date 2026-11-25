@@ -51,7 +51,7 @@ function setForWorkers(dir: string, name: string, value: string | undefined) {
 
 /**
  * Generates the modules one time (`watch: false`, e.g. for `next build`),
- * or generates them and watches the catalogs (`watch: true`, for
+ * or generates them and watches the flags files (`watch: true`, for
  * `next dev`). Resolves when the first modules exist.
  *
  * The workers of Next.js load the configuration again. They see the PID of
@@ -107,7 +107,7 @@ export function prepareCodeGeneration(
       done
         .catch((error: unknown) => {
           console.error(
-            'flags: The watch of the catalogs stopped. Restart next dev.',
+            'flags: The watch of the flags files stopped. Restart next dev.',
             error,
           );
         })

@@ -1,0 +1,27 @@
+// The flags of the playground, from the Vercel project of the source site.
+// The values, rules and rollouts stay in Vercel Flags.
+// See https://flags-sdk.dev/docs/flags/flags-files
+source site
+
+flag flag0 {
+  description: "A simple boolean flag"
+  defaultValue: false
+}
+
+flag checkout {
+  key: "fake-hat-checkout-experiment"
+  description: "The variant of the checkout experiment"
+  type: "object"
+}
+
+flag offer {
+  key: "test-string"
+  description: "The offer of the shop"
+  options: ["normal", "discount-50", "discount-20"]
+}
+
+flag settings {
+  key: "json-flag"
+  description: "A JSON value"
+  type: "object"
+}

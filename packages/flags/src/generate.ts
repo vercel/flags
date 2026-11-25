@@ -1,15 +1,12 @@
 /**
- * The code generation of `flags:<source>`. It reads the catalogs of
- * `flags/sources/<source>/catalog.ts`, and writes one module for each
- * source into `.flags/<source>.ts`. A framework plugin points the alias
- * `flags:<source>` to the module. TypeScript finds the types in
- * `flags/generated.d.ts`.
+ * The modules of `flags:<source>`, from the flags files. For each source of
+ * the flags files, it writes one module into `.flags/<source>.ts`, which
+ * re-exports the flags of the source from all files. A framework plugin
+ * points the alias `flags:<source>` to the module. TypeScript finds the
+ * types in `flags/generated.d.ts`.
  *
- * An application which depends on `@vercel/flags-core` has the default
- * source `self`: the flags of its Vercel project. Each file which
- * `flags/sources/self/` does not have comes from `@vercel/flags-core`.
- *
- * It imports only the catalogs, never the providers or the contexts.
+ * The flags files are the only declarations of the flags: nothing here uses
+ * the network or the flag management system.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -21,17 +18,7 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises';
-import nodeModule from 'node:module';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import type { Catalog, CatalogLoader } from './catalog';
-import {
-  assertSourceName,
-  renderDeclarations,
-  renderSourceModule,
-  type SourceFiles,
-} from './codegen';
-import { readSettings } from './config-file';
 import { findFlagsFiles } from './find-flags-modules';
 import { jsDocOf } from './flags-file/compile';
 import {
@@ -50,27 +37,14 @@ export { GENERATED_DIRECTORY };
  */
 export type FlagsAliases = Record<string, string>;
 
-// context.ts is optional: without it, the source has no evaluation context
-const CATALOG_FILE = 'catalog.ts';
-const PROVIDER_FILE = 'provider.ts';
-const CONTEXT_FILE = 'context.ts';
-const HOOKS_FILE = 'hooks.ts';
-
 /**
- * The default source, and the package which gives its provider and catalog.
+ * Checks the name of a source. The name is a part of the module specifier
+ * `flags:<source>` and of the file `.flags/<source>.ts`.
  */
-const SELF_SOURCE = 'self';
-const VERCEL_FLAGS_PACKAGE = '@vercel/flags-core';
-const VERCEL_CATALOG_MODULE = '@vercel/flags-core/catalog';
-
-/**
- * A source, and where each of its parts comes from.
- */
-interface SourcePlan {
-  readonly name: string;
-  /** `catalog.ts` of the source, or the catalog of Vercel Flags */
-  readonly catalog: 'file' | 'vercel';
-  readonly provider: 'file' | 'vercel';
+function assertSourceName(name: string): void {
+  if (!/^[a-z][a-z0-9_-]*$/i.test(name)) {
+    throw new Error(`flags: Invalid name of a source: ${JSON.stringify(name)}`);
+  }
 }
 
 async function isFile(file: string): Promise<boolean> {
@@ -187,352 +161,6 @@ async function removeOtherDeclarations(
   }
 }
 
-/**
- * Whether the application depends on `@vercel/flags-core`, in any kind of
- * dependency of its `package.json`. This is the opt-in of the default
- * source `self`.
- */
-async function dependsOnVercelFlags(directory: string): Promise<boolean> {
-  const text = await readFile(
-    path.join(directory, 'package.json'),
-    'utf8',
-  ).catch(() => undefined);
-  if (text === undefined) {
-    return false;
-  }
-  let manifest: Record<string, unknown>;
-  try {
-    manifest = JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    return false;
-  }
-  const kinds = [
-    'dependencies',
-    'devDependencies',
-    'peerDependencies',
-    'optionalDependencies',
-  ];
-  return kinds.some((kind) => {
-    const dependencies = manifest[kind];
-    return (
-      typeof dependencies === 'object' &&
-      dependencies !== null &&
-      VERCEL_FLAGS_PACKAGE in dependencies
-    );
-  });
-}
-
-/**
- * The sources: the directories of `flags/sources`, and the default source
- * `self` if it is on. Checks the files of each source before it imports a
- * catalog. A source needs `provider.ts` and `catalog.ts`, except the default
- * source, which takes each missing file from `@vercel/flags-core`.
- */
-async function findSources(
-  flagsDirectory: string,
-  selfSource: boolean,
-): Promise<SourcePlan[]> {
-  const sourcesDirectory = path.join(flagsDirectory, 'sources');
-  const entries = await readdir(sourcesDirectory, {
-    withFileTypes: true,
-  }).catch(() => []);
-  const names = new Set(
-    entries
-      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
-      .map((entry) => entry.name),
-  );
-  if (selfSource) {
-    names.add(SELF_SOURCE);
-  }
-  const plans: SourcePlan[] = [];
-  for (const name of [...names].sort()) {
-    assertSourceName(name);
-    const hasFile = (file: string) =>
-      isFile(path.join(sourcesDirectory, name, file));
-    const isDefault = selfSource && name === SELF_SOURCE;
-    const parts: Record<'catalog' | 'provider', 'file' | 'vercel'> = {
-      catalog: 'file',
-      provider: 'file',
-    };
-    for (const [part, file] of [
-      ['catalog', CATALOG_FILE],
-      ['provider', PROVIDER_FILE],
-    ] as const) {
-      if (await hasFile(file)) {
-        continue;
-      }
-      if (!isDefault) {
-        throw new Error(
-          `flags: The source ${JSON.stringify(name)} needs flags/sources/${name}/${file}.`,
-        );
-      }
-      parts[part] = 'vercel';
-    }
-    plans.push({ name, ...parts });
-  }
-  return plans;
-}
-
-/**
- * A native `import()`. The CommonJS build turns a plain `import()` into
- * `require()`, which can not load `catalog.ts` as a module of Node.js with
- * its types stripped, e.g. when Next.js loads `withFlags` as CommonJS.
- */
-const nativeImport = new Function('specifier', 'return import(specifier)') as (
-  specifier: string,
-) => Promise<unknown>;
-
-type ResolveHook = (
-  specifier: string,
-  context: unknown,
-  nextResolve: (specifier: string, context: unknown) => unknown,
-) => unknown;
-
-let resolveHookRegistered = false;
-
-/**
- * Lets `catalog.ts` and the modules which it imports use relative imports
- * without an extension, as in the rest of a TypeScript application. Node.js
- * runs these files with its own type stripping, which needs `.ts` in each
- * relative import, and TypeScript only accepts `.ts` there with
- * `allowImportingTsExtensions`. The hook tries `.ts` and `/index.ts` when a
- * relative import is not found. It needs `module.registerHooks` of Node.js
- * 22.15 or newer; without it, nothing changes.
- */
-function allowImportsWithoutExtension(): void {
-  if (resolveHookRegistered) {
-    return;
-  }
-  resolveHookRegistered = true;
-  const { registerHooks } = nodeModule as {
-    registerHooks?: (hooks: { resolve: ResolveHook }) => unknown;
-  };
-  if (!registerHooks) {
-    return;
-  }
-  registerHooks({
-    resolve(specifier, context, nextResolve) {
-      try {
-        return nextResolve(specifier, context);
-      } catch (error) {
-        const code = (error as { code?: unknown } | null)?.code;
-        const relative =
-          specifier.startsWith('./') || specifier.startsWith('../');
-        if (
-          !relative ||
-          path.extname(specifier) !== '' ||
-          (code !== 'ERR_MODULE_NOT_FOUND' &&
-            code !== 'ERR_UNSUPPORTED_DIR_IMPORT')
-        ) {
-          throw error;
-        }
-        for (const suffix of ['.ts', '.tsx', '/index.ts']) {
-          try {
-            return nextResolve(`${specifier}${suffix}`, context);
-          } catch {
-            // Try the next suffix
-          }
-        }
-        throw error;
-      }
-    },
-  });
-}
-
-async function importModule(specifier: string): Promise<unknown> {
-  allowImportsWithoutExtension();
-  try {
-    return await nativeImport(specifier);
-  } catch (error) {
-    // In a VM context without an import callback, e.g. in a test runner
-    if (
-      (error as { code?: unknown } | null)?.code ===
-      'ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING'
-    ) {
-      // A bundler of a build tool, e.g. Turbopack for its loaders, must not
-      // try to resolve the catalog of the application
-      return import(
-        /* webpackIgnore: true */ /* turbopackIgnore: true */ /* @vite-ignore */ specifier
-      );
-    }
-    throw error;
-  }
-}
-
-/**
- * Loads the catalog loader of Vercel Flags from the dependencies of the
- * application, not of this package.
- */
-async function importVercelCatalogLoader(
-  directory: string,
-): Promise<CatalogLoader> {
-  const require = nodeModule.createRequire(
-    path.join(directory, 'package.json'),
-  );
-  let file: string;
-  try {
-    file = require.resolve(VERCEL_CATALOG_MODULE);
-  } catch (cause) {
-    throw new Error(
-      `flags: The default source "self" needs ${VERCEL_CATALOG_MODULE}. Install @vercel/flags-core, or set \`"selfSource": false\` in flags/config.json.`,
-      { cause },
-    );
-  }
-  const loaded = (await importModule(pathToFileURL(file).href)) as {
-    loadCatalog?: unknown;
-  };
-  if (typeof loaded.loadCatalog !== 'function') {
-    throw new Error(
-      `flags: ${VERCEL_CATALOG_MODULE} has no loadCatalog. Update @vercel/flags-core.`,
-    );
-  }
-  return loaded.loadCatalog as CatalogLoader;
-}
-
-/**
- * The catalog of the default source: like the catalog of Vercel Flags, but
- * if it fails before its first catalog, e.g. without the credentials of
- * `vercel env pull` in CI, the source has no flags and the SDK warns. An
- * import of a flag of `flags:self` then fails the type check.
- */
-function tolerantCatalogLoader(loadCatalog: CatalogLoader): CatalogLoader {
-  return async function* (options) {
-    let loaded = false;
-    try {
-      for await (const catalog of snapshotsOf(loadCatalog, options.signal)) {
-        loaded = true;
-        yield catalog;
-      }
-    } catch (error) {
-      if (loaded || options.signal.aborted) {
-        throw error;
-      }
-      const reason = error instanceof Error ? error.message : String(error);
-      console.warn(
-        `flags: The default source "self" has no flags, because the flags of Vercel Flags could not be loaded: ${reason} Run \`vercel link\` and \`vercel env pull\`, or set \`"selfSource": false\` in flags/config.json.`,
-      );
-      yield { project: { system: 'vercel-flags' }, flags: {} };
-    }
-  };
-}
-
-async function importCatalogLoader(
-  flagsDirectory: string,
-  name: string,
-): Promise<CatalogLoader> {
-  const file = path.join(flagsDirectory, 'sources', name, CATALOG_FILE);
-  const loaded = (await importModule(pathToFileURL(file).href)) as {
-    default?: unknown;
-  };
-  const loadCatalog = loaded.default;
-  if (typeof loadCatalog !== 'function') {
-    throw new Error(
-      `flags: flags/sources/${name}/catalog.ts must have a default export which loads the catalog.`,
-    );
-  }
-  return loadCatalog as CatalogLoader;
-}
-
-function checkCatalog(name: string, catalog: unknown): Catalog {
-  const flags = (catalog as { flags?: unknown } | null)?.flags;
-  if (typeof flags !== 'object' || flags === null) {
-    throw new Error(
-      `flags: The catalog of the source ${JSON.stringify(name)} has no flags.`,
-    );
-  }
-  for (const [key, flag] of Object.entries(flags)) {
-    if (!Array.isArray((flag as { variants?: unknown })?.variants)) {
-      throw new Error(
-        `flags: Flag ${JSON.stringify(key)} of the source ${JSON.stringify(name)} has no variants.`,
-      );
-    }
-  }
-  return catalog as Catalog;
-}
-
-async function writeModules(
-  directory: string,
-  flagsDirectory: string,
-  catalogs: ReadonlyMap<string, Catalog>,
-  providers: ReadonlyMap<string, 'file' | 'vercel'>,
-): Promise<FlagsAliases> {
-  const output = path.join(directory, GENERATED_DIRECTORY);
-  // The imports of the files of each source, from the generated modules
-  const sourcesPath = path
-    .relative(output, path.join(flagsDirectory, 'sources'))
-    .split(path.sep)
-    .join('/');
-  // Render all files before a file changes, so that an error changes
-  // nothing
-  const modules = await Promise.all(
-    [...catalogs].map(async ([name, catalog]) => {
-      // Checked for each write, so a catalog change after a new context.ts
-      // picks it up
-      const files: SourceFiles = {
-        context: await isFile(
-          path.join(flagsDirectory, 'sources', name, CONTEXT_FILE),
-        ),
-        provider: providers.get(name) ?? 'file',
-        hooks: await isFile(
-          path.join(flagsDirectory, 'sources', name, HOOKS_FILE),
-        ),
-      };
-      return {
-        name,
-        catalog,
-        files,
-        code: renderSourceModule(name, catalog, sourcesPath, files),
-      };
-    }),
-  );
-  const declarations = renderDeclarations(
-    modules.map(({ name, catalog, files }) => [name, catalog, files] as const),
-  );
-  await mkdir(output, { recursive: true });
-  // Git ignores the folder without a change to the .gitignore of the app
-  await writeIfChanged(output, '.gitignore', '*\n');
-  const aliases: FlagsAliases = {};
-  for (const { name, code } of modules) {
-    await writeIfChanged(output, `${name}.ts`, code);
-    aliases[`flags:${name}`] = `./${GENERATED_DIRECTORY}/${name}.ts`;
-  }
-  // The module of a removed source must also go, e.g. from the editor
-  for (const file of await readdir(output)) {
-    if (file.endsWith('.ts') && !catalogs.has(file.slice(0, -3))) {
-      await rm(path.join(output, file));
-    }
-  }
-  // The folder flags exists, unless it is for the default source only
-  await mkdir(flagsDirectory, { recursive: true });
-  await writeIfChanged(flagsDirectory, GENERATED_DECLARATIONS, declarations);
-  await removeOtherDeclarations(directory, flagsDirectory);
-  const summary = Object.fromEntries(
-    modules.map(({ name, catalog }) => [
-      name,
-      {
-        ...(catalog.revision !== undefined
-          ? { revision: catalog.revision }
-          : {}),
-        flags: Object.keys(catalog.flags).length,
-      },
-    ]),
-  );
-  await writeIfChanged(
-    output,
-    'catalog.json',
-    `${JSON.stringify(summary, null, 2)}\n`,
-  );
-  await writeIfChanged(
-    output,
-    'aliases.json',
-    `${JSON.stringify(aliases, null, 2)}\n`,
-  );
-  return aliases;
-}
-
-/**
- * The import of a file from a module in `fromDirectory`, with `/`.
- */
 function importPath(fromDirectory: string, file: string): string {
   const relative = path.relative(fromDirectory, file).split(path.sep).join('/');
   return relative.startsWith('.') ? relative : `./${relative}`;
@@ -584,6 +212,10 @@ export async function writeFlagsFileSources(
   for (const id of findFlagsFiles(root)) {
     const file = path.join(root, id);
     const document = parseFlagsFile(await readFile(file, 'utf8'));
+    // A file without flags still defines its source, e.g. flags:self
+    if (!sources.has(document.source)) {
+      sources.set(document.source, []);
+    }
     for (const flag of document.flags) {
       const flags = sources.get(flag.source) ?? [];
       sources.set(flag.source, flags);
@@ -676,30 +308,13 @@ export async function writeFlagsFileSources(
   return { aliases, conflicts };
 }
 
-async function* snapshotsOf(
-  loadCatalog: CatalogLoader,
-  signal: AbortSignal,
-): AsyncGenerator<Catalog> {
-  const result = await loadCatalog({ signal });
-  if (
-    typeof result === 'object' &&
-    result !== null &&
-    Symbol.asyncIterator in result
-  ) {
-    yield* result;
-  } else {
-    yield result as Catalog;
-  }
-}
-
 export interface WatchResult {
   /**
-   * The aliases after the first generation.
+   * The aliases after the first write.
    */
   readonly aliases: FlagsAliases;
   /**
-   * Resolves when all catalogs end or the signal aborts. Rejects when a
-   * catalog fails. The generated files of the last good catalogs stay.
+   * Resolves when the signal aborts.
    */
   readonly done: Promise<void>;
 }
@@ -710,142 +325,55 @@ async function start(
   signal: AbortSignal | undefined,
 ): Promise<WatchResult> {
   const root = path.resolve(directory);
+  signal?.throwIfAborted();
+  // Without flags files there is nothing to write. A folder .flags of an
+  // earlier run is cleaned up, so that no old module of a source stays.
+  const hasGenerated = await stat(path.join(root, GENERATED_DIRECTORY))
+    .then((info) => info.isDirectory())
+    .catch(() => false);
+  if (findFlagsFiles(root).length === 0 && !hasGenerated) {
+    return { aliases: {}, done: Promise.resolve() };
+  }
+  // The types of each file, and the modules flags:<source>
+  const write = async () => {
+    const { problems } = await writeFlagsFileDeclarations(root);
+    const { aliases, conflicts } = await writeFlagsFileSources(root);
+    return { aliases, problems: [...problems, ...conflicts], conflicts };
+  };
+  const { aliases, problems, conflicts } = await write();
+  if (!watch) {
+    // A build must not have two declarations of one flag
+    if (conflicts.length > 0) {
+      throw new Error(conflicts.join('\n'));
+    }
+    for (const problem of problems) {
+      console.error(problem);
+    }
+    return { aliases, done: Promise.resolve() };
+  }
+  for (const problem of problems) {
+    console.error(problem);
+  }
   const controller = new AbortController();
   const stop = () => controller.abort(signal?.reason);
   signal?.addEventListener('abort', stop, { once: true });
-  if (signal?.aborted) {
-    stop();
-  }
-  const streams: { name: string; iterator: AsyncGenerator<Catalog> }[] = [];
-  const close = async () => {
-    controller.abort();
-    signal?.removeEventListener('abort', stop);
-    await Promise.allSettled(
-      streams.map(({ iterator }) => iterator.return(undefined)),
-    );
-  };
-
-  try {
-    controller.signal.throwIfAborted();
-    // An application with flags files declares its flags in them, and uses
-    // no catalog. Only the types of TypeScript before 7.1 are written.
-    if (findFlagsFiles(root).length > 0) {
-      // The types of each file, and the modules flags:<source>
-      const write = async () => {
-        const { problems } = await writeFlagsFileDeclarations(root);
-        const { aliases, conflicts } = await writeFlagsFileSources(root);
-        return { aliases, problems: [...problems, ...conflicts], conflicts };
-      };
-      const { aliases, problems, conflicts } = await write();
-      if (!watch) {
-        await close();
-        // A build must not have two declarations of one flag
-        if (conflicts.length > 0) {
-          throw new Error(conflicts.join('\n'));
-        }
-        for (const problem of problems) {
-          console.error(problem);
-        }
-        return { aliases, done: Promise.resolve() };
-      }
-      for (const problem of problems) {
-        console.error(problem);
-      }
-      watchFlagsFileDeclarations(root, controller.signal, undefined, write);
-      const done = new Promise<void>((resolve) => {
-        controller.signal.addEventListener('abort', () => resolve(), {
-          once: true,
-        });
-      }).finally(close);
-      return { aliases, done };
-    }
-    // The opt-in is the dependency, the opt-out is flags/config.json
-    const selfSource =
-      readSettings(root).selfSource !== false &&
-      (await dependsOnVercelFlags(root));
-    const found = await findFlagsDirectory(root);
-    // Without flags/sources and without the default source there is nothing
-    // to generate, and no file is written
-    if (found === undefined && !selfSource) {
-      await close();
-      return { aliases: {}, done: Promise.resolve() };
-    }
-    const flagsDirectory = found ?? (await defaultFlagsDirectory(root));
-    const plans = await findSources(flagsDirectory, selfSource);
-    const providers = new Map(plans.map((plan) => [plan.name, plan.provider]));
-    for (const plan of plans) {
-      const loadCatalog =
-        plan.catalog === 'vercel'
-          ? tolerantCatalogLoader(await importVercelCatalogLoader(root))
-          : await importCatalogLoader(flagsDirectory, plan.name);
-      streams.push({
-        name: plan.name,
-        iterator: snapshotsOf(loadCatalog, controller.signal),
-      });
-    }
-    const initial = await Promise.all(
-      streams.map(async ({ name, iterator }) => {
-        const first = await iterator.next();
-        if (first.done) {
-          throw new Error(
-            `flags: The catalog of the source ${JSON.stringify(name)} gave no catalog.`,
-          );
-        }
-        return [name, checkCatalog(name, first.value)] as const;
-      }),
-    );
-    controller.signal.throwIfAborted();
-    let catalogs = new Map(initial);
-    const aliases = await writeModules(
-      root,
-      flagsDirectory,
-      catalogs,
-      providers,
-    );
-    if (!watch) {
-      await close();
-      return { aliases, done: Promise.resolve() };
-    }
-
-    // One queue of writes keeps the order of the changes of all sources
-    let writes = Promise.resolve();
-    const consumers = streams.map(async ({ name, iterator }) => {
-      for await (const catalog of iterator) {
-        if (controller.signal.aborted) {
-          break;
-        }
-        writes = writes.then(async () => {
-          controller.signal.throwIfAborted();
-          const next = new Map(catalogs).set(name, checkCatalog(name, catalog));
-          await writeModules(root, flagsDirectory, next, providers);
-          catalogs = next;
-        });
-        await writes;
-      }
+  watchFlagsFileDeclarations(root, controller.signal, undefined, write);
+  const done = new Promise<void>((resolve) => {
+    controller.signal.addEventListener('abort', () => resolve(), {
+      once: true,
     });
-    const done = Promise.all(consumers)
-      .then(() => {})
-      .catch((error: unknown) => {
-        if (!signal?.aborted) {
-          throw error;
-        }
-      })
-      .finally(close);
-    // The caller can start a server before it awaits done
-    done.catch(() => {});
-    return { aliases, done };
-  } catch (error) {
-    await close();
-    throw error;
-  }
+  }).finally(() => {
+    signal?.removeEventListener('abort', stop);
+  });
+  return { aliases, done };
 }
 
 /**
- * Generates the modules of all sources one time, from the first catalog of
- * each source, then closes the catalogs. Returns the aliases.
+ * Writes the modules of `flags:<source>` and the types of the flags files
+ * one time. Returns the aliases. A key or a name in two files of one source
+ * fails.
  *
- * @param directory - The directory of the application, which contains
- * `flags/sources`.
+ * @param directory - The directory of the application.
  */
 export async function generateFlags(
   directory: string = process.cwd(),
@@ -855,11 +383,11 @@ export async function generateFlags(
 }
 
 /**
- * Generates the modules of all sources, and again after each change of a
- * catalog, until the signal aborts. Resolves when the first modules exist.
+ * Writes the modules of `flags:<source>` and the types of the flags files,
+ * and again after each change of a flags file, until the signal aborts.
+ * Resolves when the first modules exist.
  *
- * @param directory - The directory of the application, which contains
- * `flags/sources`.
+ * @param directory - The directory of the application.
  */
 export function watchFlags(
   directory: string,

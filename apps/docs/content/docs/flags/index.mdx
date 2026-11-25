@@ -42,7 +42,13 @@ See [Inline flags](/docs/flags/inline-flags).
 
 A flag of a source gets its value from a flag management system, such as Vercel Flags or any other system with an OpenFeature provider. A source connects flags to that provider, and creates the evaluation context for it. By convention, the main source of an application is `self`.
 
-In Next.js, SvelteKit, Nuxt and TanStack Start, you describe the source with two files in `flags/sources/self` (`provider.ts` and `catalog.ts`, and an optional `context.ts`), and import its flags from `flags:self`:
+You declare the flags of the source in a [flags file](/docs/flags/flags-files), e.g. `app.flags`, and put its provider into `flags/sources/self/provider.ts`, with an optional `context.ts`. Then you import each flag from the flags file, or from `flags:self`:
+
+```js title="app.flags"
+flag summerSale {
+  defaultValue: false
+}
+```
 
 ```ts title="flags/sources/self/provider.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -56,7 +62,7 @@ import { summerSale } from 'flags:self';
 const sale = await summerSale();
 ```
 
-The SDK [generates](/docs/flags/code-generation) the module of `flags:self` from the catalog of your flag management system. With Vercel Flags, you do not need the folder: an application which depends on `@vercel/flags-core` has the [default source `self`](/docs/flags/code-generation#the-default-source-self), with the flags of its Vercel project. Without a bundler, or if you prefer, you write the same code by hand:
+The SDK [generates](/docs/flags/code-generation) the module of `flags:self` from your flags files. With Vercel Flags, you do not need `provider.ts`: an application which depends on `@vercel/flags-core` has the [default source `self`](/docs/flags/code-generation#the-default-source-self), with the provider `new VercelProvider()`. If you prefer, you write the same code by hand:
 
 ```ts title="flags/self.ts"
 import { VercelProvider } from '@vercel/flags-core/openfeature';
@@ -112,6 +118,7 @@ During one request, each flag is evaluated once, so all parts of a page see the 
 
 - [Inline flags](/docs/flags/inline-flags): `defineFlag` and `decide`.
 - [Flags of a source](/docs/flags/provider-flags): `defineSource` and `source.bindFlag`.
-- [Code generation](/docs/flags/code-generation): describe a source in `flags/sources/self`, and import its flags with `import { summerSale } from 'flags:self'`.
+- [Flags files](/docs/flags/flags-files): declare your flags in `app.flags`, and import them like a module.
+- [Code generation](/docs/flags/code-generation): import the flags of a source with `import { summerSale } from 'flags:self'`.
 - [The evaluation context](/docs/flags/evaluation-context): how the user, the team or the request reach the provider.
 - [OpenFeature](/docs/flags/openfeature): how the SDK uses OpenFeature providers, hooks and events.

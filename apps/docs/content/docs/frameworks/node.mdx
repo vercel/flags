@@ -68,7 +68,7 @@ export const betaBanner = defineFlag({
 
 The `'use flags'` directive is optional here. Add it at the top of `src/flags.ts` if you want to write a [flags manifest](#flags-explorer-and-the-manifest) with the CLI. To try the example, install `@openfeature/server-sdk`.
 
-You can also use the folder `flags/sources/self` of the file system API: `flags sync` writes `.flags/self.ts`, and you import it by its path. See [Code generation](/docs/flags/code-generation#without-a-framework-plugin).
+You can also declare the flags in a [flags file](/docs/flags/flags-files), e.g. `src/app.flags`, and start Node.js with `node --import flags/register src/server.ts` (Node.js 22.15 or newer). The hooks compile the file, and you import the flags from it: `import { enableSale } from './app.flags'`. The provider goes into `flags/sources/self/provider.ts`, unless the source `self` uses the default provider of `@vercel/flags-core`. `flags sync` writes the types before a type check. See [Code generation](/docs/flags/code-generation#without-a-framework-plugin).
 
 ### 3. Run each request in `onInvoke`
 

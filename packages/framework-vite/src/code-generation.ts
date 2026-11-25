@@ -13,7 +13,7 @@ export interface CodeGeneration {
    */
   readonly ready: Promise<FlagsAliases>;
   /**
-   * Stops the watch of the catalogs.
+   * Stops the watch of the flags files.
    */
   stop(): void;
 }
@@ -28,9 +28,9 @@ store[registryKey] ??= new Map();
 const generations = store[registryKey];
 
 /**
- * Generates the modules of `flags:<source>` from the catalogs of
- * `flags/sources`: one time (`watch: false`, for a build), or again after
- * each change of a catalog (`watch: true`, for a dev server).
+ * Generates the modules of `flags:<source>` from the flags files: one time
+ * (`watch: false`, for a build), or again after each change of a flags file
+ * (`watch: true`, for a dev server).
  */
 export function startCodeGeneration(
   dir: string,
@@ -52,7 +52,7 @@ export function startCodeGeneration(
         result.done
           .catch((error: unknown) => {
             console.error(
-              'flags: The watch of the catalogs stopped. Restart the dev server.',
+              'flags: The watch of the flags files stopped. Restart the dev server.',
               error,
             );
           })

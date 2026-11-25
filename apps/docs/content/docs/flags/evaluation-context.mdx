@@ -27,7 +27,7 @@ Each step is optional. A missing step gives its input to the next step as it is.
 
 ## The step of the source
 
-Most applications need only this step. The source reads the user from the request, once per request, for all of its flags. With the file system API, the step is the default export of `flags/sources/self/context.ts`. This file is optional. Without it, the source has no step:
+Most applications need only this step. The source reads the user from the request, once per request, for all of its flags. With flags files, the step is the default export of `flags/sources/self/context.ts`. This file is optional. Without it, the source has no step:
 
 ```ts title="flags/sources/self/context.ts"
 import type { FlagsRequest } from 'flags';

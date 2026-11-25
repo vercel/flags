@@ -48,14 +48,13 @@ Absent evidence is not a reason to stop: missing or unlabeled telemetry, unident
 - **Update**: tests, mocks, and docs that mention the flag, such as rollout or migration prerequisites. Prefer updating existing tests. Add a test only in a style the repository already uses and allows; do not add a kind of test its guidelines rule out.
 - **Verify**: run the relevant type checks, lint, and tests, and follow any flag-removal process the repository documents. If a check cannot run, for example because dependencies fail to install, do not report it as passed: name it in the PR with the reason.
 
-### Generated flags
+### Flags files
 
-With the code generation of the Flags SDK (a folder `flags/sources/<source>/`, or the default source `self` of an app with `@vercel/flags-core`, and imports from `flags:<source>`), the flag has no hand-written declaration to delete:
+With flags files of the Flags SDK (`*.flags`, e.g. `app.flags`, with imports from the file or from `flags:<source>`), the declaration of the flag is a `flag` block:
 
-- **Inline** the call sites, and remove the flag from each `import { … } from 'flags:<source>'`.
-- **A static catalog** (a list of flags in `flags/sources/<source>/catalog.ts`): remove the entry of the flag.
-- **A catalog which loads the flags**, e.g. `@vercel/flags-core/catalog` (also the default catalog of `flags:self`): the generated export stays as long as the flag management system lists the flag, so there is nothing to change in `catalog.ts`. The export disappears later, when the flag leaves the catalog.
-- Do not edit `.flags/` or `flags/generated.d.ts` by hand. They are generated: run `flags sync` (or the dev server) after the catalog changes. When the export disappears, the type check fails for each import that is left, so a forgotten call site shows up there.
+- **Inline** the call sites, and remove the flag from each import of the flags file or of `flags:<source>`.
+- **Delete** the `flag <name> { … }` block from its flags file. Search all flags files of the source: the block can be in any of them. A flags file without flags stays valid.
+- Do not edit `.flags/`, `flags/generated.d.ts` or `*.d.flags.ts` by hand. They are generated: run `flags sync` (or the dev server) after the change. The type check then fails for each import that is left, so a forgotten call site shows up there.
 
 Preserve production behavior. Do not touch other flags or refactor unrelated code.
 

@@ -1,7 +1,7 @@
-# Demo: Next.js without code generation
+# Demo: Next.js without flags files
 
 The Flags SDK with Next.js. The source and the flags are written by hand in
-`flags.ts`, so this demo needs no code generation. It shows:
+`flags.ts`, so this demo needs no flags files and no code generation. It shows:
 
 - `withFlags` of `@flags-sdk/next/plugin` in `next.config.ts`
 - a `'use flags'` module with a source (`defineSource`), flags of the

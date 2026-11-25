@@ -1,6 +1,6 @@
 # API reference (v5)
 
-App code imports `flags` and the generated `flags:<source>` modules. Apps without a framework plugin also import `flags/runtime`. Tests and CI can import `flags/explorer`. The framework packages are for the setup, and in Next.js also for precompute, `FlagValues` and the manifest route.
+App code imports `flags`, the flags files (`*.flags`) and the generated `flags:<source>` modules. Apps without a framework plugin also import `flags/runtime`. Tests and CI can import `flags/explorer`. The framework packages are for the setup, and in Next.js also for precompute, `FlagValues` and the manifest route.
 
 ## Table of contents
 
@@ -15,7 +15,6 @@ App code imports `flags` and the generated `flags:<source>` modules. Apps withou
   - [Flag values](#flag-values)
   - [Tracking](#tracking)
   - [Errors and reasons](#errors-and-reasons)
-  - [Code generation types](#code-generation-types)
   - [Types](#types)
 - [`flags/tooling` and `flags/manifest`](#flagstooling-and-flagsmanifest)
 - [The `flags` CLI](#the-flags-cli)
@@ -59,7 +58,7 @@ Throws a `TypeError` without `decide`, or with a `source`.
 
 #### `source.bindFlag`
 
-A provider flag: the provider of the source sets the value. `bindFlag` is a method of the source that `defineSource` returns (`BindableSource`). Code generation writes these calls.
+A provider flag: the provider of the source sets the value. `bindFlag` is a method of the source that `defineSource` returns (`BindableSource`). A flags file compiles to these calls.
 
 ```ts
 source.bindFlag(key: string, options?: BindFlagOptions): Flag;
@@ -323,13 +322,6 @@ The source is required. A generated module does not export its source: use `enab
 - `DECIDE_REASON` (`'DECIDE'`) and `OVERRIDE_REASON` (`'OVERRIDE'`) for hooks.
 - Without `defaultValue`, the provider receives a placeholder default (`false`, `''`, `0`, `{}`).
 
-### Code generation types
-
-- `CatalogLoader`: `(options: CatalogLoadOptions) => Catalog | AsyncIterable<Catalog> | Promise<...>`.
-- `CatalogLoadOptions`: `{ signal: AbortSignal }`.
-- `Catalog`: `{ flags: Record<string, CatalogFlag>; project?: Project; revision?: number }`.
-- `CatalogFlag`: `{ variants: readonly unknown[]; description?: string; defaultValue?: unknown }`.
-
 ### Types
 
 - Values: `FlagType`, `FlagValue`, `FlagObjectValue`, `JsonValue`, `FlagValueOf<T>`, `FlagOption<V>`, `FlagOptionObject<V>`, `FlagOptionsOf<T>`, `FlagValueFrom<T, O>`.
@@ -341,7 +333,7 @@ The source is required. A generated module does not export its source: use `enab
 
 For framework packages and build tools. Apps do not use them.
 
-`flags/tooling`: `registerFramework(setup)`, `findConfigModules(dir)` (returns `{ 'flags/hooks'?, 'flags/settings'? }`, the paths of `flags/hooks.ts` and `flags/config.json` in `dir` or `dir/src`), `readSettings(dir)` (reads and checks `flags/config.json`; `{}` without the file), `hasUseFlagsDirective(source)`, `addSelfRegistration(source, fileName)`, `findFlagsModules(projectDir)`, `writeManifestFromBuild({ projectDir, modules, output })`, `generateFlags(dir?)` (behind `flags sync`, returns aliases such as `{ 'flags:self': './.flags/self.ts' }`), `watchFlags(dir, { signal })` (behind `flags watch`), `findGeneratedDeclarations(dir)` (finds `flags/generated.d.ts` in `dir` or `dir/src`), `renderSourceModule(name, catalog, sourcesPath?, files?)`, `optionIndex(value, options)`, `MANIFEST_FILE` (`'flags-manifest.json'`), `GENERATED_DIRECTORY` (`'.flags'`). `generateFlags` and `watchFlags` read `"selfSource"` of `flags/config.json`. Types: `FlagsAliases`, `WatchResult`, `ConfigModule`, `SourceFiles` (`{ context?: boolean; provider?: 'file' | 'vercel'; hooks?: boolean }`; `hooks` imports `hooks.ts` of the source; `'vercel'` renders `new VercelProvider()` instead of the import of `provider.ts`).
+`flags/tooling`: `registerFramework(setup)`, `findConfigModules(dir)` (returns `{ 'flags/hooks'?, 'flags/settings'? }`, the paths of `flags/hooks.ts` and `flags/config.json` in `dir` or `dir/src`), `readSettings(dir)` (reads and checks `flags/config.json`; `{}` without the file), `hasUseFlagsDirective(source)`, `addSelfRegistration(source, fileName)`, `findFlagsModules(projectDir)`, `writeManifestFromBuild({ projectDir, modules, output })`, `findFlagsFiles(projectDir)`, `generateFlags(dir?)` (behind `flags sync`: writes the modules of `flags:<source>` and the types of the flags files, returns aliases such as `{ 'flags:self': './.flags/self.ts' }`), `watchFlags(dir, { signal })` (behind `flags watch`), `writeFlagsFileSources(dir)` (writes `.flags/<source>.ts`, `.flags/aliases.json` and `flags/generated.d.ts`), `findFlagsDirectory(dir)`, `findGeneratedDeclarations(dir)` (finds `flags/generated.d.ts` in `dir` or `dir/src`), `compileFlagsFile(text, { fileName })` (a flags file to a module; throws a `FlagsFileError`), `renderFlagsFileTypes(text, { fileName })`, `parseFlagsFile`, `formatFlagsFile(text, { fileName })`, `formatDiagnostics`, `writeFlagsFileDeclaration`, `writeFlagsFileDeclarations`, `watchFlagsFileDeclarations`, `declarationFileOf(file)`, `findProjectDirectory(file)`, `resolveFlagsSource(projectDir, name)`, `sourceDirectoryCandidates(projectDir, name)`, `optionIndex(value, options)`, `MANIFEST_FILE` (`'flags-manifest.json'`), `GENERATED_DIRECTORY` (`'.flags'`), `GENERATED_DECLARATIONS` (`'generated.d.ts'`), `FLAGS_FILE_EXTENSION`. The compilation reads `"selfSource"` of `flags/config.json`. Types: `FlagsAliases`, `WatchResult`, `FlagsFileSourcesResult`, `ConfigModule`, `CompiledFlagsFile`, `CompileOptions`, `FlagsFileSource`, `FlagsFileTypes`, `FlagsFileDocument`, `FlagsFileFlag`, `FlagsFileDiagnostic`.
 
 `flags/manifest`: `createManifest(modules)` (from `{ id, exports }` of `'use flags'` modules; throws for an export that is not a flag), `validateFlagsManifest`, `validateSystemManifest`, `resolveFlagLinks`, `expandTemplate`.
 
@@ -355,14 +347,14 @@ const manifest = createManifest([{ id: 'flags.ts', exports: { ...flags } }]);
 ## The `flags` CLI
 
 ```sh
-flags sync [dir] [--production]
-flags watch [dir] [--production] [-- command ...args]
+flags sync [dir]
+flags watch [dir] [-- command ...args]
 flags manifest [dir] [--out <file>]
 flags format [paths...] [--check]
 flags format --stdin [--stdin-filepath <file>]
 ```
 
-See [code-generation.md](code-generation.md#the-cli). `flags format` formats flags files (`*.flags`) in place; `--check` fails if one is not formatted; `--stdin` formats the standard input to the standard output, for editors (e.g. as the external formatter of the language `Flags` in Zed).
+See [flags-files.md](flags-files.md#the-cli). `flags format` formats flags files (`*.flags`) in place; `--check` fails if one is not formatted; `--stdin` formats the standard input to the standard output, for editors (e.g. as the external formatter of the language `Flags` in Zed).
 
 ## `@flags-sdk/next`
 
@@ -391,9 +383,9 @@ function withFlags<T extends object>(config: T, options: { dir?: string; disable
 - Self-registers each `'use flags'` module, and writes `flags-manifest.json` into `distDir` after `next build`.
 - Injects a random precompute secret per build, unless `FLAGS_PRECOMPUTE_SECRET` is set.
 - With Cache Components, encrypts `FlagValues` in `'use cache'`.
-- Generates code once for `next build`, watches for `next dev`, does nothing for `next start`.
+- Compiles the flags files (a Turbopack rule for `*.flags`). Writes the modules of `flags:<source>` and the types once for `next build`, and after each change of a flags file for `next dev`. Does nothing for `next start`.
 - `dir`: where to look for the folder `flags` (also in `src`). Default: the current directory.
-- No default source `self` for an app with `@vercel/flags-core`: `"selfSource": false` in `flags/config.json` (see [code-generation.md](code-generation.md#the-default-source-self)). Set it when the sources are written by hand. There is no option of `withFlags` for it.
+- No default provider of the source `self` for an app with `@vercel/flags-core`: `"selfSource": false` in `flags/config.json` (see [flags-files.md](flags-files.md#the-default-source-self)). There is no option of `withFlags` for it.
 - Returns a phase function, so it must be the outer plugin. With `disableCodeGeneration: true` and an object config, it returns the object.
 - A phase function config: `withFlags((phase) => ({ ... }))`. Do not call `withFlags` inside the function.
 

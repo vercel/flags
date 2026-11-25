@@ -9,7 +9,7 @@ test('serves the manifest of the flags in development', async ({ request }) => {
   const manifest = await response.json();
   expect(Object.keys(manifest.definitions)).toEqual([
     'banner-text',
-    // The flag of code generation, from flags/sources/self
+    // The flag of app.flags, also imported from flags:self
     'enableSale',
     'greeting',
     'new-checkout',
@@ -59,9 +59,7 @@ test('lets an error of Nitro through', async ({ request }) => {
   expect(response.status()).toBe(403);
 });
 
-test('evaluates a flag of code generation in development', async ({
-  request,
-}) => {
+test('evaluates a flag of a flags file in development', async ({ request }) => {
   const response = await request.get('/api/generated', {
     headers: { cookie: 'user=alice' },
   });

@@ -51,7 +51,7 @@ test('writes the manifest of the flags into the server output', () => {
         options: [{ value: false }, { value: true }],
         defaultValue: false,
         declaredInCode: true,
-        declarations: [{ module: '.flags/self.ts', export: 'enableSale' }],
+        declarations: [{ module: 'app.flags', export: 'enableSale' }],
       },
       greeting: {
         type: 'string',
@@ -117,7 +117,7 @@ test('lets an error of Nitro through', async ({ request }) => {
   expect(response.status()).toBe(403);
 });
 
-test('evaluates a flag of code generation through flags:self', async ({
+test('evaluates a flag of a flags file through flags:self', async ({
   request,
 }) => {
   const alice = await request.get('/api/generated', {

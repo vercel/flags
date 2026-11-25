@@ -19,8 +19,8 @@ import type { Plugin } from 'vite';
 
 export interface FlagsSvelteKitOptions {
   /**
-   * Turns off the code generation of `flags:<source>` from the catalogs of
-   * `flags/sources/<source>`, which is on by default. See `@flags-sdk/vite`.
+   * Turns off the code generation of `flags:<source>` from the flags files,
+   * which is on by default. See `@flags-sdk/vite`.
    */
   readonly disableCodeGeneration?: boolean;
 }
