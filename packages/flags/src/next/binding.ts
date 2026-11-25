@@ -10,9 +10,9 @@ let headersModulePromise: Promise<typeof import('next/headers')> | undefined;
 let headersModule: typeof import('next/headers') | undefined;
 
 /**
- * `unstable_rethrow` of `next/navigation`, if the version of Next.js has it.
- * It is loaded with `next/headers`, so only in the App Router. A static
- * named import would fail the build with an older version of Next.js.
+ * `unstable_rethrow` of `next/navigation`, which Next.js has since 15.0.0. It
+ * is loaded with `next/headers`, so only in the App Router, and is not known
+ * before then.
  */
 let rethrowOfNext: ((error: unknown) => void) | undefined;
 
@@ -22,13 +22,9 @@ async function loadHeadersModule(): Promise<typeof import('next/headers')> {
     // is read
     headersModulePromise = Promise.all([
       import('next/headers'),
-      import('next/navigation').catch(() => undefined),
+      import('next/navigation'),
     ]).then(([headersOfNext, navigation]) => {
-      rethrowOfNext = (
-        navigation as
-          | { unstable_rethrow?: (error: unknown) => void }
-          | undefined
-      )?.unstable_rethrow;
+      rethrowOfNext = navigation.unstable_rethrow;
       return headersOfNext;
     });
   }
@@ -91,9 +87,9 @@ async function readRequest<T>(read: () => Promise<T>): Promise<T> {
 
 /**
  * Whether an error is an internal error of Next.js, e.g. of `redirect()` or
- * `notFound()`. It is `isInternalNextError`, and also `unstable_rethrow`
- * where the version of Next.js has it, so an error is never caught which
- * Next.js must receive.
+ * `notFound()`. It is `isInternalNextError`, and also `unstable_rethrow` once
+ * `next/navigation` is loaded, so an error is never caught which Next.js must
+ * receive.
  *
  * @internal
  */

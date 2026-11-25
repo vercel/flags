@@ -98,7 +98,7 @@
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.7.0",
-    "next": "*",
+    "next": ">=15.0.0",
     "react": "*",
     "react-dom": "*"
   },

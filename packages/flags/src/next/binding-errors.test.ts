@@ -10,7 +10,7 @@ import {
 const mocks = vi.hoisted(() => ({
   headers: vi.fn(async () => new Headers()),
   cookies: vi.fn(async () => ({ get: () => undefined })),
-  // A version of Next.js with unstable_rethrow: it throws an internal error
+  // unstable_rethrow of Next.js: it throws an internal error
   unstable_rethrow: vi.fn((error: unknown) => {
     if (error instanceof Error && error.message === 'NEXT_FUTURE_SIGNAL') {
       throw error;
