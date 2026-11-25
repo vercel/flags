@@ -4730,6 +4730,9 @@ describe('Controller (black-box)', () => {
         ],
         entity,
       );
+      expect(reportExposures.mock.calls[0]?.[0][0]).not.toHaveProperty(
+        'layerId',
+      );
 
       await client.shutdown();
     });
@@ -4785,6 +4788,178 @@ describe('Controller (black-box)', () => {
         [expect.objectContaining({ variantId: 'treatment-a' })],
         entity,
       );
+      await client.shutdown();
+    });
+
+    const layeredDefinitions: BundledDefinitions['definitions'] = {
+      flagA: {
+        ...definitions.flagA!,
+        experiment: {
+          ...definitions.flagA!.experiment!,
+          layerId: 'layer_a',
+        },
+      },
+    };
+
+    // With salt 4242, `user_123` is in slot 369 of the layer.
+    const makeLayers = (
+      allocations: Packed.experimental_LayerDefinition['allocations'],
+    ): BundledDefinitions['layers'] => ({
+      layer_a: { salt: 4242, allocations },
+    });
+
+    it.each<{
+      caseName: string;
+      allocations: Packed.experimental_LayerDefinition['allocations'];
+      variantId: string;
+      assignmentReason: string;
+    }>([
+      {
+        caseName: 'a single owned slot',
+        allocations: { exp_a: [369] },
+        variantId: 'treatment-a',
+        assignmentReason: 'experiment',
+      },
+      {
+        caseName: 'an owned range',
+        allocations: { exp_a: [[300, 400]] },
+        variantId: 'treatment-a',
+        assignmentReason: 'experiment',
+      },
+      {
+        caseName: 'a slot that is not owned',
+        allocations: { exp_a: [] },
+        variantId: 'control-a',
+        assignmentReason: 'not-in-layer',
+      },
+      {
+        caseName: 'a slot that another experiment owns',
+        allocations: { exp_a: [[0, 368]], exp_c: [[369, 999]] },
+        variantId: 'control-a',
+        assignmentReason: 'not-in-layer',
+      },
+    ])('reports the layer ID for $caseName', async ({
+      allocations,
+      variantId,
+      assignmentReason,
+    }) => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({
+          definitions: layeredDefinitions,
+          layers: makeLayers(allocations),
+        }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      const result = await client.evaluate('flagA', undefined, entity);
+
+      expect(result).toMatchObject({
+        value: variantId,
+        experiment: { layerId: 'layer_a', assignmentReason },
+      });
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId,
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            layerId: 'layer_a',
+            assignmentReason,
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it('reports the layer ID for overrides', async () => {
+      const reportExposures = vi.fn();
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({
+          definitions: layeredDefinitions,
+          layers: makeLayers({ exp_a: [] }),
+        }),
+        experimental_reportExposures: reportExposures,
+      });
+
+      await client.experimental_reportOverride!({
+        key: 'flagA',
+        value: 'treatment-a',
+        entities: entity,
+      });
+
+      expect(reportExposures).toHaveBeenCalledOnce();
+      expect(reportExposures).toHaveBeenCalledWith(
+        [
+          {
+            flagKey: 'flagA',
+            experimentId: 'exp_a',
+            variantId: 'treatment-a',
+            base: ['user', 'key'],
+            rampId: 'ramp_a',
+            rampPercentage: 50,
+            layerId: 'layer_a',
+            assignmentReason: 'override',
+          },
+        ],
+        entity,
+      );
+
+      await client.shutdown();
+    });
+
+    it.each<{
+      caseName: string;
+      layers: BundledDefinitions['layers'];
+      variantId: string;
+      assignmentReason: string;
+    }>([
+      {
+        caseName: 'an owned slot',
+        layers: makeLayers({ exp_a: [369] }),
+        variantId: 'treatment-a',
+        assignmentReason: 'experiment',
+      },
+      {
+        caseName: 'a datafile without layers',
+        layers: undefined,
+        variantId: 'control-a',
+        assignmentReason: 'not-in-layer',
+      },
+    ])('reads the layers of the datafile in bulk evaluations with $caseName', async ({
+      layers,
+      variantId,
+      assignmentReason,
+    }) => {
+      const client = createClient<typeof entity>(sdkKey, {
+        fetch: fetchMock,
+        stream: false,
+        polling: false,
+        buildStep: true,
+        datafile: makeBundled({ definitions: layeredDefinitions, layers }),
+      });
+
+      const results = await client.bulkEvaluate([{ key: 'flagA' }], entity);
+
+      expect(results.flagA).toMatchObject({
+        value: variantId,
+        experiment: { layerId: 'layer_a', assignmentReason },
+      });
+
       await client.shutdown();
     });
 
