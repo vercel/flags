@@ -3,6 +3,7 @@ import {
   FLAGS_DISCOVERY_POLICY,
   VERCEL_FLAGS_DISCOVERY_ISSUER,
 } from './flags-discovery-platform';
+import { loadFrameworkEnv } from './framework';
 import { trace } from './tracing';
 import {
   canVerifyVercelSignedTokens,
@@ -11,6 +12,15 @@ import {
   verifyVercelSignedToken,
   warnWithCooldown,
 } from './vercel-platform';
+
+/**
+ * `FLAGS_SECRET`, also from the environment of the framework, e.g. `$env` of
+ * SvelteKit during `vite dev`.
+ */
+async function defaultSecret(): Promise<string | undefined> {
+  await loadFrameworkEnv();
+  return readEnv('FLAGS_SECRET');
+}
 
 /**
  * This function lets you verify whether a request to your application's .well-known/vercel/flags endpoint was made by the toolbar.
@@ -41,9 +51,11 @@ export const verifyAccess = trace(
     // Pages Router returns undefined when a header is not defined
     // We support both so the API is slim in both cases
     authHeader: string | null | undefined,
-    secret: string | undefined = readEnv('FLAGS_SECRET'),
+    secret?: string,
   ) {
     if (!authHeader) return false;
+    // The secret can come from the environment of the framework
+    secret ??= await defaultSecret();
     const token = authHeader.replace(/^Bearer /i, '');
 
     // Before, a missing secret was an error. Keep the hint for a host which

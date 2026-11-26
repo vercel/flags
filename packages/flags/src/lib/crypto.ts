@@ -19,7 +19,17 @@ import {
   encryptFlagValuesForPlatform,
   isFlagValuesForPlatform,
 } from './flag-values-platform';
+import { loadFrameworkEnv } from './framework';
 import { readEnv, warnWithCooldown } from './vercel-platform';
+
+/**
+ * `FLAGS_SECRET`, also from the environment of the framework, e.g. `$env` of
+ * SvelteKit during `vite dev`.
+ */
+async function defaultSecret(): Promise<string | undefined> {
+  await loadFrameworkEnv();
+  return readEnv('FLAGS_SECRET');
+}
 
 type ExpirationTime = string | number | Date;
 type PurposeClaim = 'overrides' | 'values' | 'definitions' | 'proof';
@@ -110,9 +120,11 @@ async function decryptJwe<T extends string | object = Record<string, unknown>>(
  */
 export async function encryptOverrides(
   overrides: FlagOverridesType,
-  secret: string | undefined = readEnv('FLAGS_SECRET'),
+  secret?: string,
   expirationTime: ExpirationTime = '1y',
 ) {
+  // The secret can come from the environment of the framework
+  secret ??= await defaultSecret();
   if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
   return encryptJwe({ o: overrides, pur: 'overrides' }, secret, expirationTime);
 }
@@ -130,8 +142,10 @@ export async function encryptOverrides(
  */
 export async function decryptOverrides(
   encryptedData: string,
-  secret: string | undefined = readEnv('FLAGS_SECRET'),
+  secret?: string,
 ): Promise<FlagOverridesType | undefined> {
+  // The secret can come from the environment of the framework
+  secret ??= await defaultSecret();
   if (isFlagOverridesFromPlatform(encryptedData)) {
     return verifyFlagOverridesFromPlatform(encryptedData);
   }
@@ -168,9 +182,11 @@ export async function decryptOverrides(
  */
 export async function encryptFlagValues(
   flagValues: FlagValuesType,
-  secret: string | undefined = readEnv('FLAGS_SECRET'),
+  secret?: string,
   expirationTime?: ExpirationTime,
 ) {
+  // The secret can come from the environment of the framework
+  secret ??= await defaultSecret();
   if (!secret) {
     return encryptFlagValuesForPlatform(flagValues, expirationTime);
   }
@@ -195,8 +211,10 @@ export async function encryptFlagValues(
  */
 export async function decryptFlagValues(
   encryptedData: string,
-  secret: string | undefined = readEnv('FLAGS_SECRET'),
+  secret?: string,
 ): Promise<FlagValuesType | undefined> {
+  // The secret can come from the environment of the framework
+  secret ??= await defaultSecret();
   if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
   if (isFlagValuesForPlatform(encryptedData)) {
     warnWithCooldown(
@@ -229,9 +247,11 @@ export async function decryptFlagValues(
  */
 export async function encryptFlagDefinitions(
   flagDefinitions: FlagDefinitionsType,
-  secret: string | undefined = readEnv('FLAGS_SECRET'),
+  secret?: string,
   expirationTime: ExpirationTime = '1y',
 ) {
+  // The secret can come from the environment of the framework
+  secret ??= await defaultSecret();
   if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
   return encryptJwe(
     { d: flagDefinitions, pur: 'definitions' },
@@ -252,8 +272,10 @@ export async function encryptFlagDefinitions(
  */
 export async function decryptFlagDefinitions(
   encryptedData: string,
-  secret: string | undefined = readEnv('FLAGS_SECRET'),
+  secret?: string,
 ): Promise<FlagDefinitionsType | undefined> {
+  // The secret can come from the environment of the framework
+  secret ??= await defaultSecret();
   if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
   const contents = await decryptJwe<{
     d: FlagDefinitionsType;
@@ -275,9 +297,11 @@ export async function decryptFlagDefinitions(
  * @throws Error if the secret is missing or invalid
  */
 export async function createAccessProof(
-  secret: string | undefined = readEnv('FLAGS_SECRET'),
+  secret?: string,
   expirationTime: ExpirationTime = '1y',
 ) {
+  // The secret can come from the environment of the framework
+  secret ??= await defaultSecret();
   if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
   return encryptJwe({ pur: 'proof' }, secret, expirationTime);
 }
@@ -292,8 +316,10 @@ export async function createAccessProof(
  */
 export async function verifyAccessProof(
   encryptedData: string,
-  secret: string | undefined = readEnv('FLAGS_SECRET'),
+  secret?: string,
 ) {
+  // The secret can come from the environment of the framework
+  secret ??= await defaultSecret();
   if (!secret) throw new Error('flags: Missing FLAGS_SECRET');
   const contents = await decryptJwe<{
     pur: string;
