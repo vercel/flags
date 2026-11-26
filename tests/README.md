@@ -14,7 +14,6 @@ The test applications are not deployed anywhere to keep the action fast.
 
 The port of each application indicates the Next.js version
 
-- next-15 runs on 4015
 - next-16 runs on 4016
 - sveltekit runs on 5173
 

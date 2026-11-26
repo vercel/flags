@@ -69,24 +69,6 @@
       "pinVersion": "latest"
     },
     {
-      "label": "Next.js 15 compatibility fixture must stay on 15.x",
-      "packages": ["next-15"],
-      "dependencies": ["next"],
-      "pinVersion": "15.5.28"
-    },
-    {
-      "label": "Next.js 15 fixture keeps its original React release candidate",
-      "packages": ["next-15"],
-      "dependencies": ["react"],
-      "pinVersion": "19.0.0-rc-02c0e824-20241028"
-    },
-    {
-      "label": "Next.js 15 fixture uses React 18 types",
-      "packages": ["next-15"],
-      "dependencies": ["@types/react", "@types/react-dom"],
-      "pinVersion": "^18"
-    },
-    {
       "label": "Root tooling deliberately tests React canary",
       "packages": ["vercel-flags"],
       "dependencies": ["react"],
@@ -94,7 +76,7 @@
     },
     {
       "label": "Node 20 application and compatibility fixture types",
-      "packages": ["playground", "shirt-shop-api", "next-15", "next-16"],
+      "packages": ["playground", "shirt-shop-api", "next-16"],
       "dependencies": ["@types/node"]
     },
     {
@@ -104,7 +86,7 @@
     },
     {
       "label": "Legacy stylesheets and fixtures use Tailwind 3",
-      "packages": ["snippets", "next-15", "next-16"],
+      "packages": ["snippets", "next-16"],
       "dependencies": ["tailwindcss"]
     },
     {
