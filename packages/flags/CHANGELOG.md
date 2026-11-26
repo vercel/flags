@@ -1,5 +1,11 @@
 # @vercel/flags
 
+## 4.5.3
+
+### Patch Changes
+
+- [#645](https://github.com/vercel/flags/pull/645) [`7905c9b`](https://github.com/vercel/flags/commit/7905c9b91ffb01cf897806180d61a5871cc962fe) Thanks [@dferber90](https://github.com/dferber90)! - Recheck the expiration of cached encrypted flag overrides on every use, and include the active secret in the cache identity so tokens stop working after expiration or secret rotation.
+
 ## 4.5.2
 
 ### Patch Changes
