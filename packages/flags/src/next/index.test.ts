@@ -1447,6 +1447,80 @@ describe('tracing', () => {
     ]);
   });
 
+  it('logs an error when a flag falls back to its defaultValue', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+    const failing = flag<string>({
+      key: 'failing',
+      defaultValue: 'off',
+      options: [{ value: 'off', label: 'Disabled' }],
+      decide: () => {
+        throw new Error('provider down');
+      },
+    });
+    const missing = flag<string>({
+      key: 'missing',
+      defaultValue: 'off',
+      options: [{ value: 'off', label: 'Disabled' }],
+      decide: () => undefined as unknown as string,
+    });
+    const events = recordEvents();
+    const headers = new Headers();
+    mocks.headers.mockReturnValue(headers);
+    onTestFinished(() => {
+      mocks.headers.mockReset();
+      mocks.headers.mockImplementation(() => new Headers());
+    });
+
+    await expect(failing()).resolves.toBe('off');
+    await expect(failing()).resolves.toBe('off');
+    await expect(missing()).resolves.toBe('off');
+
+    expect(events.map((event) => event.attributes)).toEqual([
+      {
+        'feature_flag.key': 'failing',
+        'feature_flag.result.variant': 'Disabled',
+        'error.type': 'general',
+        'feature_flag.result.reason': 'error',
+      },
+      {
+        'feature_flag.key': 'failing',
+        'feature_flag.result.variant': 'Disabled',
+      },
+      {
+        'feature_flag.key': 'missing',
+        'feature_flag.result.variant': 'Disabled',
+      },
+    ]);
+  });
+
+  it('logs an error for each flag when bulkDecide rejects and flags fall back', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+    const adapter = makeBulkAdapter<string>({
+      bulkDecide: vi.fn().mockRejectedValue(new Error('bulk down')),
+    });
+    const a = flag<string>({ key: 'a', adapter: adapter(), defaultValue: 'x' });
+    const b = flag<string>({ key: 'b', adapter: adapter(), defaultValue: 'y' });
+    const events = recordEvents();
+    mocks.headers.mockReturnValueOnce(new Headers());
+
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'x', b: 'y' });
+
+    expect(events.map((event) => event.attributes)).toEqual([
+      {
+        'feature_flag.key': 'a',
+        'error.type': 'general',
+        'feature_flag.result.reason': 'error',
+      },
+      {
+        'feature_flag.key': 'b',
+        'error.type': 'general',
+        'feature_flag.result.reason': 'error',
+      },
+    ]);
+  });
+
   it('logs each bulk result without a flag span', async () => {
     const adapter = makeBulkAdapter<string>({
       bulkDecide: vi.fn().mockResolvedValue({ a: 'on' }),

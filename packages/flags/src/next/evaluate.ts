@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
-import { emitFlagEvaluation, emitFlagEvaluationError } from '../lib/logging';
+import { logEvaluation, setEvaluationError } from '../lib/logging';
 import { internalReportValue, reportValue } from '../lib/report-value';
 import { setSpanAttribute, setSpanError, trace } from '../lib/tracing';
 import {
@@ -335,6 +335,7 @@ async function applyResult<ValueType>(args: {
         setSpanAttribute('method', 'fallback');
         setSpanAttribute('error.type', 'general');
         setSpanError(error);
+        setEvaluationError();
         if (process.env.NODE_ENV === 'development') {
           console.info(
             `flags: Flag "${definition.key}" is falling back to its defaultValue`,
@@ -690,28 +691,23 @@ async function evaluateImpl(
 
               await Promise.all(
                 list.map(async ({ name, flagFn }) => {
-                  try {
-                    const value = await applyResult({
-                      definition: flagFn,
-                      readonlyHeaders,
-                      entitiesKey,
-                      entities,
-                      overrides,
-                      produce: () => {
-                        if (bulkError) throw bulkError;
-                        return bulkResult![flagFn.key];
-                      },
-                    });
-                    valuesByName[name] = value;
-                    emitFlagEvaluation(flagFn.key, flagFn.options, value);
-                  } catch (error) {
-                    emitFlagEvaluationError(
-                      flagFn.key,
-                      error,
-                      isInternalNextError,
-                    );
-                    throw error;
-                  }
+                  valuesByName[name] = await logEvaluation(
+                    flagFn.key,
+                    flagFn.options,
+                    isInternalNextError,
+                    () =>
+                      applyResult({
+                        definition: flagFn,
+                        readonlyHeaders,
+                        entitiesKey,
+                        entities,
+                        overrides,
+                        produce: () => {
+                          if (bulkError) throw bulkError;
+                          return bulkResult![flagFn.key];
+                        },
+                      }),
+                  );
                 }),
               );
 
