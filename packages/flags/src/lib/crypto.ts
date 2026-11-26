@@ -162,6 +162,41 @@ export async function decryptOverrides(
 }
 
 /**
+ * Decrypts an override token of the shared secret, and also gives when it
+ * expires, so that a cache of the result can check the expiry again on each
+ * use. Without an expiry in the token, it never expires.
+ *
+ * @internal
+ */
+export async function decryptOverridesWithExpiry(
+  encryptedData: string,
+  secret: string,
+): Promise<
+  | { readonly overrides: FlagOverridesType; readonly expiresAt: number }
+  | undefined
+> {
+  const contents = await decryptJwe<{
+    o: FlagOverridesType;
+    pur: Purpose;
+    exp?: number;
+  }>(
+    encryptedData,
+    (data) => hasPurpose(data.pur, 'overrides') && Object.hasOwn(data, 'o'),
+    secret,
+  );
+  if (!contents) {
+    return undefined;
+  }
+  return {
+    overrides: contents.o,
+    expiresAt:
+      typeof contents.exp === 'number'
+        ? contents.exp * 1000
+        : Number.POSITIVE_INFINITY,
+  };
+}
+
+/**
  * Encrypts flag values data.
  *
  * Without a secret, it encrypts with the public key of Vercel, for the
