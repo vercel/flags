@@ -14,3 +14,5 @@ Without a plugin, pass the request as before, e.g. `flag(request)` in the Pages 
 The rules of `flags/next` apply to all frameworks. For SvelteKit, this changes: a flag returns its `defaultValue` when `decide` throws or returns `undefined`, the cache of a request is per flag and entities, `identify` runs for each evaluation, `reportValue: false` is respected, and `evaluate()` supports `bulkDecide` of adapters.
 
 New for framework packages: the types `FrameworkBinding` and `FrameworkRequest`, and `getEvaluatedFlagValues(request?)`, the values which a request evaluated.
+
+Without a secret argument, the helpers `encryptFlagValues`, `decryptFlagValues`, `encryptOverrides`, `decryptOverrides`, `encryptFlagDefinitions`, `decryptFlagDefinitions`, `createAccessProof`, `verifyAccessProof` and `verifyAccess` read `FLAGS_SECRET` also from the environment of the framework, e.g. `$env` of SvelteKit during `vite dev`.
