@@ -83,3 +83,15 @@ overrides:
 
 patchedDependencies:
   js-yaml@3.15.2: patches/js-yaml@3.15.2.patch
+
+# next-themes imports React types but does not declare @types/react, so its
+# types depended on pnpm's hoisted @types/react. A restored Vercel build cache
+# from a lockfile with another @types/react version can leave that hoisted
+# link out, and then ThemeProviderProps has no `children`.
+packageExtensions:
+  next-themes:
+    peerDependencies:
+      '@types/react': '*'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
