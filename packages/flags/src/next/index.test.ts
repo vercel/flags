@@ -11,6 +11,7 @@ import {
   describe,
   expect,
   it,
+  onTestFinished,
   vi,
 } from 'vitest';
 import {
@@ -1502,6 +1503,97 @@ describe('tracing', () => {
     expect(flagSpan!.attributes).toMatchObject({
       key: 'my-flag',
       method: 'override',
+    });
+  });
+
+  it('records an error on the flag span when it falls back to its defaultValue', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+    const a = flag<string>({
+      key: 'my-flag',
+      defaultValue: 'off',
+      decide: () => {
+        throw new Error('provider down');
+      },
+    });
+
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(a()).resolves.toBe('off');
+
+    const flagSpan = spans.find((s) => s.name === 'flag');
+    expect(flagSpan!.attributes).toMatchObject({
+      key: 'my-flag',
+      method: 'fallback',
+      'error.type': 'general',
+    });
+    expect(flagSpan!.status).toEqual({ code: 2, message: 'provider down' });
+    expect(flagSpan!.ended).toBe(true);
+  });
+
+  it('records method "fallback" without an error when decide returns undefined', async () => {
+    const a = flag<string>({
+      key: 'my-flag',
+      defaultValue: 'off',
+      decide: () => undefined as unknown as string,
+    });
+
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(a()).resolves.toBe('off');
+
+    const flagSpan = spans.find((s) => s.name === 'flag');
+    expect(flagSpan!.attributes).toMatchObject({ method: 'fallback' });
+    expect(flagSpan!.attributes).not.toHaveProperty('error.type');
+    expect(flagSpan!.status).toEqual({ code: 1 });
+  });
+
+  it('keeps a cached fallback value Ok on a repeated call', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+    const a = flag<string>({
+      key: 'my-flag',
+      defaultValue: 'off',
+      decide: () => {
+        throw new Error('provider down');
+      },
+    });
+
+    const spans = recordSpans();
+    const headers = new Headers();
+    mocks.headers.mockReturnValueOnce(headers).mockReturnValueOnce(headers);
+    await a();
+    await a();
+
+    const flagSpans = spans.filter((s) => s.name === 'flag');
+    expect(flagSpans.map((s) => s.attributes.method)).toEqual([
+      'fallback',
+      'cached',
+    ]);
+    expect(flagSpans.map((s) => s.status?.code)).toEqual([2, 1]);
+  });
+
+  it('records an error on the batch span when bulkDecide rejects and flags fall back', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+    const adapter = makeBulkAdapter<string>({
+      bulkDecide: vi.fn().mockRejectedValue(new Error('bulk down')),
+    });
+    const a = flag<string>({ key: 'a', adapter: adapter(), defaultValue: 'x' });
+    const b = flag<string>({ key: 'b', adapter: adapter(), defaultValue: 'y' });
+
+    const spans = recordSpans();
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(evaluate({ a, b })).resolves.toEqual({ a: 'x', b: 'y' });
+
+    const batch = spans.find((s) => s.name === 'batch');
+    expect(batch!.attributes).toMatchObject({
+      method: 'bulk',
+      'error.type': 'general',
+    });
+    expect(batch!.status).toEqual({ code: 2, message: 'bulk down' });
+    expect(spans.find((s) => s.name === 'evaluate')!.status).toEqual({
+      code: 1,
     });
   });
 

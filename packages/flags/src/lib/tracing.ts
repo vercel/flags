@@ -42,6 +42,19 @@ export function setSpanAttribute(name: string, value: AttributeValue) {
   spanContext.getStore()?.set(name, value);
 }
 
+const spanErrors = new WeakMap<Map<string, AttributeValue>, unknown>();
+
+/**
+ * Marks the active span as failed even though the traced function resolves,
+ * e.g. when a flag falls back to its `defaultValue` after an error.
+ */
+export function setSpanError(error: unknown) {
+  const store = spanContext.getStore();
+  if (store) {
+    spanErrors.set(store, error);
+  }
+}
+
 export function trace<F extends (...args: any) => any>(
   fn: F,
   options: {
@@ -104,6 +117,14 @@ export function trace<F extends (...args: any) => any>(
       message,
     });
   };
+  const setSuccessStatus = (span: Span): void => {
+    const store = spanContext.getStore();
+    if (store && spanErrors.has(store)) {
+      recordError(span, spanErrors.get(store));
+      return;
+    }
+    span.setStatus({ code: 1 }); // 1 = Ok
+  };
   const traced = function (this: unknown, ...args: unknown[]): unknown {
     const tracer = getTracer();
     if (!tracer) return fn.apply(this, args);
@@ -137,7 +158,7 @@ export function trace<F extends (...args: any) => any>(
                   span.setAttribute(key, value);
                 });
 
-                span.setStatus({ code: 1 }); // 1 = Ok
+                setSuccessStatus(span);
                 span.end();
               })
               .catch((error) => {
@@ -160,7 +181,7 @@ export function trace<F extends (...args: any) => any>(
               span.setAttribute(key, value);
             });
 
-            span.setStatus({ code: 1 }); // 1 = Ok
+            setSuccessStatus(span);
             span.end();
           }
 
