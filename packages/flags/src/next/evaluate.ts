@@ -3,7 +3,7 @@ import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
 import { emitFlagEvaluation, emitFlagEvaluationError } from '../lib/logging';
 import { internalReportValue, reportValue } from '../lib/report-value';
-import { setSpanAttribute, trace } from '../lib/tracing';
+import { setSpanAttribute, setSpanError, trace } from '../lib/tracing';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
@@ -319,7 +319,10 @@ async function applyResult<ValueType>(args: {
   >(
     (value) => {
       if (value !== undefined) return value;
-      if (definition.defaultValue !== undefined) return definition.defaultValue;
+      if (definition.defaultValue !== undefined) {
+        setSpanAttribute('method', 'fallback');
+        return definition.defaultValue;
+      }
       throw new Error(
         `flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
       );
@@ -329,6 +332,9 @@ async function applyResult<ValueType>(args: {
 
       // try to recover if defaultValue is set
       if (definition.defaultValue !== undefined) {
+        setSpanAttribute('method', 'fallback');
+        setSpanAttribute('error.type', 'general');
+        setSpanError(error);
         if (process.env.NODE_ENV === 'development') {
           console.info(
             `flags: Flag "${definition.key}" is falling back to its defaultValue`,
