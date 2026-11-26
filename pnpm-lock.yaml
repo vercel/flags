@@ -47,21 +47,13 @@ overrides:
   shell-quote: ^1.11.0
   source-map-js: ^1.2.2
   js-yaml@3>argparse: ^2.0.1
-  flags-sdk-launchdarkly>flags: workspace:*
   flags-sdk-launchdarkly>@flags-sdk/launchdarkly: workspace:*
-  flags-sdk-flagsmith>flags: workspace:*
   flags-sdk-flagsmith>@flags-sdk/flagsmith: workspace:*
-  flags-sdk-statsig>flags: workspace:*
   flags-sdk-statsig>@flags-sdk/statsig: workspace:*
-  flags-sdk-vercel>flags: workspace:*
   flags-sdk-vercel>@flags-sdk/vercel: workspace:*
-  flags-sdk-reflag>flags: workspace:*
   flags-sdk-reflag>@flags-sdk/reflag: workspace:*
-  flags-sdk-posthog>flags: workspace:*
   flags-sdk-posthog>@flags-sdk/posthog: workspace:*
-  flags-sdk-openfeature>flags: workspace:*
   flags-sdk-openfeature>@flags-sdk/openfeature: workspace:*
-  flags-sdk-growthbook>flags: workspace:*
   flags-sdk-growthbook>@flags-sdk/growthbook: workspace:*
 
 patchedDependencies:
@@ -143,8 +135,8 @@ importers:
         specifier: ^5.1.0
         version: 5.2.0
       flags:
-        specifier: workspace:*
-        version: link:../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       fumadocs-core:
         specifier: 16.2.2
         version: 16.2.2(@types/react@19.2.14)(lucide-react@0.555.0(react@19.2.4))(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -219,8 +211,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapter-vercel
       flags:
-        specifier: workspace:*
-        version: link:../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@20.11.17)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@20.11.17)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -299,8 +291,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: workspace:*
-        version: link:../../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -333,8 +325,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: workspace:*
-        version: link:../../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -367,8 +359,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: workspace:*
-        version: link:../../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -404,8 +396,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: workspace:*
-        version: link:../../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -438,8 +430,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: workspace:*
-        version: link:../../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -472,8 +464,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: workspace:*
-        version: link:../../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -506,8 +498,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: workspace:*
-        version: link:../../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -540,8 +532,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: workspace:*
-        version: link:../../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -601,8 +593,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       flags:
-        specifier: workspace:*
-        version: link:../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       js-xxhash:
         specifier: 4.0.0
         version: 4.0.0
@@ -671,8 +663,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       flags:
-        specifier: workspace:*
-        version: link:../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       nanoid:
         specifier: ^5.1.16
         version: 5.1.16
@@ -762,8 +754,8 @@ importers:
         specifier: ^0.7.0
         version: 0.7.2
       flags:
-        specifier: workspace:*
-        version: link:../../packages/flags
+        specifier: npm:flags@^4.5.1
+        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       tailwindcss:
         specifier: ^4.1.17
         version: 4.3.3
@@ -1192,9 +1184,6 @@ importers:
       '@arethetypeswrong/cli':
         specifier: 0.18.5
         version: 0.18.5
-      '@sveltejs/kit':
-        specifier: ^2.70.2
-        version: 2.70.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.72.0))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.72.0))(typescript@5.9.3)(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
       '@types/node':
         specifier: 22.14.0
         version: 22.14.0
@@ -1213,6 +1202,57 @@ importers:
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 8.1.7
+        version: 8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/framework-next:
+    devDependencies:
+      '@types/node':
+        specifier: 22.14.0
+        version: 22.14.0
+      flags:
+        specifier: workspace:*
+        version: link:../flags
+      jose:
+        specifier: ^5.10.0
+        version: 5.10.0
+      next:
+        specifier: 16.4.6
+        version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.3.0-canary-ff8f88fc-20260915))(react@19.3.0-canary-ff8f88fc-20260915)
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@22.14.0)(msw@2.6.4(@types/node@22.14.0)(typescript@5.9.3))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/framework-sveltekit:
+    devDependencies:
+      '@sveltejs/kit':
+        specifier: ^2.70.2
+        version: 2.70.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.72.0))(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.72.0))(typescript@5.9.3)(vite@8.1.7(@types/node@22.14.0)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+      '@types/node':
+        specifier: 22.14.0
+        version: 22.14.0
+      flags:
+        specifier: workspace:*
+        version: link:../flags
+      svelte:
+        specifier: ^5.46.4
+        version: 5.56.7(@typescript-eslint/types@8.72.0)
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
@@ -1289,6 +1329,9 @@ importers:
 
   tests/next-16:
     dependencies:
+      '@flags-sdk/next':
+        specifier: workspace:*
+        version: link:../../packages/framework-next
       flags:
         specifier: workspace:*
         version: link:../../packages/flags
@@ -1345,6 +1388,9 @@ importers:
 
   tests/sveltekit-e2e:
     dependencies:
+      '@flags-sdk/sveltekit':
+        specifier: workspace:*
+        version: link:../../packages/framework-sveltekit
       '@vercel/toolbar':
         specifier: 0.2.7
         version: 0.2.7(85e49f4d98082633337a328350fad92f)
@@ -2403,7 +2449,6 @@ packages:
   '@opentelemetry/sdk-trace-base@2.12.0':
     resolution: {integrity: sha512-JOERgZCxRM06FEJ5kEWxlSRChah6MmXDx3KwCruqEv/iEyLkTokCSemf2y1w8oIHtfrr8EVTpzebq/31vn2Cpg==}
     engines: {node: ^18.19.0 || >=20.6.0}
-    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.3.0 <1.10.0'
 
@@ -5526,7 +5571,6 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
-    deprecated: Potential CWE-502 - Update to 1.3.1 or higher
 
   '@unrs/resolver-binding-android-arm-eabi@1.11.1':
     resolution: {integrity: sha512-ppLRUgHVaGRWUx0R0Ut06Mjo9gBaBkg3v/8AxusGLhsIotbBLuRk51rAzqLC8gq6NyyAojEXglNjzf6R948DNw==}
@@ -5684,12 +5728,10 @@ packages:
 
   '@vercel/edge-config-fs@0.1.0':
     resolution: {integrity: sha512-NRIBwfcS0bUoUbRWlNGetqjvLSwgYH/BqKqDN7vK1g32p7dN96k0712COgaz6VFizAm9b0g6IG6hR6+hc0KCPg==}
-    deprecated: This package has been renamed to @vercel/global-config-fs. Install @vercel/global-config-fs instead.
 
   '@vercel/edge-config@1.4.3':
     resolution: {integrity: sha512-8vTDATodRrH49wMzKEjZ8/5H2qs1aPkD0uRK585f/Fx4YN2wfHfY/3td9OFrh+gdnCq07z8A5f0hoY6xhBcPkg==}
     engines: {node: '>=14.6'}
-    deprecated: This package has been renamed to @vercel/global-config. Install @vercel/global-config instead.
     peerDependencies:
       '@opentelemetry/api': ^1.7.0
       next: '>=1'
@@ -5701,7 +5743,6 @@ packages:
 
   '@vercel/edge@1.2.1':
     resolution: {integrity: sha512-1++yncEyIAi68D3UEOlytYb1IUcIulMWdoSzX2h9LuSeeyR7JtaIgR8DcTQ6+DmYOQn+5MCh6LY+UmK6QBByNA==}
-    deprecated: This package is deprecated. You should to use `@vercel/functions` instead.
 
   '@vercel/firewall@1.2.6':
     resolution: {integrity: sha512-89ybsa2rnVNdw6RI3jGOVvqUJaBj6Umm4IagC1o3PKtr/MXxBKOLek+yyUgF0csA0O5W+dzcpdIhKxVXhgVVtA==}
@@ -6323,7 +6364,6 @@ packages:
 
   crypto-js@4.2.0:
     resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
-    deprecated: Active development of CryptoJS has been discontinued. This library is no longer maintained.
 
   cssesc@3.0.0:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
@@ -6811,7 +6851,6 @@ packages:
   eslint@9.38.0:
     resolution: {integrity: sha512-t5aPOpmtJcZcz5UJyY2GbvpDlsK5E8JqRqoKtfiKE3cNh437KIqfJr3A3AKf5k64NPx6d0G3dno6XDY05PqPtw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -6975,6 +7014,23 @@ packages:
 
   fix-dts-default-cjs-exports@1.0.1:
     resolution: {integrity: sha512-pVIECanWFC61Hzl2+oOCtoJ3F17kglZC/6N94eRWycFgBH35hHx0Li604ZIzhseh97mf2p0cv7vVrOZGoqhlEg==}
+
+  flags@4.5.1:
+    resolution: {integrity: sha512-JlvVBdnsm8Xj4/FHZdGADJbCtqX6XtT8qIW5ri9a4ek40Hvr3a0hq8mkhcu6XajLG07+kSIRLyPzCk/my7k59A==}
+    peerDependencies:
+      '@opentelemetry/api': ^1.7.0
+      next: '*'
+      react: '*'
+      react-dom: '*'
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      next:
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   flat-cache@4.0.1:
     resolution: {integrity: sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw==}
@@ -7167,13 +7223,11 @@ packages:
 
   glob@10.5.0:
     resolution: {integrity: sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==}
-    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   glob@11.1.0:
     resolution: {integrity: sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==}
     engines: {node: 20 || >=22}
-    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   glob@13.0.6:
@@ -8584,7 +8638,6 @@ packages:
   phase@0.5.4:
     resolution: {integrity: sha512-3nCOrMZ/dW1q0nLCbVZBcGW/60TEApcoBPCT7s8SsQ2I0/rHLeSMkxlPhaGfW/yEKgkLkCfmd+YGss65ZwR77Q==}
     engines: {node: 24.x}
-    deprecated: 'phase is now the scan tool; the runtime library moved to @usephase/core and @usephase/react. Run: npx @usephase/codemod@latest migrate-phase-to-usephase .'
     peerDependencies:
       react: '>=18'
     peerDependenciesMeta:
@@ -16116,6 +16169,36 @@ snapshots:
       magic-string: 0.30.21
       mlly: 1.8.1
       rollup: 4.59.0
+
+  flags@4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@20.11.17)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      '@edge-runtime/cookies': 5.0.2
+      jose: 5.10.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      next: 16.4.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@20.11.17)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+
+  flags@4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      '@edge-runtime/cookies': 5.0.2
+      jose: 5.10.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      next: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+
+  flags@4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      '@edge-runtime/cookies': 5.0.2
+      jose: 5.10.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      next: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
 
   flat-cache@4.0.1:
     dependencies:

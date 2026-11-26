@@ -39,7 +39,7 @@ export EXPERIMENTATION_CONFIG="https://global-config.vercel.com/ecfg_abdc1234?to
 ## Example
 
 ```ts
-import { flag, dedupe } from "flags/next";
+import { flag, dedupe } from "flags";
 import { ldAdapter, type LDContext } from "@flags-sdk/launchdarkly";
 
 const identify = dedupe(async (): Promise<LDContext> => {

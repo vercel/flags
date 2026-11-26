@@ -13,7 +13,7 @@ pnpm i @flags-sdk/posthog
 ## Example Usage
 
 ```ts
-import { flag } from "flags/next";
+import { flag } from "flags";
 import { postHogAdapter } from "@flags-sdk/posthog";
 
 export const marketingGate = flag<boolean>({

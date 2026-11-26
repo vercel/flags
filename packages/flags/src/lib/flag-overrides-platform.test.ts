@@ -15,7 +15,6 @@ import {
   it,
   vi,
 } from 'vitest';
-import { getOverrides } from '../next/overrides';
 import { decryptOverrides, encryptOverrides } from './crypto';
 import {
   FLAG_OVERRIDES_POLICY,
@@ -25,6 +24,7 @@ import {
   VERCEL_FLAG_OVERRIDES_JWKS_URL,
   verifyFlagOverridesFromPlatform,
 } from './flag-overrides-platform';
+import { getOverrides } from './overrides';
 import { resetWarnings, verifyVercelSignedToken } from './vercel-platform';
 
 const ISSUER = 'https://kms.vercel.com/64af96a2-ba60-42ef-91af-459fcef6f864';

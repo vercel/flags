@@ -21,7 +21,7 @@ import { growthBookAdapter } from "@flags-sdk/growthbook";
 ## Example
 
 ```ts
-import { flag } from "flags/next";
+import { flag } from "flags";
 import { growthBookAdapter } from "@flags-sdk/growthbook";
 
 export const summerBannerFlag = feature<boolean>({

@@ -4,7 +4,7 @@ import {
   resetDefaultFlagsClient,
 } from '@vercel/flags-core';
 import type { Adapter, Origin, ProviderData } from 'flags';
-import { flag } from 'flags/next';
+import { flag } from 'flags';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import {

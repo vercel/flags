@@ -306,7 +306,7 @@ export function getOrCreateDefaultGrowthbookAdapter(): AdapterResponse {
  *
  * ```ts
  * // flags.ts
- * import { flag } from 'flags/next';
+ * import { flag } from 'flags';
  * import { growthbookAdapter } from '@flags-sdk/growthbook';
  *
  * const flag = flag({

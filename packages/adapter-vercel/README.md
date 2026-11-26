@@ -11,7 +11,7 @@ npm i flags @flags-sdk/vercel
 ## Usage
 
 ```ts
-import { flag } from 'flags/next';
+import { flag } from 'flags';
 import { vercelAdapter } from '@flags-sdk/vercel';
 
 export const exampleFlag = flag({
@@ -25,7 +25,7 @@ export const exampleFlag = flag({
 In the source project's **Flags → Connections** page, grant your project read access. Both projects must belong to the same team. Pass the source project's ID to the adapter:
 
 ```ts
-import { flag } from 'flags/next';
+import { flag } from 'flags';
 import { createVercelAdapter } from '@flags-sdk/vercel';
 
 const sharedAdapter = createVercelAdapter({ projectId: 'prj_source' });

@@ -142,7 +142,7 @@ function getOrCreateDeaultAdapter() {
  *
  * ```ts
  * // flags.ts
- * import { flag } from 'flags/next';
+ * import { flag } from 'flags';
  * import { ldAdapter, type LDContext } from '@flags-sdk/launchdarkly';
  *
  * const flag = flag<boolean, LDContext>({

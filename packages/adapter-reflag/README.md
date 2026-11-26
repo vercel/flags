@@ -21,7 +21,7 @@ import { reflagAdapter } from "@flags-sdk/reflag";
 ## Example
 
 ```ts
-import { flag } from "flags/next";
+import { flag } from "flags";
 import { reflagAdapter } from "@flags-sdk/reflag";
 
 export const huddleFlag = flag<boolean>({

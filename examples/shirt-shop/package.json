@@ -21,7 +21,7 @@
     "@vercel/global-config": "^1.5.1",
     "@vercel/toolbar": "0.2.7",
     "clsx": "^2.1.1",
-    "flags": "workspace:*",
+    "flags": "npm:flags@^4.5.1",
     "js-xxhash": "4.0.0",
     "motion": "^12.23.25",
     "nanoid": "5.1.16",

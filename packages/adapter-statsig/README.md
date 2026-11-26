@@ -21,7 +21,7 @@ import { statsigAdapter } from "@flags-sdk/statsig";
 ## Example
 
 ```ts
-import { flag } from "flags/next";
+import { flag } from "flags";
 import { statsigAdapter } from "@flags-sdk/statsig";
 
 export const marketingGate = flag<boolean>({

@@ -20,7 +20,7 @@ Use `createHypertuneAdapter` from `@flags-sdk/hypertune` as shown below:
 ```ts
 import { createHypertuneAdapter } from "@flags-sdk/hypertune";
 import { Identify } from "flags";
-import { dedupe, flag } from "flags/next";
+import { dedupe, flag } from "flags";
 /** Generated with `npx hypertune` */
 import {
   createSource,

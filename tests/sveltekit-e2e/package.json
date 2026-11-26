@@ -12,8 +12,9 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "flags": "workspace:*",
-    "@vercel/toolbar": "0.2.7"
+    "@flags-sdk/sveltekit": "workspace:*",
+    "@vercel/toolbar": "0.2.7",
+    "flags": "workspace:*"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",

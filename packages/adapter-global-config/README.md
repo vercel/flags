@@ -13,7 +13,7 @@ npm install @flags-sdk/global-config
 This adapter will connect to the Global Config available under the `GLOBAL_CONFIG` environment variable, and read items from a key in the Global Config called `flags`.
 
 ```ts
-import { flag } from "flags/next";
+import { flag } from "flags";
 import { globalConfigAdapter } from "@flags-sdk/global-config";
 
 export const exampleFlag = flag({
@@ -37,7 +37,7 @@ Your Global Config should look like this:
 You can specify a custom adapter which connects to a different Global Config, and reads
 
 ```ts
-import { flag } from "flags/next";
+import { flag } from "flags";
 import { createGlobalConfigAdapter } from "@flags-sdk/global-config";
 
 const globalConfigAdapter = createGlobalConfigAdapter(process.env.GLOBAL_CONFIG, {

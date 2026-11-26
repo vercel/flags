@@ -53,7 +53,7 @@ type AdapterArgs<
  * ```ts
  * import { createHypertuneAdapter } from '@flags-sdk/hypertune'
  * import { Identify } from 'flags'
- * import { dedupe, flag } from 'flags/next'
+ * import { dedupe, flag } from 'flags'
  * import {
  *   createSource,
  *   flagFallbacks,
