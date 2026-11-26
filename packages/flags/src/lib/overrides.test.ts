@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { flag } from '../index';
 import { encryptOverrides } from './crypto';
 import { getOverrides } from './overrides';
 
@@ -49,5 +50,34 @@ describe('getOverrides', () => {
     vi.stubEnv('FLAGS_SECRET', '');
 
     await expect(getOverrides(token)).resolves.toBeNull();
+  });
+});
+
+describe('a flag with an override cookie', () => {
+  it('ignores the cookie in a new request after the token expired', async () => {
+    vi.useFakeTimers({ now: new Date('2026-11-26T10:00:00Z') });
+    vi.stubEnv('FLAGS_SECRET', secret);
+    const summerSale = flag<boolean>({
+      key: 'replayed-summer-sale',
+      decide: () => false,
+    });
+    const token = await encryptOverrides(
+      { 'replayed-summer-sale': true },
+      secret,
+      '1m',
+    );
+    // Each request is new: its own Request, so no cache of a request applies
+    const request = () =>
+      new Request('https://shop.example', {
+        headers: { cookie: `vercel-flag-overrides=${token}` },
+      });
+
+    // Before the expiry, the override applies
+    await expect(summerSale(request())).resolves.toBe(true);
+
+    // The same cookie, replayed in a new request after the expiry, on the
+    // same worker
+    vi.setSystemTime(new Date('2026-11-26T10:02:00Z'));
+    await expect(summerSale(request())).resolves.toBe(false);
   });
 });
