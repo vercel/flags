@@ -1,4 +1,4 @@
-import { flag } from 'flags/next';
+import { flag } from 'flags';
 
 export const exampleFlag = flag<boolean>({
   key: 'example-flag',

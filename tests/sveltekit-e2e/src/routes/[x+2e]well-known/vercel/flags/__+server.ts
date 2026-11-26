@@ -10,8 +10,7 @@
 // dot like .well-known cause issues, so we the [x+2e] encoding is necessary.
 // See https://github.com/sveltejs/kit/discussions/7562#discussioncomment-4206530
 import { error, json } from '@sveltejs/kit';
-import { verifyAccess } from 'flags';
-import { getProviderData } from 'flags/sveltekit';
+import { getProviderData, verifyAccess } from 'flags';
 import { FLAGS_SECRET } from '$env/static/private';
 import * as flags from '$lib/flags';
 import type { RequestHandler } from './$types';

@@ -1,4 +1,4 @@
-import { precompute } from 'flags/sveltekit';
+import { precompute } from 'flags';
 import { precomputedFlag } from './flags';
 
 export const precomputedFlags = [precomputedFlag];

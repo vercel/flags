@@ -306,7 +306,7 @@ export function createDefaultStatsigAdapter(): AdapterResponse {
  *
  * ```ts
  * // flags.ts
- * import { flag } from 'flags/next';
+ * import { flag } from 'flags';
  * import { statsigAdapter } from '@flags-sdk/statsig';
  *
  * const flag = flag({

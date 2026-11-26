@@ -1,0 +1,57 @@
+# `@flags-sdk/sveltekit`
+
+The SvelteKit integration of the [Flags SDK](https://flags-sdk.dev) v5. It gives `flags` the current request of SvelteKit.
+
+## Setup
+
+```sh
+npm install flags @flags-sdk/sveltekit
+```
+
+Add the plugin `flags()` after `sveltekit()`:
+
+```ts
+// vite.config.ts
+import { sveltekit } from '@sveltejs/kit/vite';
+import { flags } from '@flags-sdk/sveltekit/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({ plugins: [sveltekit(), flags()] });
+```
+
+`flags()` points the alias `flags/framework` to the binding of SvelteKit, which reads the request with `getRequestEvent()` of `$app/server` (SvelteKit 2.20 or later). Then a flag gets the request in `load` functions, actions, endpoints and hooks:
+
+```ts
+// src/lib/flags.ts
+import { flag } from 'flags';
+
+export const showBanner = flag<boolean>({
+  key: 'show-banner',
+  decide: ({ cookies }) => cookies.get('beta')?.value === '1',
+});
+```
+
+```ts
+// src/routes/+page.server.ts
+import { showBanner } from '$lib/flags';
+
+export async function load() {
+  return { banner: await showBanner() };
+}
+```
+
+In `reroute` and outside of a request, pass the request, e.g. `precompute(flags, request)`.
+
+## The handle hook
+
+`createHandle` is optional. It puts the values of the flags which a page evaluated into the page, for the Vercel Toolbar, and, with `flags`, serves `/.well-known/vercel/flags` for Flags Explorer:
+
+```ts
+// src/hooks.server.ts
+import { createHandle } from '@flags-sdk/sveltekit';
+import * as flags from '$lib/flags';
+
+export const handle = createHandle({ flags });
+```
+
+`createFlagsDiscoveryEndpoint` creates the endpoint as a route instead.

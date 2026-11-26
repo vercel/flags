@@ -18,7 +18,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "feed": "^5.1.0",
-    "flags": "workspace:*",
+    "flags": "npm:flags@^4.5.1",
     "fumadocs-core": "16.2.2",
     "fumadocs-mdx": "14.0.4",
     "fumadocs-ui": "16.2.2",

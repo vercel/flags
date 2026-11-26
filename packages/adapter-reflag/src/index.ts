@@ -88,7 +88,7 @@ function getOrCreateDefaultAdapter() {
  *
  * ```ts
  * // flags.ts
- * import { flag } from 'flags/next';
+ * import { flag } from 'flags';
  * import { reflagAdapter, type Context } from '@flags-sdk/reflag';
  *
  * const flag = flag<boolean, Context>({

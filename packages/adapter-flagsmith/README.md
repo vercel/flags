@@ -21,7 +21,7 @@ export FLAGSMITH_ENVIRONMENT_KEY="your-server-side-environment-key"
 The Flagsmith adapter provides a `getValue()` method with optional type coercion:
 
 ```ts
-import { flag } from "flags/next";
+import { flag } from "flags";
 import { flagsmithAdapter } from "@flags-sdk/flagsmith";
 
 // No coercion - returns the raw value from Flagsmith
@@ -99,7 +99,7 @@ export const showBanner = flag<boolean, EntitiesType>({
 To enable the [Flags Explorer](https://vercel.com/docs/feature-flags/flags-explorer), create a discovery endpoint at `app/.well-known/vercel/flags/route.ts`:
 
 ```ts
-import { createFlagsDiscoveryEndpoint } from "flags/next";
+import { createFlagsDiscoveryEndpoint } from "@flags-sdk/next";
 import { getProviderData } from "@flags-sdk/flagsmith";
 
 export const GET = createFlagsDiscoveryEndpoint(async () => {
@@ -129,7 +129,7 @@ MIT
 
 The adapter uses `@flagsmith/nodejs` and requires a Node.js runtime. **Remote evaluation is the default**, suitable for serverless deployments: it fetches evaluated flags from Flagsmith without downloading an environment document or starting background polling. Set `FLAGSMITH_ENVIRONMENT_KEY` to your Flagsmith environment key and keep it on the server.
 
-One client is shared per adapter. Use `evaluate([flagA, flagB])` from `flags/next` to batch flags: the Flags SDK groups flags by adapter and `identify` function, and the adapter fetches all values once per batch. Different coercion modes form separate batches to preserve their value types. Individual flag calls use `decide()` and do not share an adapter-level result cache. User identities are passed to `getIdentityFlags` rather than stored as the client's current user. Remote identity evaluation persists supplied traits in Flagsmith.
+One client is shared per adapter. Use `evaluate([flagA, flagB])` from `flags` to batch flags: the Flags SDK groups flags by adapter and `identify` function, and the adapter fetches all values once per batch. Different coercion modes form separate batches to preserve their value types. Individual flag calls use `decide()` and do not share an adapter-level result cache. User identities are passed to `getIdentityFlags` rather than stored as the client's current user. Remote identity evaluation persists supplied traits in Flagsmith.
 
 For a long-running server, opt into **local evaluation** with one option:
 

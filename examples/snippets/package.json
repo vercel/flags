@@ -17,7 +17,7 @@
     "@vercel/toolbar": "0.2.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "flags": "workspace:*",
+    "flags": "npm:flags@^4.5.1",
     "nanoid": "5.1.16",
     "next": "16.4.6",
     "next-themes": "0.4.4",

@@ -9,9 +9,9 @@ import type {
   FlagDeclaration,
   FlagDefinitionsType,
   FlagDefinitionType,
+  KeyedFlagDefinitionType,
   ProviderData,
 } from 'flags';
-import type { KeyedFlagDefinitionType } from 'flags/next';
 
 export type VercelAdapterDeclaration<ValueType, EntitiesType> = Omit<
   FlagDeclaration<ValueType, EntitiesType>,

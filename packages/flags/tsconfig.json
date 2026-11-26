@@ -3,6 +3,9 @@
   "include": ["src"],
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
+    "paths": {
+      "flags/framework": ["./src/framework-module.ts"]
+    },
     "resolveJsonModule": true,
     "target": "ES2020"
   }

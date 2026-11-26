@@ -10,6 +10,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@flags-sdk/next": "workspace:*",
     "flags": "workspace:*",
     "next": "16.4.6",
     "react": "19.2.4",

@@ -7,6 +7,7 @@ import { trace } from './tracing';
 import {
   canVerifyVercelSignedTokens,
   isVercelSignedToken,
+  readEnv,
   verifyVercelSignedToken,
   warnWithCooldown,
 } from './vercel-platform';
@@ -40,7 +41,7 @@ export const verifyAccess = trace(
     // Pages Router returns undefined when a header is not defined
     // We support both so the API is slim in both cases
     authHeader: string | null | undefined,
-    secret: string | undefined = process?.env?.FLAGS_SECRET,
+    secret: string | undefined = readEnv('FLAGS_SECRET'),
   ) {
     if (!authHeader) return false;
     const token = authHeader.replace(/^Bearer /i, '');
