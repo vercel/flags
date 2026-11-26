@@ -20,7 +20,7 @@ import {
   isFlagValuesForPlatform,
 } from './flag-values-platform';
 import { loadFrameworkEnv } from './framework';
-import { readEnv, warnWithCooldown } from './vercel-platform';
+import { readFlagsSecret, warnWithCooldown } from './vercel-platform';
 
 /**
  * `FLAGS_SECRET`, also from the environment of the framework, e.g. `$env` of
@@ -28,7 +28,7 @@ import { readEnv, warnWithCooldown } from './vercel-platform';
  */
 async function defaultSecret(): Promise<string | undefined> {
   await loadFrameworkEnv();
-  return readEnv('FLAGS_SECRET');
+  return readFlagsSecret();
 }
 
 type ExpirationTime = string | number | Date;

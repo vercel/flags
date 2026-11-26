@@ -34,6 +34,26 @@ export function readEnv(name: string): string | undefined {
 }
 
 /**
+ * Reads `FLAGS_SECRET`: of the host, or else of the environment of the
+ * framework, e.g. `$env` of SvelteKit during `vite dev`.
+ *
+ * The reference to `process.env.FLAGS_SECRET` must stay static. Next.js
+ * finds the variables of the code by these references, and gives a bundle
+ * of routing middleware or of the Edge runtime only the variables which it
+ * finds. `readEnv('FLAGS_SECRET')` alone would read `process.env` with a
+ * computed name, so the secret could be missing there.
+ *
+ * @internal
+ */
+export function readFlagsSecret(): string | undefined {
+  // A plain member expression, which no build rewrites, e.g. into a helper
+  // for optional chaining in the CommonJS build
+  const fromHost =
+    typeof process === 'undefined' ? undefined : process.env.FLAGS_SECRET;
+  return fromHost || frameworkEnv?.FLAGS_SECRET || undefined;
+}
+
+/**
  * Whether the host is Vercel: a build or a deployment has the `VERCEL`
  * variable when the project exposes the system environment variables, and a
  * deployment always has the request context. `vercel build` sets `VERCEL`

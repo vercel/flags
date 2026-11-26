@@ -8,7 +8,7 @@ import { trace } from './tracing';
 import {
   canVerifyVercelSignedTokens,
   isVercelSignedToken,
-  readEnv,
+  readFlagsSecret,
   verifyVercelSignedToken,
   warnWithCooldown,
 } from './vercel-platform';
@@ -19,7 +19,7 @@ import {
  */
 async function defaultSecret(): Promise<string | undefined> {
   await loadFrameworkEnv();
-  return readEnv('FLAGS_SECRET');
+  return readFlagsSecret();
 }
 
 /**

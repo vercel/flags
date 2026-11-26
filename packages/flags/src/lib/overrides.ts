@@ -4,7 +4,7 @@ import {
   isFlagOverridesFromPlatform,
   verifyFlagOverridesFromPlatform,
 } from './flag-overrides-platform';
-import { readEnv } from './vercel-platform';
+import { readFlagsSecret } from './vercel-platform';
 
 const memoizedDecrypt = memoizeOne(
   (text: string) => decryptOverrides(text),
@@ -22,7 +22,7 @@ export async function getOverrides(cookie: string | undefined) {
   }
   // Without a secret, the host can not read the cookie, e.g. an encrypted
   // cookie which is still in the browser after the secret was removed
-  if (!readEnv('FLAGS_SECRET')) {
+  if (!readFlagsSecret()) {
     return null;
   }
   return (await memoizedDecrypt(cookie)) ?? null;
