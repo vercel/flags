@@ -1,5 +1,24 @@
 # @vercel/flags
 
+## 5.0.0-standard.0
+
+### Major Changes
+
+- [#639](https://github.com/vercel/flags/pull/639) [`81b4fdf`](https://github.com/vercel/flags/commit/81b4fdf75c26f8836a24844efe81e3412b296c15) Thanks [@dferber90](https://github.com/dferber90)! - The Flags SDK is framework-neutral. `flag()`, `evaluate()`, `dedupe()`, `clearDedupeCacheForCurrentRequest()`, `precompute()`, `generatePermutations()` and `getPrecomputed()` come from `flags`. `flags/next` and `flags/sveltekit` are removed.
+  
+  A framework gives the SDK the current request through its build plugin, which points the alias `flags/framework` to the binding of the framework:
+  
+  - Next.js: `withFlags` of `@flags-sdk/next/plugin` in `next.config.ts`. Only Turbopack is supported, and Next.js 16 is the minimum.
+  - SvelteKit: `flags()` of `@flags-sdk/sveltekit/vite` in `vite.config.ts`. The binding reads the request with `getRequestEvent()` of `$app/server`, so SvelteKit 2.20 is the minimum, and `createHandle` is optional.
+  
+  Without a plugin, pass the request as before, e.g. `flag(request)` in the Pages Router or `precompute(flags, request)`; `precompute()` now takes an optional request.
+  
+  The rules of `flags/next` apply to all frameworks. For SvelteKit, this changes: a flag returns its `defaultValue` when `decide` throws or returns `undefined`, the cache of a request is per flag and entities, `identify` runs for each evaluation, `reportValue: false` is respected, and `evaluate()` supports `bulkDecide` of adapters.
+  
+  New for framework packages: the types `FrameworkBinding` and `FrameworkRequest`, and `getEvaluatedFlagValues(request?)`, the values which a request evaluated.
+  
+  Without a secret argument, the helpers `encryptFlagValues`, `decryptFlagValues`, `encryptOverrides`, `decryptOverrides`, `encryptFlagDefinitions`, `decryptFlagDefinitions`, `createAccessProof`, `verifyAccessProof` and `verifyAccess` read `FLAGS_SECRET` also from the environment of the framework, e.g. `$env` of SvelteKit during `vite dev`.
+
 ## 4.5.3
 
 ### Patch Changes
