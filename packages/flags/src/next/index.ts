@@ -11,8 +11,8 @@ import type {
   ProviderData,
   ResolvedFlagDeclaration,
 } from '../types';
+import { isFrameworkSignal } from './binding';
 import { BULK_IDENTIFY_REF, BULKABLE, getRun } from './evaluate';
-import { isInternalNextError } from './is-internal-next-error';
 import { getPrecomputed } from './precompute';
 import type { Flag, PagesRouterFlag, PrecomputedFlag } from './types';
 
@@ -164,7 +164,7 @@ export function flag<
     {
       name: 'flag',
       isVerboseTrace: false,
-      isIgnoredError: isInternalNextError,
+      isIgnoredError: isFrameworkSignal,
       attributes: { key: definition.key },
     },
   ) as Flag<ValueType, EntitiesType>;
@@ -178,20 +178,20 @@ export function flag<
     ? trace(identify, {
         isVerboseTrace: false,
         name: 'identify',
-        isIgnoredError: isInternalNextError,
+        isIgnoredError: isFrameworkSignal,
         attributes: { key: definition.key },
       })
     : identify;
   api.decide = trace(decide, {
     isVerboseTrace: false,
     name: 'decide',
-    isIgnoredError: isInternalNextError,
+    isIgnoredError: isFrameworkSignal,
     attributes: { key: definition.key },
   });
   api.run = trace(run, {
     isVerboseTrace: false,
     name: 'run',
-    isIgnoredError: isInternalNextError,
+    isIgnoredError: isFrameworkSignal,
     attributes: { key: definition.key },
   });
   api.adapter = adapter;
