@@ -1,5 +1,17 @@
 # @vercel/flags
 
+## 4.5.3
+
+### Patch Changes
+
+- [#645](https://github.com/vercel/flags/pull/645) [`7905c9b`](https://github.com/vercel/flags/commit/7905c9b91ffb01cf897806180d61a5871cc962fe) Thanks [@dferber90](https://github.com/dferber90)! - Recheck the expiration of cached encrypted flag overrides on every use, and include the active secret in the cache identity so tokens stop working after expiration or secret rotation.
+
+## 4.5.2
+
+### Patch Changes
+
+- [#631](https://github.com/vercel/flags/pull/631) [`a9261aa`](https://github.com/vercel/flags/commit/a9261aa810297a8ca18b58722530b3ea57fcdabb) Thanks [@dferber90](https://github.com/dferber90)! - `flags/next`: a flag inside a cache scope, e.g. `"use cache"` or `unstable_cache()`, now fails with a clear error: "A flag can not be evaluated inside a cache scope … Evaluate the flag outside of the cached function, and pass the value in as an argument." The error of Next.js is its `cause`. Before, it failed with the error of `headers()`. The SDK also uses `unstable_rethrow` of Next.js to recognize the internal errors of Next.js, e.g. of `redirect()`, which it must throw again. The peer dependency on `next` is now `>=15.0.0`, the first version with `unstable_rethrow`. Next.js 14 is out of support.
+
 ## 4.5.1
 
 ### Patch Changes

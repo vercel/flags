@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@flags-sdk/posthog": "^1.1.0",
-    "flags": "npm:flags@^4.5.1",
+    "flags": "npm:flags@^4.5.3",
     "next": "16.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
