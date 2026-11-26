@@ -291,8 +291,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: npm:flags@^4.5.1
-        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: npm:flags@^4.5.3
+        version: 4.5.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -325,8 +325,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: npm:flags@^4.5.1
-        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: npm:flags@^4.5.3
+        version: 4.5.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -359,8 +359,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: npm:flags@^4.5.1
-        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: npm:flags@^4.5.3
+        version: 4.5.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -396,8 +396,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: npm:flags@^4.5.1
-        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: npm:flags@^4.5.3
+        version: 4.5.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -430,8 +430,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: npm:flags@^4.5.1
-        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: npm:flags@^4.5.3
+        version: 4.5.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -464,8 +464,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: npm:flags@^4.5.1
-        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: npm:flags@^4.5.3
+        version: 4.5.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -498,8 +498,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: npm:flags@^4.5.1
-        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: npm:flags@^4.5.3
+        version: 4.5.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -532,8 +532,8 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(051deb9dbb35ee0c7300c159056f036a)
       flags:
-        specifier: npm:flags@^4.5.1
-        version: 4.5.1(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: npm:flags@^4.5.3
+        version: 4.5.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 16.4.6
         version: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -7020,6 +7020,23 @@ packages:
     peerDependencies:
       '@opentelemetry/api': ^1.7.0
       next: '*'
+      react: '*'
+      react-dom: '*'
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      next:
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
+  flags@4.5.3:
+    resolution: {integrity: sha512-/02qgXevOp5v9Ttklhd+azdCpVPPlMsb2no3jP2/ANTl0OVW59Buqobjv82z6wIHqDNjUdK2V5vAyAxsRI9u9g==}
+    peerDependencies:
+      '@opentelemetry/api': ^1.7.0
+      next: '>=15.0.0'
       react: '*'
       react-dom: '*'
     peerDependenciesMeta:
@@ -16197,6 +16214,16 @@ snapshots:
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       next: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+
+  flags@4.5.3(@opentelemetry/api@1.9.0)(next@16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      '@edge-runtime/cookies': 5.0.2
+      jose: 5.10.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      next: 16.4.6(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@22.14.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
