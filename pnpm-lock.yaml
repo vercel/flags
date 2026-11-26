@@ -125,8 +125,8 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@sveltejs/kit@2.70.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.72.0))(vite@8.1.7(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.72.0))(typescript@5.9.3)(vite@8.1.7(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(next@16.4.3(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.56.7(@typescript-eslint/types@8.72.0))
       '@vercel/geistdocs':
-        specifier: 3.0.4
-        version: 3.0.4(99e9f80000528005d7fbd14fd99f1591)
+        specifier: 3.0.5
+        version: 3.0.5(99e9f80000528005d7fbd14fd99f1591)
       '@vercel/speed-insights':
         specifier: ^1.3.1
         version: 1.3.1(@sveltejs/kit@2.70.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.7(@typescript-eslint/types@8.72.0))(vite@8.1.7(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(svelte@5.56.7(@typescript-eslint/types@8.72.0))(typescript@5.9.3)(vite@8.1.7(@types/node@24.10.13)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(next@16.4.3(@opentelemetry/api@1.9.0)(@playwright/test@1.65.1)(@types/node@24.10.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(svelte@5.56.7(@typescript-eslint/types@8.72.0))
@@ -5831,8 +5831,8 @@ packages:
       '@aws-sdk/credential-provider-web-identity':
         optional: true
 
-  '@vercel/geistdocs@3.0.4':
-    resolution: {integrity: sha512-bFaG3yFvbOlEuRNjtiJpiazo/m7ZArBmOVmPDe4i5UPPyq1T5Nal4A2pDrwvaTd0j85NbhAdRi/uyK3h5ZJMcw==}
+  '@vercel/geistdocs@3.0.5':
+    resolution: {integrity: sha512-7FQDiKEZkcBhPzTf/t1sPxJ/6cb4vagL9thzXuQiIsBBax0N6YVyISBBE4VjermnBYiTl/w987UD/QFvDkWI7g==}
     hasBin: true
     peerDependencies:
       mermaid: ^11.16.1
@@ -14632,7 +14632,7 @@ snapshots:
     dependencies:
       '@vercel/oidc': 3.2.0
 
-  '@vercel/geistdocs@3.0.4(99e9f80000528005d7fbd14fd99f1591)':
+  '@vercel/geistdocs@3.0.5(99e9f80000528005d7fbd14fd99f1591)':
     dependencies:
       '@ai-sdk/react': 3.0.208(react@19.2.4)(zod@4.6.7)
       '@clack/prompts': 0.11.0
