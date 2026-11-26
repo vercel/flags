@@ -1,15 +1,45 @@
-import { decryptOverrides } from '..';
-import { memoizeOne } from '../lib/async-memoize-one';
+import { decryptOverridesWithExpiry } from '../lib/crypto';
 import {
   isFlagOverridesFromPlatform,
   verifyFlagOverridesFromPlatform,
 } from '../lib/flag-overrides-platform';
 
-const memoizedDecrypt = memoizeOne(
-  (text: string) => decryptOverrides(text),
-  (a, b) => a[0] === b[0], // only the first argument gets compared
-  { cachePromiseRejection: true },
-);
+/**
+ * The last decrypted override token. Many flags of one request read the same
+ * cookie, so it is decrypted one time. The entry keeps the expiry of the
+ * token, which is checked on each use: an expired token must not override a
+ * flag, also when it is still in the cache. The secret is part of the key,
+ * so that a rotated secret does not accept an old token.
+ */
+let cache:
+  | {
+      readonly cookie: string;
+      readonly secret: string;
+      readonly result: ReturnType<typeof decryptOverridesWithExpiry>;
+    }
+  | undefined;
+
+async function decryptCached(cookie: string, secret: string) {
+  if (!cache || cache.cookie !== cookie || cache.secret !== secret) {
+    cache = {
+      cookie,
+      secret,
+      result: decryptOverridesWithExpiry(cookie, secret),
+    };
+  }
+  const entry = cache;
+  const decrypted = await entry.result;
+  if (!decrypted) {
+    return undefined;
+  }
+  if (Date.now() >= decrypted.expiresAt) {
+    if (cache === entry) {
+      cache = undefined;
+    }
+    return undefined;
+  }
+  return decrypted.overrides;
+}
 
 export async function getOverrides(cookie: string | undefined) {
   if (typeof cookie !== 'string' || cookie === '') {
@@ -21,8 +51,9 @@ export async function getOverrides(cookie: string | undefined) {
   }
   // Without a secret, the host can not read the cookie, e.g. an encrypted
   // cookie which is still in the browser after the secret was removed
-  if (!process.env.FLAGS_SECRET) {
+  const secret = process.env.FLAGS_SECRET;
+  if (!secret) {
     return null;
   }
-  return (await memoizedDecrypt(cookie)) ?? null;
+  return (await decryptCached(cookie, secret)) ?? null;
 }
