@@ -96,4 +96,28 @@ describe('createHandle', () => {
 
     expect(response.status).toBe(401);
   });
+
+  it('gives the flags the request of the hook, without getRequestEvent', async () => {
+    const host = flag<string>({
+      key: 'host',
+      decide: ({ headers }) => headers.get('host') ?? 'none',
+    });
+    let value: string | undefined;
+
+    await render(
+      'https://shop.example/',
+      async () => {
+        getRequestEvent.mockImplementation(() => {
+          throw new Error('getRequestEvent must not be called');
+        });
+        // Also in work which the page starts later
+        value = await new Promise((resolve) =>
+          setTimeout(() => resolve(host()), 0),
+        );
+      },
+      { host: 'shop.example' },
+    );
+
+    expect(value).toBe('shop.example');
+  });
 });

@@ -16,6 +16,7 @@ import {
   verifyAccess,
   version,
 } from 'flags';
+import { runtime } from 'flags/runtime';
 import { loadSvelteKitEnv } from './binding';
 
 /**
@@ -35,6 +36,8 @@ async function secretOf(
  * The handle hook of the Flags SDK for SvelteKit. A flag gets the current
  * request from SvelteKit itself, so the hook is optional. It adds:
  *
+ * - the request of the hook for the runtime of the SDK (`runtime.onInvoke`),
+ *   so that a flag does not need `getRequestEvent()`;
  * - the values of the flags which a page evaluated, encrypted, at the end
  *   of the HTML, so that they show up in the Vercel Toolbar;
  * - with `flags`, the endpoint `/.well-known/vercel/flags`, which Flags
@@ -78,30 +81,33 @@ export function createHandle({
       });
     }
 
-    return resolve(event, {
-      transformPageChunk: async ({ html }) => {
-        // SvelteKit renders the response outside of getRequestEvent(), so
-        // the request of the event identifies it
-        const values = await getEvaluatedFlagValues(event.request);
-        if (Object.keys(values).length === 0) {
-          return html;
-        }
-        // The values of the flags which the page used, for the Vercel
-        // Toolbar. The client is never aware of them.
-        const encrypted = await encryptFlagValues(
-          values as FlagValuesType,
-          await secretOf(secret),
-        ).catch(() => '');
-        // Empty without a secret and without the public key of Vercel
-        if (!encrypted) {
-          return html;
-        }
-        return html.replace(
-          '</body>',
-          `<script type="application/json" data-flag-values>${safeJsonStringify(encrypted)}</script></body>`,
-        );
-      },
-    });
+    // The flags which the request evaluates get its state from the runtime
+    return runtime.onInvoke(event.request, () =>
+      resolve(event, {
+        transformPageChunk: async ({ html }) => {
+          // SvelteKit renders the response outside of getRequestEvent(), so
+          // the request of the event identifies it
+          const values = await getEvaluatedFlagValues(event.request);
+          if (Object.keys(values).length === 0) {
+            return html;
+          }
+          // The values of the flags which the page used, for the Vercel
+          // Toolbar. The client is never aware of them.
+          const encrypted = await encryptFlagValues(
+            values as FlagValuesType,
+            await secretOf(secret),
+          ).catch(() => '');
+          // Empty without a secret and without the public key of Vercel
+          if (!encrypted) {
+            return html;
+          }
+          return html.replace(
+            '</body>',
+            `<script type="application/json" data-flag-values>${safeJsonStringify(encrypted)}</script></body>`,
+          );
+        },
+      }),
+    );
   };
 }
 
