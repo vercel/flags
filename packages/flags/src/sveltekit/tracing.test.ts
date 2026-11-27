@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import type { TracerProvider } from '@opentelemetry/api';
 import { error, isHttpError, isRedirect, redirect } from '@sveltejs/kit';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
-import { encryptOverrides } from '..';
+import { encryptOverrides, setLoggerProvider } from '..';
 import { setTracerProvider } from '../lib/tracing';
 import { createHandle, flag, precompute } from '.';
 
@@ -16,6 +16,7 @@ interface RecordedSpan {
 }
 
 const traceSymbol = Symbol.for('flags:global-trace');
+const loggerSymbol = Symbol.for('flags:global-logger');
 
 /**
  * Installs a recording tracer provider for the current test and restores the
@@ -56,6 +57,25 @@ function recordSpans(): RecordedSpan[] {
   return spans;
 }
 
+function recordEvents() {
+  const previous = Reflect.get(globalThis, loggerSymbol);
+  onTestFinished(() => {
+    if (previous === undefined) {
+      Reflect.deleteProperty(globalThis, loggerSymbol);
+    } else {
+      Reflect.set(globalThis, loggerSymbol, previous);
+    }
+  });
+  const events: { eventName?: string; attributes?: Record<string, unknown> }[] =
+    [];
+  setLoggerProvider({
+    getLogger: () => ({
+      emit: (event: (typeof events)[number]) => events.push(event),
+    }),
+  } as any);
+  return events;
+}
+
 /**
  * Span bookkeeping for a rejected promise runs on a detached `.then().catch()`
  * chain, one tick after the caller sees the rejection.
@@ -82,6 +102,39 @@ async function inHandle<T>(request: Request, fn: () => Promise<T>): Promise<T> {
 }
 
 describe('tracing', () => {
+  it('logs a result and failure without a tracer', async () => {
+    const a = flag<string>({
+      key: 'a',
+      options: [{ value: 'on', label: 'Enabled' }],
+      decide: () => 'on',
+    });
+    const bad = flag<string>({
+      key: 'bad',
+      decide: () => {
+        throw new Error('boom');
+      },
+    });
+    const events = recordEvents();
+
+    await expect(a(new Request('https://example.com'), secret)).resolves.toBe(
+      'on',
+    );
+    await expect(
+      bad(new Request('https://example.com'), secret),
+    ).rejects.toThrow('boom');
+
+    expect(events.map((event) => [event.eventName, event.attributes])).toEqual([
+      [
+        'feature_flag.evaluation',
+        { 'feature_flag.key': 'a', 'feature_flag.result.variant': 'Enabled' },
+      ],
+      [
+        'feature_flag.evaluation',
+        { 'feature_flag.key': 'bad', 'error.type': 'general' },
+      ],
+    ]);
+  });
+
   it('emits one flag span with key and method decided', async () => {
     const identify = vi.fn(() => ({ user: 'u' }));
     const a = flag<string>({ key: 'a', identify, decide: () => 'A' });

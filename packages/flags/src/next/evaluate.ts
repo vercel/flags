@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
+import { emitFlagEvaluation, emitFlagEvaluationError } from '../lib/logging';
 import { internalReportValue, reportValue } from '../lib/report-value';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import {
@@ -661,17 +662,28 @@ async function evaluateImpl(
 
               await Promise.all(
                 list.map(async ({ name, flagFn }) => {
-                  valuesByName[name] = await applyResult({
-                    definition: flagFn,
-                    readonlyHeaders,
-                    entitiesKey,
-                    entities,
-                    overrides,
-                    produce: () => {
-                      if (bulkError) throw bulkError;
-                      return bulkResult![flagFn.key];
-                    },
-                  });
+                  try {
+                    const value = await applyResult({
+                      definition: flagFn,
+                      readonlyHeaders,
+                      entitiesKey,
+                      entities,
+                      overrides,
+                      produce: () => {
+                        if (bulkError) throw bulkError;
+                        return bulkResult![flagFn.key];
+                      },
+                    });
+                    valuesByName[name] = value;
+                    emitFlagEvaluation(flagFn.key, flagFn.options, value);
+                  } catch (error) {
+                    emitFlagEvaluationError(
+                      flagFn.key,
+                      error,
+                      isFrameworkSignal,
+                    );
+                    throw error;
+                  }
                 }),
               );
 

@@ -84,6 +84,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
+    "@opentelemetry/api-logs": "0.223.0",
     "@types/node": "22.14.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
@@ -98,12 +99,16 @@
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.7.0",
+    "@opentelemetry/api-logs": ">=0.203.0 <0.300.0",
     "next": ">=15.0.0",
     "react": "*",
     "react-dom": "*"
   },
   "peerDependenciesMeta": {
     "@opentelemetry/api": {
+      "optional": true
+    },
+    "@opentelemetry/api-logs": {
       "optional": true
     },
     "next": {

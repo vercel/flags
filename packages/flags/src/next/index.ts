@@ -1,3 +1,4 @@
+import { logFlagEvaluation } from '../lib/logging';
 import { getOptionLabel, normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import type {
@@ -120,48 +121,52 @@ export function flag<
   const options = normalizeOptions<ValueType>(definition.options);
 
   const api = trace(
-    async (...args: any[]) => {
-      // Default method, may be overwritten by `getPrecomputed` or `run`
-      // which is why we must not trace them directly in here,
-      // as the attribute should be part of the `flag` function.
-      setSpanAttribute('method', 'decided');
+    logFlagEvaluation(
+      async (...args: any[]) => {
+        // Default method, may be overwritten by `getPrecomputed` or `run`
+        // which is why we must not trace them directly in here,
+        // as the attribute should be part of the `flag` function.
+        setSpanAttribute('method', 'decided');
 
-      // the flag was precomputed, works for both App Router and Pages Router
-      if (typeof args[0] === 'string' && Array.isArray(args[1])) {
-        const [precomputedCode, precomputedGroup, secret] = args as Parameters<
-          PrecomputedFlag<ValueType, EntitiesType>
-        >;
-        if (precomputedCode && precomputedGroup) {
-          setSpanAttribute('method', 'precomputed');
-          const value = await getPrecomputed(
-            api,
-            precomputedGroup,
-            precomputedCode,
-            secret,
-          );
-          if (value === undefined) return definition.defaultValue!;
-          return value;
+        // the flag was precomputed, works for both App Router and Pages Router
+        if (typeof args[0] === 'string' && Array.isArray(args[1])) {
+          const [precomputedCode, precomputedGroup, secret] =
+            args as Parameters<PrecomputedFlag<ValueType, EntitiesType>>;
+          if (precomputedCode && precomputedGroup) {
+            setSpanAttribute('method', 'precomputed');
+            const value = await getPrecomputed(
+              api,
+              precomputedGroup,
+              precomputedCode,
+              secret,
+            );
+            if (value === undefined) return definition.defaultValue!;
+            return value;
+          }
         }
-      }
 
-      // check if we're being called with a request (Pages Router
-      // IncomingMessage, or a NextRequest / Web Request from routing
-      // middleware)
-      //
-      // ideally we'd check args[0] instanceof IncomingMessage, but that leads
-      // to build time errors in the host application due to Edge Runtime,
-      // so we check for headers on the first arg instead, which indicates a
-      // request object
-      if (args[0] && typeof args[0] === 'object' && 'headers' in args[0]) {
-        const [request] = args as Parameters<
-          PagesRouterFlag<ValueType, EntitiesType>
-        >;
-        return run({ identify, request });
-      }
+        // check if we're being called with a request (Pages Router
+        // IncomingMessage, or a NextRequest / Web Request from routing
+        // middleware)
+        //
+        // ideally we'd check args[0] instanceof IncomingMessage, but that leads
+        // to build time errors in the host application due to Edge Runtime,
+        // so we check for headers on the first arg instead, which indicates a
+        // request object
+        if (args[0] && typeof args[0] === 'object' && 'headers' in args[0]) {
+          const [request] = args as Parameters<
+            PagesRouterFlag<ValueType, EntitiesType>
+          >;
+          return run({ identify, request });
+        }
 
-      // the flag is being used in app router
-      return run({ identify, request: undefined });
-    },
+        // the flag is being used in app router
+        return run({ identify, request: undefined });
+      },
+      definition.key,
+      options,
+      isFrameworkSignal,
+    ),
     {
       name: 'flag',
       isVerboseTrace: false,
