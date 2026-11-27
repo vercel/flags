@@ -1,9 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingHttpHeaders } from 'node:http';
 import { RequestCookies } from '@edge-runtime/cookies';
-import { emitFlagEvaluation, emitFlagEvaluationError } from '../lib/logging';
+import { logEvaluation, setEvaluationError } from '../lib/logging';
 import { internalReportValue, reportValue } from '../lib/report-value';
-import { setSpanAttribute, trace } from '../lib/tracing';
+import { setSpanAttribute, setSpanError, trace } from '../lib/tracing';
 import {
   HeadersAdapter,
   type ReadonlyHeaders,
@@ -316,7 +316,10 @@ async function applyResult<ValueType>(args: {
   >(
     (value) => {
       if (value !== undefined) return value;
-      if (definition.defaultValue !== undefined) return definition.defaultValue;
+      if (definition.defaultValue !== undefined) {
+        setSpanAttribute('method', 'fallback');
+        return definition.defaultValue;
+      }
       throw new Error(
         `flags: Flag "${definition.key}" must have a defaultValue or a decide function that returns a value`,
       );
@@ -326,6 +329,10 @@ async function applyResult<ValueType>(args: {
 
       // try to recover if defaultValue is set
       if (definition.defaultValue !== undefined) {
+        setSpanAttribute('method', 'fallback');
+        setSpanAttribute('error.type', 'general');
+        setSpanError(error);
+        setEvaluationError();
         if (process.env.NODE_ENV === 'development') {
           console.info(
             `flags: Flag "${definition.key}" is falling back to its defaultValue`,
@@ -662,28 +669,23 @@ async function evaluateImpl(
 
               await Promise.all(
                 list.map(async ({ name, flagFn }) => {
-                  try {
-                    const value = await applyResult({
-                      definition: flagFn,
-                      readonlyHeaders,
-                      entitiesKey,
-                      entities,
-                      overrides,
-                      produce: () => {
-                        if (bulkError) throw bulkError;
-                        return bulkResult![flagFn.key];
-                      },
-                    });
-                    valuesByName[name] = value;
-                    emitFlagEvaluation(flagFn.key, flagFn.options, value);
-                  } catch (error) {
-                    emitFlagEvaluationError(
-                      flagFn.key,
-                      error,
-                      isFrameworkSignal,
-                    );
-                    throw error;
-                  }
+                  valuesByName[name] = await logEvaluation(
+                    flagFn.key,
+                    flagFn.options,
+                    isFrameworkSignal,
+                    () =>
+                      applyResult({
+                        definition: flagFn,
+                        readonlyHeaders,
+                        entitiesKey,
+                        entities,
+                        overrides,
+                        produce: () => {
+                          if (bulkError) throw bulkError;
+                          return bulkResult![flagFn.key];
+                        },
+                      }),
+                  );
                 }),
               );
 
