@@ -165,7 +165,7 @@ export const sharedFeature = flag({
 
 The adapter uses your project's OIDC token. Keep `vercelAdapter` for flags owned by your project. For local development, run `vercel env pull` in your project.
 
-Set up the connection before your app evaluates the connected flags. Check it with `vercel flags connections list --project <source>`. If the client's first request is rejected with 401 because access is missing, it does not retry and serves `defaultValue` until the process restarts. If a connected flag only returns its default value, verify the connection, then restart your dev server or redeploy.
+Set up the connection before your app evaluates the connected flags. Check it with `vercel flags connections list --project <source>`. If access is missing, a read rejected with 401 returns `defaultValue`; the next evaluation after access is granted returns the real value. If a connected flag only returns its default value, verify the connection instead of restarting or redeploying.
 
 Connections grant read access across environments. Your deployment's token selects the source environment: production reads production, preview reads preview, and local development reads development. Custom environments use preview. The `projectId` option cannot be combined with an SDK key.
 
