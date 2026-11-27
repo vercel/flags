@@ -136,6 +136,58 @@ const banner = await showBanner(code, marketingFlags);
 const codes = await generatePermutations(marketingFlags);
 ```
 
+### The `'use flags'` directive
+
+A module which starts with `'use flags'` is a flags module: each of its exports is a flag.
+
+```ts
+// flags.ts
+'use flags';
+
+import { flag } from 'flags';
+
+export const showBanner = flag<boolean>({
+  key: 'show-banner',
+  description: 'Shows the banner on the home page',
+  defaultValue: false,
+  options: [false, true],
+  decide: () => false,
+});
+```
+
+The build plugins find the flags modules of the project, and make the manifest of the flags from their exports, e.g. for Flags Explorer:
+
+- In development, the manifest is at `/.well-known/flags/manifest.json`.
+- After a build, the manifest is the file `flags-manifest.json`: in `distDir` for Next.js (`.next/flags-manifest.json`), and in the server output for SvelteKit (`.svelte-kit/output/server/flags-manifest.json`). In production, there is no public endpoint.
+
+Rules:
+
+- A flags module exports only flags. Put other values, e.g. a list of flags for `precompute`, into a different module. Otherwise the manifest fails with an error.
+- Importing a flags module must have no side effects, e.g. no network connections, because the plugins import it to read the exports.
+- The directive must be at the start of the module. Comments can come before it.
+- Two exports with the same key must declare the same flag.
+
+The manifest reads only the exports, and evaluates no flag:
+
+```json
+{
+  "version": 1,
+  "sources": {},
+  "definitions": {
+    "show-banner": {
+      "type": "boolean",
+      "options": [{ "value": false }, { "value": true }],
+      "defaultValue": false,
+      "description": "Shows the banner on the home page",
+      "declaredInCode": true,
+      "declarations": [{ "module": "flags.ts", "export": "showBanner" }]
+    }
+  }
+}
+```
+
+The `type` comes from `defaultValue`, or from `options` when all options have the same type. Without them, the manifest has no `type` for the flag. `sources` is empty for now.
+
 ## `FLAGS_SECRET` (optional)
 
 On Vercel, the SDK works without a `FLAGS_SECRET`. Flags Explorer overrides and the flags discovery endpoint use tokens that Vercel signs, `encryptFlagValues` encrypts flag values with the public key of Vercel, and precompute signs its codes with a key that Vercel provides for each deployment. For local development, run `vercel env pull` so the SDK can identify your project. On Vercel, your project must expose the [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables).
@@ -200,6 +252,8 @@ export const binding: FrameworkBinding = {
   },
 };
 ```
+
+The manifest of the flags is a public contract too. `flags/tooling` has `hasUseFlagsDirective`, `findFlagsModules` and `writeManifestFromBuild`, and `flags/manifest` has `createManifest` and `validateFlagsManifest`. A build plugin finds the flags modules, imports them with the bundler of the framework, and gives their exports to `createManifest`.
 
 ## Documentation
 
