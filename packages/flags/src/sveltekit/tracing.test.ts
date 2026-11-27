@@ -95,7 +95,7 @@ describe('tracing', () => {
     expect(identify).toHaveBeenCalledTimes(1);
     expect(spans.map((s) => s.name)).toEqual(['flag', 'flag']);
     expect(spans[0]).toMatchObject({
-      attributes: { key: 'a', method: 'decided' },
+      attributes: { key: 'a', 'feature_flag.key': 'a', method: 'decided' },
       status: { code: 1 },
       ended: true,
     });
@@ -103,7 +103,11 @@ describe('tracing', () => {
 
   it('records cached on the second call in the same request', async () => {
     const decide = vi.fn(() => 'A');
-    const a = flag<string>({ key: 'a', decide });
+    const a = flag<string>({
+      key: 'a',
+      options: [{ value: 'A', label: 'Variant A' }],
+      decide,
+    });
     const spans = recordSpans();
     const request = new Request('https://example.com');
 
@@ -115,10 +119,17 @@ describe('tracing', () => {
       'decided',
       'cached',
     ]);
+    expect(
+      spans.map((s) => s.attributes['feature_flag.result.variant']),
+    ).toEqual(['Variant A', 'Variant A']);
   });
 
   it('records override', async () => {
-    const a = flag<string>({ key: 'a', decide: () => 'A' });
+    const a = flag<string>({
+      key: 'a',
+      options: [{ value: 'forced', label: 'Forced' }],
+      decide: () => 'A',
+    });
     const override = await encryptOverrides({ a: 'forced' }, secret);
     const spans = recordSpans();
     const request = new Request('https://example.com', {
@@ -128,12 +139,50 @@ describe('tracing', () => {
     await expect(a(request, secret)).resolves.toBe('forced');
     expect(spans[0]!.attributes).toMatchObject({
       key: 'a',
+      'feature_flag.key': 'a',
+      'feature_flag.result.variant': 'Forced',
       method: 'override',
     });
   });
 
+  it('records a variant only for a unique labeled primitive option', async () => {
+    const labeled = flag<string>({
+      key: 'labeled',
+      options: [{ value: 'on', label: 'Enabled' }],
+      decide: () => 'on',
+    });
+    const unlabeled = flag<string>({
+      key: 'unlabeled',
+      options: ['on'],
+      decide: () => 'on',
+    });
+    const object = flag<{ enabled: boolean }>({
+      key: 'object',
+      options: [{ value: { enabled: true }, label: 'Enabled' }],
+      decide: () => ({ enabled: true }),
+    });
+    const spans = recordSpans();
+
+    await labeled(new Request('https://example.com'), secret);
+    await unlabeled(new Request('https://example.com'), secret);
+    await object(new Request('https://example.com'), secret);
+
+    expect(
+      spans.map((span) => span.attributes['feature_flag.result.variant']),
+    ).toEqual(['Enabled', undefined, undefined]);
+    expect(
+      spans.every(
+        (span) => !Object.hasOwn(span.attributes, 'feature_flag.result.value'),
+      ),
+    ).toBe(true);
+  });
+
   it('precompute emits evaluate with flagCount and precomputed reads', async () => {
-    const a = flag<boolean>({ key: 'a', decide: () => true });
+    const a = flag<boolean>({
+      key: 'a',
+      options: [{ value: true, label: 'Enabled' }],
+      decide: () => true,
+    });
     const request = new Request('https://example.com');
     const spans = recordSpans();
 
@@ -149,6 +198,15 @@ describe('tracing', () => {
       ['flag', 'precomputed'],
     ]);
     expect(spans[0]!.attributes.flagCount).toBe(1);
+    expect(spans[0]!.attributes).not.toHaveProperty('feature_flag.key');
+    expect(spans[0]!.attributes).not.toHaveProperty(
+      'feature_flag.result.variant',
+    );
+    expect(
+      spans
+        .slice(1)
+        .map((span) => span.attributes['feature_flag.result.variant']),
+    ).toEqual(['Enabled', 'Enabled']);
   });
 
   it('keeps redirect() spans Ok and propagates it', async () => {
@@ -247,7 +305,10 @@ describe('tracing', () => {
     await spansSettled();
 
     expect(spans[0]!.status).toMatchObject({ code: 2 });
-    expect(spans[0]!.attributes).toEqual({ key: 'a' });
+    expect(spans[0]!.attributes).toEqual({
+      key: 'a',
+      'feature_flag.key': 'a',
+    });
   });
 
   it('precompute keeps evaluate Ok when a flag redirects', async () => {
@@ -347,7 +408,10 @@ describe('tracing', () => {
     await spansSettled();
 
     expect(spans[0]!.status).toMatchObject({ code: 2 });
-    expect(spans[0]!.attributes).toEqual({ key: 'a' });
+    expect(spans[0]!.attributes).toEqual({
+      key: 'a',
+      'feature_flag.key': 'a',
+    });
   });
 
   it('stamps precomputed before a bad code rejects', async () => {

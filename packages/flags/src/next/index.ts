@@ -1,4 +1,4 @@
-import { normalizeOptions } from '../lib/normalize-options';
+import { getOptionLabel, normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import type {
   Decide,
@@ -117,6 +117,7 @@ export function flag<
   const identify = getIdentify<ValueType, EntitiesType>(resolvedDefinition);
   const run = getRun<ValueType, EntitiesType>(resolvedDefinition, decide);
   const origin = getOrigin(resolvedDefinition);
+  const options = normalizeOptions<ValueType>(definition.options);
 
   const api = trace(
     async (...args: any[]) => {
@@ -165,14 +166,18 @@ export function flag<
       name: 'flag',
       isVerboseTrace: false,
       isIgnoredError: isFrameworkSignal,
-      attributes: { key: definition.key },
+      attributes: { key: definition.key, 'feature_flag.key': definition.key },
+      attributesSuccess: (value) => {
+        const label = getOptionLabel(options, value);
+        return label ? { 'feature_flag.result.variant': label } : {};
+      },
     },
   ) as Flag<ValueType, EntitiesType>;
 
   api.key = definition.key;
   api.defaultValue = definition.defaultValue;
   api.origin = origin;
-  api.options = normalizeOptions<ValueType>(definition.options);
+  api.options = options;
   api.description = definition.description;
   api.identify = identify
     ? trace(identify, {

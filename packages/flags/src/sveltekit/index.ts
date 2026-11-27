@@ -25,7 +25,7 @@ import {
   verifyFlagOverridesFromPlatform,
 } from '../lib/flag-overrides-platform';
 import { warnFlagValuesLeftOut } from '../lib/flag-values-platform';
-import { normalizeOptions } from '../lib/normalize-options';
+import { getOptionLabel, normalizeOptions } from '../lib/normalize-options';
 import { setSpanAttribute, trace } from '../lib/tracing';
 import type {
   Decide,
@@ -129,6 +129,7 @@ export function flag<
 
   const decide = getDecide<ValueType, EntitiesType>(resolvedDefinition);
   const identify = getIdentify(resolvedDefinition);
+  const options = normalizeOptions(definition.options);
 
   const flagImpl = async function flagImpl(
     requestOrCode?: string | Request,
@@ -226,7 +227,11 @@ export function flag<
     name: 'flag',
     isVerboseTrace: false,
     isIgnoredError: isFrameworkSignal,
-    attributes: { key: definition.key },
+    attributes: { key: definition.key, 'feature_flag.key': definition.key },
+    attributesSuccess: (value) => {
+      const label = getOptionLabel(options, value);
+      return label ? { 'feature_flag.result.variant': label } : {};
+    },
   });
 
   return Object.assign(api, {
@@ -234,7 +239,7 @@ export function flag<
     defaultValue: definition.defaultValue,
     origin: definition.origin,
     description: definition.description,
-    options: normalizeOptions(definition.options),
+    options,
     decide,
     identify,
   });

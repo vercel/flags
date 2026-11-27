@@ -1402,6 +1402,7 @@ describe('tracing', () => {
     const evaluateSpan = spans.find((s) => s.name === 'evaluate');
     expect(evaluateSpan).toBeDefined();
     expect(evaluateSpan!.attributes.flagCount).toBe(2);
+    expect(evaluateSpan!.attributes).not.toHaveProperty('feature_flag.key');
     expect(evaluateSpan!.ended).toBe(true);
 
     const batchSpans = spans.filter((s) => s.name === 'batch');
@@ -1414,6 +1415,10 @@ describe('tracing', () => {
       overrideCount: 0,
       decidedCount: 2,
     });
+    expect(batchSpan!.attributes).not.toHaveProperty('feature_flag.key');
+    expect(batchSpan!.attributes).not.toHaveProperty(
+      'feature_flag.result.variant',
+    );
     expect(typeof batchSpan!.attributes.adapterId).toBe('string');
     expect(batchSpan!.ended).toBe(true);
 
@@ -1424,7 +1429,11 @@ describe('tracing', () => {
   });
 
   it('keeps the per-flag `flag` span for standalone (non-bulkable) flags', async () => {
-    const a = flag<string>({ key: 'a', decide: () => 'inline' });
+    const a = flag<string>({
+      key: 'a',
+      options: [{ value: 'inline', label: 'Inline' }],
+      decide: () => 'inline',
+    });
 
     const spans = recordSpans();
     mocks.headers.mockReturnValueOnce(new Headers());
@@ -1433,7 +1442,11 @@ describe('tracing', () => {
     expect(spans.some((s) => s.name === 'evaluate')).toBe(true);
     expect(spans.some((s) => s.name === 'batch')).toBe(false);
     // standalone flags resolve via `flagFn()`, which still emits a `flag` span
-    expect(spans.some((s) => s.name === 'flag')).toBe(true);
+    expect(spans.find((s) => s.name === 'flag')?.attributes).toMatchObject({
+      key: 'a',
+      'feature_flag.key': 'a',
+      'feature_flag.result.variant': 'Inline',
+    });
   });
 
   it('counts overrides separately from decided flags on the batch span', async () => {
@@ -1478,13 +1491,121 @@ describe('tracing', () => {
     expect(flagSpan).toBeDefined();
     expect(flagSpan!.attributes).toMatchObject({
       key: 'my-flag',
+      'feature_flag.key': 'my-flag',
       method: 'decided',
     });
+    expect(flagSpan!.attributes).not.toHaveProperty(
+      'feature_flag.result.value',
+    );
     expect(flagSpan!.ended).toBe(true);
   });
 
+  it('records a variant only for a unique labeled primitive option', async () => {
+    const labeled = flag<string>({
+      key: 'labeled',
+      options: [{ value: 'on', label: 'Enabled' }],
+      decide: () => 'on',
+    });
+    const unlabeled = flag<string>({
+      key: 'unlabeled',
+      options: ['on'],
+      decide: () => 'on',
+    });
+    const unmatched = flag<string>({
+      key: 'unmatched',
+      options: [{ value: 'off', label: 'Disabled' }],
+      decide: () => 'on',
+    });
+    const falseValue = flag<boolean>({
+      key: 'false',
+      options: [{ value: false, label: 'Disabled' }],
+      decide: () => false,
+    });
+    const duplicate = flag<string>({
+      key: 'duplicate',
+      options: [
+        { value: 'on', label: 'Enabled' },
+        { value: 'on', label: 'Also enabled' },
+      ],
+      decide: () => 'on',
+    });
+    const object = flag<{ enabled: boolean }>({
+      key: 'object',
+      options: [{ value: { enabled: true }, label: 'Enabled' }],
+      decide: () => ({ enabled: true }),
+    });
+    const spans = recordSpans();
+
+    for (const f of [
+      labeled,
+      unlabeled,
+      unmatched,
+      falseValue,
+      duplicate,
+      object,
+    ]) {
+      mocks.headers.mockReturnValueOnce(new Headers());
+      await f();
+    }
+
+    expect(
+      spans
+        .filter((span) => span.name === 'flag')
+        .map((span) => span.attributes['feature_flag.result.variant']),
+    ).toEqual([
+      'Enabled',
+      undefined,
+      undefined,
+      'Disabled',
+      undefined,
+      undefined,
+    ]);
+    expect(
+      spans.every(
+        (span) => !Object.hasOwn(span.attributes, 'feature_flag.result.value'),
+      ),
+    ).toBe(true);
+  });
+
+  it('records a labeled default and no variant for a failed evaluation', async () => {
+    const fallback = flag<string>({
+      key: 'fallback',
+      defaultValue: 'off',
+      options: [{ value: 'off', label: 'Disabled' }],
+      decide: () => undefined as any,
+    });
+    const failure = flag<string>({
+      key: 'failure',
+      options: [{ value: 'on', label: 'Enabled' }],
+      decide: () => {
+        throw new Error('boom');
+      },
+    });
+    const spans = recordSpans();
+
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(fallback()).resolves.toBe('off');
+    mocks.headers.mockReturnValueOnce(new Headers());
+    await expect(failure()).rejects.toThrow('boom');
+
+    expect(spans[0]!.attributes['feature_flag.result.variant']).toBe(
+      'Disabled',
+    );
+    expect(spans[1]!.attributes).toMatchObject({
+      key: 'failure',
+      'feature_flag.key': 'failure',
+    });
+    expect(spans[1]!.attributes).not.toHaveProperty(
+      'feature_flag.result.variant',
+    );
+  });
+
   it('records method "override" on the flag span when an override is set', async () => {
-    const a = flag<string>({ key: 'my-flag', decide: () => 'value' });
+    const a = flag<string>({
+      key: 'my-flag',
+      options: [{ value: 'forced', label: 'Forced' }],
+      decide: () => 'value',
+    });
 
     const override = await encryptOverrides({ 'my-flag': 'forced' });
     const cookieMock = vi.fn((name: string) =>
@@ -1501,6 +1622,8 @@ describe('tracing', () => {
     const flagSpan = spans.find((s) => s.name === 'flag');
     expect(flagSpan!.attributes).toMatchObject({
       key: 'my-flag',
+      'feature_flag.key': 'my-flag',
+      'feature_flag.result.variant': 'Forced',
       method: 'override',
     });
   });
