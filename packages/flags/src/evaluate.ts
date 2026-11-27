@@ -1,24 +1,8 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-import type { IncomingHttpHeaders } from 'node:http';
-import { RequestCookies } from '@edge-runtime/cookies';
 import type { Flag, FlagRequest } from './flag-types';
-import {
-  type FrameworkRequest,
-  isFrameworkSignal,
-  loadFrameworkEnv,
-  requireFramework,
-} from './lib/framework';
-import { getOverrides } from './lib/overrides';
+import { isFrameworkSignal } from './lib/framework';
 import { internalReportValue, reportValue } from './lib/report-value';
 import { setSpanAttribute, trace } from './lib/tracing';
-import {
-  HeadersAdapter,
-  type ReadonlyHeaders,
-} from './spec-extension/adapters/headers';
-import {
-  type ReadonlyRequestCookies,
-  RequestCookiesAdapter,
-} from './spec-extension/adapters/request-cookies';
+import { type RequestScope, runtime } from './runtime';
 import type {
   Adapter,
   Decide,
@@ -39,13 +23,21 @@ import type {
 export const BULK_IDENTIFY_REF = Symbol('flags.bulkIdentifyRef');
 export const BULKABLE = Symbol('flags.bulkable');
 
-// a map of (headers, flagKey, entitiesKey) => value
-const evaluationCache = new WeakMap<
-  Headers | IncomingHttpHeaders,
-  Map</* flagKey */ string, Map</* entitiesKey */ string, any>>
->();
-
 const adapterInitializationCache = new WeakMap<object, Promise<void>>();
+
+/**
+ * The state of the request of a call: of the passed request, or else of the
+ * runtime. Only the headers of a passed request count: the cookies of a
+ * Pages Router request are a plain object, so the SDK reads the `Cookie`
+ * header.
+ */
+function scopeOf(request: { readonly headers: unknown } | undefined) {
+  return runtime.currentScope(
+    request
+      ? ({ headers: request.headers } as Parameters<typeof runtime.scopeOf>[0])
+      : undefined,
+  );
+}
 
 /**
  * The values of the flags which a request evaluated, by key. For framework
@@ -60,22 +52,7 @@ const adapterInitializationCache = new WeakMap<object, Promise<void>>();
 export async function getEvaluatedFlagValues(request?: {
   readonly headers: unknown;
 }): Promise<Record<string, unknown>> {
-  const headers = request?.headers ?? (await requireFramework().getHeaders());
-  const byKey = evaluationCache.get(headers as unknown as Headers);
-  if (!byKey) {
-    return {};
-  }
-  const entries = await Promise.all(
-    [...byKey].map(async ([key, byEntities]) => {
-      const first = byEntities.values().next().value;
-      try {
-        return [key, await first] as const;
-      } catch {
-        return undefined;
-      }
-    }),
-  );
-  return Object.fromEntries(entries.filter((entry) => entry !== undefined));
+  return (await scopeOf(request)).evaluatedValues();
 }
 
 async function ensureAdapterInitialized(
@@ -97,102 +74,6 @@ async function ensureAdapterInitialized(
   }
 }
 
-function getCachedValuePromise(
-  /**
-   * supports Headers for App Router and IncomingHttpHeaders for Pages Router
-   */
-  headers: Headers | IncomingHttpHeaders,
-  flagKey: string,
-  entitiesKey: string,
-): any {
-  return evaluationCache.get(headers)?.get(flagKey)?.get(entitiesKey);
-}
-
-function setCachedValuePromise(
-  /**
-   * supports Headers for App Router and IncomingHttpHeaders for Pages Router
-   */
-  headers: Headers | IncomingHttpHeaders,
-  flagKey: string,
-  entitiesKey: string,
-  flagValue: any,
-): any {
-  const byHeaders = evaluationCache.get(headers);
-
-  if (!byHeaders) {
-    evaluationCache.set(
-      headers,
-      new Map([[flagKey, new Map([[entitiesKey, flagValue]])]]),
-    );
-    return;
-  }
-
-  const byFlagKey = byHeaders.get(flagKey);
-  if (!byFlagKey) {
-    byHeaders.set(flagKey, new Map([[entitiesKey, flagValue]]));
-    return;
-  }
-
-  byFlagKey.set(entitiesKey, flagValue);
-}
-
-type IdentifyArgs = Parameters<
-  Exclude<FlagDeclaration<any, any>['identify'], undefined>
->;
-const transformMap = new WeakMap<IncomingHttpHeaders, Headers>();
-const headersMap = new WeakMap<Headers, ReadonlyHeaders>();
-const cookiesMap = new WeakMap<Headers, ReadonlyRequestCookies>();
-const identifyArgsMap = new WeakMap<
-  Headers | IncomingHttpHeaders,
-  IdentifyArgs
->();
-
-/**
- * Transforms IncomingHttpHeaders to Headers
- */
-function transformToHeaders(
-  incomingHeaders: IncomingHttpHeaders | Headers,
-): Headers {
-  if (incomingHeaders instanceof Headers) return incomingHeaders;
-
-  const cached = transformMap.get(incomingHeaders);
-  if (cached !== undefined) return cached;
-
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(incomingHeaders)) {
-    if (Array.isArray(value)) {
-      // If the value is an array, add each item separately
-      value.forEach((item) => {
-        headers.append(key, item);
-      });
-    } else if (value !== undefined) {
-      // If it's a single value, add it directly
-      headers.append(key, value);
-    }
-  }
-
-  transformMap.set(incomingHeaders, headers);
-  return headers;
-}
-
-function sealHeaders(headers: Headers): ReadonlyHeaders {
-  const cached = headersMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = HeadersAdapter.seal(headers);
-  headersMap.set(headers, sealed);
-  return sealed;
-}
-
-function sealCookies(headers: Headers): ReadonlyRequestCookies {
-  const cached = cookiesMap.get(headers);
-  if (cached !== undefined) return cached;
-
-  const sealed = RequestCookiesAdapter.seal(new RequestCookies(headers));
-  cookiesMap.set(headers, sealed);
-  return sealed;
-}
-
 function isIdentifyFunction<ValueType, EntitiesType>(
   identify: FlagDeclaration<ValueType, EntitiesType>['identify'] | EntitiesType,
 ): identify is FlagDeclaration<ValueType, EntitiesType>['identify'] {
@@ -201,55 +82,13 @@ function isIdentifyFunction<ValueType, EntitiesType>(
 
 async function getEntities<ValueType, EntitiesType>(
   identify: FlagDeclaration<ValueType, EntitiesType>['identify'] | EntitiesType,
-  dedupeCacheKey: Headers | IncomingHttpHeaders,
-  readonlyHeaders: ReadonlyHeaders,
-  readonlyCookies: ReadonlyRequestCookies,
+  scope: RequestScope,
 ): Promise<EntitiesType | undefined> {
   if (!identify) return undefined;
   if (!isIdentifyFunction(identify)) return identify;
-
-  const args = identifyArgsMap.get(dedupeCacheKey);
-  if (args) return identify(...(args as [FlagParamsType]));
-
-  const nextArgs: IdentifyArgs = [
-    { headers: readonlyHeaders, cookies: readonlyCookies },
-  ];
-  identifyArgsMap.set(dedupeCacheKey, nextArgs);
-  return identify(...(nextArgs as [FlagParamsType]));
+  // The same argument for each flag of the request
+  return identify(scope.identifyParams as FlagParamsType);
 }
-
-/**
- * Reads and decrypts the `vercel-flag-overrides` cookie. Returns `null` when
- * the cookie is absent or empty (skipping the decrypt microtask).
- */
-function readOverrides(
-  cookies: ReadonlyRequestCookies,
-): Promise<Record<string, any> | null> {
-  // skip microtask if cookie does not exist or is empty
-  const override = cookies.get('vercel-flag-overrides')?.value;
-  if (typeof override !== 'string' || override === '') {
-    return Promise.resolve(null);
-  }
-  // The secret can come from the environment of the framework
-  return loadFrameworkEnv().then(() => getOverrides(override));
-}
-
-/**
- * The cookies of a request of the framework: its own, or else the cookies
- * of its `Cookie` header.
- */
-function cookiesOf(request: FrameworkRequest): ReadonlyRequestCookies {
-  return request.cookies ?? sealCookies(request.headers as unknown as Headers);
-}
-
-interface BulkStoreData {
-  headers: ReadonlyHeaders;
-  cookies: ReadonlyRequestCookies;
-  dedupeCacheKey: Headers | IncomingHttpHeaders;
-  overrides: Record<string, any> | null;
-}
-
-const bulkStore = new AsyncLocalStorage<BulkStoreData>();
 
 /**
  * Subset of a flag declaration / flag function that `applyResult` reads.
@@ -286,46 +125,31 @@ function shouldReportValue(definition: FlagInfo<any>): boolean {
  *
  * Shared by `getRun` (single-flag path) and `evaluate()` (group path). Handles,
  * in order: cache hit → override → produce → defaultValue/error normalization
- * → cache write → reportValue. Override and cache writes write to the same
- * `evaluationCache` either path uses, so a subsequent `flagFn()` in the same
- * request hits cache regardless of which path populated it.
+ * → cache write → reportValue. Override and cache writes go to the state of
+ * the request (`RequestScope`) which both paths use, so a subsequent
+ * `flagFn()` in the same request hits cache regardless of which path
+ * populated it.
  */
 async function applyResult<ValueType>(args: {
   definition: FlagInfo<ValueType>;
-  readonlyHeaders: ReadonlyHeaders;
+  scope: RequestScope;
   entitiesKey: string;
   entities?: unknown;
-  overrides: Record<string, any> | null;
+  overrides: Record<string, unknown> | null;
   produce: () => ValueType | PromiseLike<ValueType>;
 }): Promise<ValueType> {
-  const {
-    definition,
-    readonlyHeaders,
-    entitiesKey,
-    entities,
-    overrides,
-    produce,
-  } = args;
+  const { definition, scope, entitiesKey, entities, overrides, produce } = args;
 
-  const cachedValue = getCachedValuePromise(
-    readonlyHeaders,
-    definition.key,
-    entitiesKey,
-  );
+  const cachedValue = scope.value(definition.key, entitiesKey);
   if (cachedValue !== undefined) {
     setSpanAttribute('method', 'cached');
-    return await cachedValue;
+    return (await cachedValue) as ValueType;
   }
 
   if (hasOverride(overrides, definition.key)) {
     setSpanAttribute('method', 'override');
     const decision = overrides[definition.key] as ValueType;
-    setCachedValuePromise(
-      readonlyHeaders,
-      definition.key,
-      entitiesKey,
-      Promise.resolve(decision),
-    );
+    scope.setValue(definition.key, entitiesKey, Promise.resolve(decision));
     internalReportValue(definition.key, decision, {
       reason: 'override',
     });
@@ -388,12 +212,7 @@ async function applyResult<ValueType>(args: {
     },
   );
 
-  setCachedValuePromise(
-    readonlyHeaders,
-    definition.key,
-    entitiesKey,
-    decisionPromise,
-  );
+  scope.setValue(definition.key, entitiesKey, decisionPromise);
 
   const decision = await decisionPromise;
 
@@ -426,56 +245,24 @@ export function getRun<ValueType, EntitiesType>(
 ): Run<ValueType, EntitiesType> {
   // use cache to guarantee flags only decide once per request
   return async function run(options): Promise<ValueType> {
-    let readonlyHeaders: ReadonlyHeaders;
-    let readonlyCookies: ReadonlyRequestCookies;
-    let dedupeCacheKey: Headers | IncomingHttpHeaders;
-
-    // Check if running inside evaluate() — reuse pre-read headers/cookies/overrides
-    const bulkData = bulkStore.getStore();
-
-    let overrides: Record<string, any> | null;
-
-    if (options.request) {
-      // pages router, or a NextRequest / Web Request (e.g. routing middleware)
-      const headers = transformToHeaders(options.request.headers);
-      readonlyHeaders = sealHeaders(headers);
-      readonlyCookies = sealCookies(headers);
-      dedupeCacheKey = options.request.headers;
-
-      overrides = await readOverrides(readonlyCookies);
-    } else if (bulkData) {
-      // app router — evaluate() mode, everything pre-read
-      readonlyHeaders = bulkData.headers;
-      readonlyCookies = bulkData.cookies;
-      dedupeCacheKey = bulkData.dedupeCacheKey;
-      overrides = bulkData.overrides;
-    } else {
-      // The framework gives the request, e.g. headers() and cookies() of
-      // next/headers in the App Router
-      const request = await requireFramework().getRequest();
-      readonlyHeaders = request.headers;
-      readonlyCookies = cookiesOf(request);
-      dedupeCacheKey = request.headers as unknown as Headers;
-
-      overrides = await readOverrides(readonlyCookies);
-    }
+    // The passed request, e.g. in the Pages Router, or else the request of
+    // the runtime: of evaluate(), of onInvoke, or of the framework
+    const scope = await scopeOf(options.request);
+    const overrides = await scope.overrides();
 
     // the flag is being used in app router
     // skip microtask if identify does not exist
     const entities = options.identify
-      ? ((await getEntities(
-          options.identify,
-          dedupeCacheKey,
-          readonlyHeaders,
-          readonlyCookies,
-        )) as EntitiesType | undefined)
+      ? ((await getEntities(options.identify, scope)) as
+          | EntitiesType
+          | undefined)
       : undefined;
 
     const entitiesKey = JSON.stringify(entities) ?? '';
 
     return applyResult({
       definition,
-      readonlyHeaders,
+      scope,
       entitiesKey,
       entities,
       overrides,
@@ -483,8 +270,8 @@ export function getRun<ValueType, EntitiesType>(
         decide({
           // @ts-expect-error TypeScript will not be able to process `getPrecomputed` when added to `Decide`. It is, however, part of the `Adapter` type
           defaultValue: definition.defaultValue,
-          headers: readonlyHeaders,
-          cookies: readonlyCookies,
+          headers: scope.request.headers,
+          cookies: scope.request.cookies,
           entities,
         }),
     });
@@ -562,42 +349,12 @@ async function evaluateImpl(
     return Array.isArray(flags) ? [] : {};
   }
 
-  let readonlyHeaders: ReadonlyHeaders;
-  let readonlyCookies: ReadonlyRequestCookies;
-  let dedupeCacheKey: Headers | IncomingHttpHeaders;
+  // Read the request and the overrides one time for all flags. The flags
+  // which run below without a request use the same state.
+  const scope = await scopeOf(request);
+  const overrides = await scope.overrides();
 
-  if (request) {
-    // Derive headers/cookies from the request, skipping the `next/headers`
-    // import. Discriminate by whether `.headers` is already a `Headers`
-    // instance (NextRequest / Web Request) or an `IncomingHttpHeaders` plain
-    // object (Pages Router `IncomingMessage`).
-    const headers =
-      request.headers instanceof Headers
-        ? request.headers
-        : transformToHeaders(request.headers);
-    readonlyHeaders = sealHeaders(headers);
-    readonlyCookies = sealCookies(headers);
-    dedupeCacheKey = request.headers;
-  } else {
-    // The framework gives the request, e.g. headers() and cookies() of
-    // next/headers in the App Router
-    const frameworkRequest = await requireFramework().getRequest();
-    readonlyHeaders = frameworkRequest.headers;
-    readonlyCookies = cookiesOf(frameworkRequest);
-    dedupeCacheKey = frameworkRequest.headers as unknown as Headers;
-  }
-
-  // Read overrides once
-  const overrides = await readOverrides(readonlyCookies);
-
-  const storeData: BulkStoreData = {
-    headers: readonlyHeaders,
-    cookies: readonlyCookies,
-    dedupeCacheKey,
-    overrides,
-  };
-
-  return bulkStore.run(storeData, async () => {
+  return runtime.runInScope(scope, async () => {
     const entries = Object.entries(flags);
 
     const standalone: { name: string; flagFn: Flag<any, any> }[] = [];
@@ -653,18 +410,12 @@ async function evaluateImpl(
           // own `flag` span.
           trace(
             async () => {
-              // Resolve entities once for the entire group. The dedupe key is
-              // the same one `getRun` uses (`request.headers` for Pages Router,
-              // the `headers()` store for App Router), so any flag called
-              // individually before/after `evaluate()` reuses the cached
-              // identify args from `identifyArgsMap`.
+              // Resolve entities once for the entire group. The state of the
+              // request is the same one `getRun` uses, so any flag called
+              // individually before/after `evaluate()` gets the same identify
+              // argument.
               const entities = identifyRef
-                ? await getEntities(
-                    identifyRef as any,
-                    dedupeCacheKey,
-                    readonlyHeaders,
-                    readonlyCookies,
-                  )
+                ? await getEntities(identifyRef as any, scope)
                 : undefined;
               const entitiesKey = JSON.stringify(entities) ?? '';
 
@@ -672,11 +423,7 @@ async function evaluateImpl(
               // discard the bulk result for them anyway.
               const uncached = list.filter(
                 ({ flagFn }) =>
-                  getCachedValuePromise(
-                    readonlyHeaders,
-                    flagFn.key,
-                    entitiesKey,
-                  ) === undefined,
+                  scope.value(flagFn.key, entitiesKey) === undefined,
               );
               const undecided = uncached.filter(
                 ({ flagFn }) => !hasOverride(overrides, flagFn.key),
@@ -697,8 +444,8 @@ async function evaluateImpl(
                       defaultValue: flagFn.defaultValue,
                     })),
                     entities,
-                    headers: readonlyHeaders,
-                    cookies: readonlyCookies,
+                    headers: scope.request.headers,
+                    cookies: scope.request.cookies,
                   });
                 } catch (err) {
                   bulkError = err;
@@ -709,7 +456,7 @@ async function evaluateImpl(
                 list.map(async ({ name, flagFn }) => {
                   valuesByName[name] = await applyResult({
                     definition: flagFn,
-                    readonlyHeaders,
+                    scope,
                     entitiesKey,
                     entities,
                     overrides,

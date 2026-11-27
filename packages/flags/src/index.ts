@@ -39,6 +39,7 @@ export {
   precompute,
   serialize,
 } from './precompute';
+export type { FlagsRequest, FlagsRequestInit } from './request';
 export {
   HeadersAdapter,
   type ReadonlyHeaders,

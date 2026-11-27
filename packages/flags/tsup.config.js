@@ -36,6 +36,7 @@ export default defineConfig({
     framework: 'src/framework-module.ts',
     react: 'src/react/index.tsx',
     analytics: 'src/analytics.ts',
+    runtime: 'src/runtime-module.ts',
     manifest: 'src/manifest.ts',
     tooling: 'src/tooling.ts',
   },

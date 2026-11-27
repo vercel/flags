@@ -51,7 +51,7 @@ Put `'use flags'` at the start of each module which exports only flags (see the 
 
 ## The handle hook
 
-`createHandle` is optional. It puts the values of the flags which a page evaluated into the page, for the Vercel Toolbar, and, with `flags`, serves `/.well-known/vercel/flags` for Flags Explorer:
+`createHandle` is optional. It gives the request of the hook to the runtime of the SDK (`runtime.onInvoke`), so that a flag does not need `getRequestEvent()`. It puts the values of the flags which a page evaluated into the page, for the Vercel Toolbar, and, with `flags`, serves `/.well-known/vercel/flags` for Flags Explorer:
 
 ```ts
 // src/hooks.server.ts

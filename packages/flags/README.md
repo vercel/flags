@@ -253,6 +253,17 @@ export const binding: FrameworkBinding = {
 };
 ```
 
+A framework with a middleware which wraps the handler gives the request to the runtime of the SDK instead, with `runtime.onInvoke` of `flags/runtime`. The flags which the handler evaluates, also in work which ends later, get this request, and the binding is not called:
+
+```ts
+import { runtime } from 'flags/runtime';
+
+// A middleware, e.g. the handle hook of SvelteKit
+app.use((c, next) => runtime.onInvoke(c.req.raw, next));
+```
+
+A flag gets its request in this order: the request which the call passes, e.g. `flag(request)`, then the request of `runtime.onInvoke`, then the binding. The SDK identifies a request by its `headers` object, so the framework must give the same `headers` object during one request. Each request has one state: the cache of the flag values, the argument of `identify`, the overrides, and the cache of `dedupe`.
+
 The manifest of the flags is a public contract too. `flags/tooling` has `hasUseFlagsDirective`, `findFlagsModules` and `writeManifestFromBuild`, and `flags/manifest` has `createManifest` and `validateFlagsManifest`. A build plugin finds the flags modules, imports them with the bundler of the framework, and gives their exports to `createManifest`.
 
 ## Documentation
