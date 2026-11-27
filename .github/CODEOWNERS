@@ -1,3 +1,7 @@
+# Default owner: request a review from the flags team on every pull request.
+# Later rules take precedence, so keep this line first.
+* @vercel/flags
+
 # Release plumbing — the workflow filename is bound to npm Trusted Publisher
 # config, so a rename or behavioural change is a security-relevant edit.
 # Keep these locked to the flags team explicitly.
