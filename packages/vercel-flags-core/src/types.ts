@@ -152,9 +152,20 @@ export type experimental_EvaluationOptions = {
   experimental_exposureLogging?: boolean;
 };
 
+/**
+ * How an evaluation of a flag that is linked to an experiment received its value.
+ *
+ * - `experiment`: the unit is enrolled and was randomized into a variant.
+ * - `not-enrolled`: the unit is missing, or it is outside the ramp.
+ * - `not-in-layer`: the experiment runs in a layer, and the unit is in a slot
+ *   that the experiment does not own, or the layer data is not valid.
+ * - `targeted`, `split`, `variant`, `rollout`: another flag outcome served the value.
+ * - `override`: the value came from an override.
+ */
 export type experimental_ExperimentAssignmentReason =
   | 'experiment'
   | 'not-enrolled'
+  | 'not-in-layer'
   | 'targeted'
   | 'split'
   | 'variant'
@@ -173,6 +184,8 @@ export type experimental_ExperimentAssignment = {
   rampId?: string;
   /** Percentage of eligible units included in the ramp, from 0 through 100. */
   rampPercentage?: number;
+  /** Identifier of the layer in which the experiment runs. */
+  layerId?: string;
   /** How this evaluation received its value. */
   assignmentReason: experimental_ExperimentAssignmentReason;
 };
@@ -191,6 +204,8 @@ export type experimental_Exposure = {
   rampId?: string;
   /** Percentage of eligible units included in the ramp, from 0 through 100. */
   rampPercentage?: number;
+  /** Identifier of the layer in which the experiment runs. */
+  layerId?: string;
   /** How this evaluation received its value. */
   assignmentReason: experimental_ExperimentAssignmentReason;
 };
@@ -296,6 +311,8 @@ export type EvaluationParams<T> = {
   entities?: Record<string, unknown>;
   environment: string;
   segments?: Record<SegmentId, Packed.Segment>;
+  /** Experiment layers keyed by layer ID. */
+  layers?: Record<string, Packed.experimental_LayerDefinition>;
   definition: Packed.FlagDefinition;
   defaultValue?: T;
 };
@@ -589,6 +606,8 @@ export namespace Original {
   export type Data = {
     definitions: Record<string, FlagDefinition>;
     segments?: Original.Segment[];
+    /** Experiment layers keyed by layer ID. */
+    layers?: Record<string, Packed.experimental_LayerDefinition>;
   };
 
   export enum AccessorType {
@@ -675,6 +694,12 @@ export namespace Original {
     rampId?: string;
     /** Percentage from 0 through 100. */
     rampPercentage?: number;
+    /**
+     * ID of the layer in which the experiment runs, a key of the top-level
+     * `layers`. Only present while the experiment runs in a layer. When
+     * present, the slots of the experiment replace the ramp check.
+     */
+    layerId?: string;
   };
 
   export type SegmentAllOutcome = {
@@ -839,6 +864,8 @@ export namespace Packed {
     definitions: Record<FlagKey, FlagDefinition>;
     /** segments keyed by id */
     segments?: Record<SegmentId, Segment>;
+    /** experiment layers keyed by layer ID */
+    layers?: Record<string, experimental_LayerDefinition>;
   };
 
   export enum AccessorType {
@@ -922,6 +949,27 @@ export namespace Packed {
     rampId?: string;
     /** Percentage of eligible units included in the ramp, from 0 through 100. */
     rampPercentage?: number;
+    /**
+     * ID of the layer in which the experiment runs, a key of the top-level
+     * `layers`. Only present while the experiment runs in a layer. When
+     * present, the slots of the experiment replace the ramp check.
+     */
+    layerId?: string;
+  };
+
+  /**
+   * Mutual exclusion layer. A layer has 1,000 slots, from 0 through 999. A unit
+   * is in the slot `floor(xxHash32(unit, salt) * 1000 / 2 ** 32)`.
+   */
+  export type experimental_LayerDefinition = {
+    /** Stable seed used only to put units in slots. */
+    salt: number;
+    /**
+     * Slots of each owner, keyed by owner ID (for example the experiment ID).
+     * A slot list holds single slots and inclusive `[start, end]` ranges, for
+     * example `[0, [5, 10], 96]`.
+     */
+    allocations: Record<string, Array<number | [number, number]>>;
   };
 
   export type SegmentAllOutcome = 1;

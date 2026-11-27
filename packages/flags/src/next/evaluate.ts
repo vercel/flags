@@ -19,7 +19,7 @@ import type {
   FlagParamsType,
   ResolvedFlagDeclaration,
 } from '../types';
-import { isInternalNextError } from './is-internal-next-error';
+import { framework, isFrameworkSignal } from './binding';
 import { getOverrides } from './overrides';
 import type { Flag, FlagRequest } from './types';
 
@@ -206,9 +206,6 @@ interface BulkStoreData {
 
 const bulkStore = new AsyncLocalStorage<BulkStoreData>();
 
-let headersModulePromise: Promise<typeof import('next/headers')> | undefined;
-let headersModule: typeof import('next/headers') | undefined;
-
 /**
  * Subset of a flag declaration / flag function that `applyResult` reads.
  * `FlagDeclaration` (passed from `getRun`) and the `api` (passed from
@@ -328,7 +325,7 @@ async function applyResult<ValueType>(args: {
       );
     },
     (error: Error) => {
-      if (isInternalNextError(error)) throw error;
+      if (isFrameworkSignal(error)) throw error;
 
       // try to recover if defaultValue is set
       if (definition.defaultValue !== undefined) {
@@ -415,24 +412,12 @@ export function getRun<ValueType, EntitiesType>(
       dedupeCacheKey = bulkData.dedupeCacheKey;
       overrides = bulkData.overrides;
     } else {
-      // app router
-
-      // async import required as turbopack errors in Pages Router
-      // when next/headers is imported at the top-level.
-      //
-      // cache import so we don't await on every call since this adds
-      // additional microtask queue overhead
-      if (!headersModulePromise) headersModulePromise = import('next/headers');
-      if (!headersModule) headersModule = await headersModulePromise;
-      const { headers, cookies } = headersModule;
-
-      const [headersStore, cookiesStore] = await Promise.all([
-        headers(),
-        cookies(),
-      ]);
-      readonlyHeaders = headersStore as ReadonlyHeaders;
-      readonlyCookies = cookiesStore as ReadonlyRequestCookies;
-      dedupeCacheKey = headersStore;
+      // app router: the framework gives the request, by default
+      // headers() and cookies() of next/headers
+      const request = await framework().getRequest();
+      readonlyHeaders = request.headers;
+      readonlyCookies = request.cookies;
+      dedupeCacheKey = request.headers as unknown as Headers;
 
       overrides = await readOverrides(readonlyCookies);
     }
@@ -517,7 +502,7 @@ export function evaluate(
 const tracedEvaluate = trace(evaluateImpl, {
   name: 'evaluate',
   isVerboseTrace: false,
-  isIgnoredError: isInternalNextError,
+  isIgnoredError: isFrameworkSignal,
   attributesSuccess: (result) => ({
     flagCount: Array.isArray(result)
       ? result.length
@@ -556,19 +541,12 @@ async function evaluateImpl(
     readonlyCookies = sealCookies(headers);
     dedupeCacheKey = request.headers;
   } else {
-    // app router — read headers & cookies via `next/headers`.
-    if (!headersModulePromise) headersModulePromise = import('next/headers');
-    if (!headersModule) headersModule = await headersModulePromise;
-    const { headers, cookies } = headersModule;
-
-    const [headersStore, cookiesStore] = await Promise.all([
-      headers(),
-      cookies(),
-    ]);
-
-    readonlyHeaders = headersStore as ReadonlyHeaders;
-    readonlyCookies = cookiesStore as ReadonlyRequestCookies;
-    dedupeCacheKey = headersStore;
+    // app router: the framework gives the request, by default headers()
+    // and cookies() of next/headers
+    const frameworkRequest = await framework().getRequest();
+    readonlyHeaders = frameworkRequest.headers;
+    readonlyCookies = frameworkRequest.cookies;
+    dedupeCacheKey = frameworkRequest.headers as unknown as Headers;
   }
 
   // Read overrides once
@@ -694,7 +672,7 @@ async function evaluateImpl(
                   valuesByName[name] = await logEvaluation(
                     flagFn.key,
                     flagFn.options,
-                    isInternalNextError,
+                    isFrameworkSignal,
                     () =>
                       applyResult({
                         definition: flagFn,
@@ -726,7 +704,7 @@ async function evaluateImpl(
             {
               name: 'batch',
               isVerboseTrace: false,
-              isIgnoredError: isInternalNextError,
+              isIgnoredError: isFrameworkSignal,
               attributes: { adapterId: String(adapter.adapterId) },
               attributesSuccess: ({ uncached, undecided }) => {
                 const cachedCount = list.length - uncached.length;

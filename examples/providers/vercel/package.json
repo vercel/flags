@@ -9,9 +9,9 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@flags-sdk/vercel": "^1.6.1",
-    "flags": "^4.5.1",
-    "next": "16.4.3",
+    "@flags-sdk/vercel": "^1.6.2",
+    "flags": "^4.5.3",
+    "next": "16.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "@vercel/toolbar": "0.2.7"

@@ -91,6 +91,20 @@ type FlagsClient = {
 4. Evaluate segment-based rules against entity context
 5. Return fallthrough default if no match
 
+### Experiment outcomes and layers
+
+On an `experiment` outcome, `resolveOutcome` reads the unit from `experiment.base`. A missing or non-string unit gets control with reason `not-enrolled`.
+
+- Without `experiment.layerId`: the `enrollmentSeed` ramp check (`rampPercentage`) decides enrollment. A unit outside the ramp gets control with reason `not-enrolled`.
+- With `experiment.layerId`: the layer comes from the top-level `layers` of the datafile, like `segments`. Each layer is `{ salt, allocations }`, and `allocations` maps an owner ID (for example the experiment ID) to its slot list. The datafile has one definition per layer, so all experiments of a layer read the same allocations. `evaluate` receives `layers` in `EvaluationParams` (`controller-fns.ts` passes `datafile.layers`, and `bulkEvaluate` shares it across flags).
+- The unit is in slot `floor(xxHash32(unit, salt) * 1000 / 2**32)`. A layer has 1,000 slots. A slot list holds single slots and inclusive `[start, end]` ranges, in any order. If `allocations[experiment.id]` does not own the slot, the unit gets control with reason `not-in-layer`. The ramp check does not apply, because the owned slots are the ramp.
+- Layer data that is missing or not valid fails closed: control with reason `not-in-layer`. This includes no `layers`, an unknown `layerId` or a `layerId` that is not a string, a `salt` that is not an integer, `allocations` that is not an object, no own entry for the experiment, or a slot list entry that is not a slot from 0 to 999 or an ascending range of two slots. Lookups use own properties only. Evaluation never throws for it. Unknown fields are ignored.
+- An enrolled unit gets a variant from the flag `seed` and the experiment `weights`, with reason `experiment`.
+
+The parsed slot list is cached in a WeakMap keyed by the slot list array (`layerSlotsCache`). Assignments and exposures (also override exposures) include `layerId` for every reason when `experiment.layerId` is a string. The API owns slot selection; the SDK only checks if the experiment owns the slot of the unit.
+
+The API gives new salts, flag seeds, and enrollment seeds as random integers from 0 to 2,147,483,647, so a salt is equal to the flag seed only by chance (about 1 in 2.1 billion). If they were equal, the slot and the variant would use the same hash, so all enrolled units could get the same variant. Larger values are not used, because xxHash32 truncates seeds to 32 bits. Mutual exclusion holds within one datafile revision: a client with an older or bundled datafile can still enroll a unit in the previous owner of a slot.
+
 ### Controller Options
 
 ```typescript

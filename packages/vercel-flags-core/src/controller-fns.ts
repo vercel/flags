@@ -142,6 +142,7 @@ export async function evaluate<T, E = Record<string, unknown>>(
     environment: datafile.environment,
     entities: entities ?? {},
     segments: datafile.segments,
+    layers: datafile.layers,
   });
   const evaluationDurationMs = Date.now() - evalStartTime;
 
@@ -256,6 +257,7 @@ export async function bulkEvaluate<T, E = Record<string, unknown>>(
     entities: (entities ?? {}) as Record<string, unknown>,
     environment: datafile.environment,
     segments: datafile.segments,
+    layers: datafile.layers,
   });
   const evaluationDurationMs = Date.now() - evalStartTime;
 
