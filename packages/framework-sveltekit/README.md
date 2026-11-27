@@ -42,6 +42,13 @@ export async function load() {
 
 In `reroute` and outside of a request, pass the request, e.g. `precompute(flags, request)`.
 
+## The manifest of the flags
+
+Put `'use flags'` at the start of each module which exports only flags (see the README of `flags`). `flags()` then makes the manifest of the flags, with no more code:
+
+- In `vite dev`, the manifest is at `/.well-known/flags/manifest.json`.
+- `vite build` writes it into `.svelte-kit/output/server/flags-manifest.json`. In production, there is no public endpoint.
+
 ## The handle hook
 
 `createHandle` is optional. It puts the values of the flags which a page evaluated into the page, for the Vercel Toolbar, and, with `flags`, serves `/.well-known/vercel/flags` for Flags Explorer:
