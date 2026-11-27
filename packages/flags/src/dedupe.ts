@@ -1,4 +1,4 @@
-import { requireFramework } from './lib/framework';
+import { runtime } from './runtime';
 
 enum Status {
   UNTERMINATED = 0,
@@ -6,7 +6,7 @@ enum Status {
   ERRORED = 2,
 }
 
-type RequestStore<T> = WeakMap<Headers, CacheNode<T>>;
+type RequestStore<T> = WeakMap<object, CacheNode<T>>;
 
 type CacheNode<T> = {
   s: Status;
@@ -55,12 +55,12 @@ const cacheRegistry = new WeakMap<Function, RequestStore<unknown>>();
 export function dedupe<A extends Array<unknown>, T>(
   fn: (...args: A) => T | Promise<T>,
 ): (...args: A) => Promise<T> {
-  const requestStore: RequestStore<T> = new WeakMap<Headers, CacheNode<T>>();
+  const requestStore: RequestStore<T> = new WeakMap<object, CacheNode<T>>();
 
   const dedupedFn = async function (this: unknown, ...args: A): Promise<T> {
-    // The headers of the request identify it. The framework gives them,
-    // e.g. headers() of next/headers.
-    const h = (await requireFramework().getHeaders()) as unknown as Headers;
+    // The runtime identifies the request: the request of onInvoke, or the
+    // headers of the framework, e.g. headers() of next/headers
+    const h = await runtime.currentKey();
     let cacheNode = requestStore.get(h);
     if (!cacheNode) {
       cacheNode = createCacheNode<T>();
@@ -141,6 +141,5 @@ export async function clearDedupeCacheForCurrentRequest(
   if (!requestStore) {
     throw new Error('dedupe: cache not found');
   }
-  const h = (await requireFramework().getHeaders()) as unknown as Headers;
-  return requestStore.delete(h);
+  return requestStore.delete(await runtime.currentKey());
 }

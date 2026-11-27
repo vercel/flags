@@ -39,6 +39,10 @@
       "import": "./dist/react.js",
       "require": "./dist/react.cjs"
     },
+    "./runtime": {
+      "import": "./dist/runtime.js",
+      "require": "./dist/runtime.cjs"
+    },
     "./manifest": {
       "import": "./dist/manifest.js",
       "require": "./dist/manifest.cjs"
