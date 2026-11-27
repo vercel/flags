@@ -70,7 +70,7 @@ export async function verifyFlagOverridesFromPlatform(
 
 /**
  * Signs flag overrides with Vercel KMS, so a host without a `FLAGS_SECRET`
- * accepts them in the `vercel-flag-overrides` cookie.
+ * accepts them in the `flag-overrides` or the `vercel-flag-overrides` cookie.
  *
  * Vercel signs them for the project and the environment of the OIDC token of
  * the host: of the request on a deployment, or the `VERCEL_OIDC_TOKEN` of

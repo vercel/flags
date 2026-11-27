@@ -42,6 +42,33 @@ async function decryptCached(cookie: string, secret: string) {
   return decrypted.overrides;
 }
 
+/**
+ * The cookies which can contain an override token, in the order in which the
+ * SDK reads them. `flag-overrides` is the cookie of the standard, and
+ * `vercel-flag-overrides` the cookie of v4 of the SDK.
+ */
+export const OVERRIDES_COOKIES = [
+  'flag-overrides',
+  'vercel-flag-overrides',
+] as const;
+
+/**
+ * The override token of a request: the first cookie of `OVERRIDES_COOKIES`
+ * which is not empty. If both cookies are set, `flag-overrides` wins. A
+ * cookie contains one token, so the overrides of both are never merged.
+ */
+export function findOverridesToken(cookies: {
+  get(name: string): { value: string } | undefined;
+}): string | undefined {
+  for (const name of OVERRIDES_COOKIES) {
+    const value = cookies.get(name)?.value;
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 export async function getOverrides(cookie: string | undefined) {
   if (typeof cookie !== 'string' || cookie === '') {
     return null;

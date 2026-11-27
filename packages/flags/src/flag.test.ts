@@ -218,7 +218,8 @@ describe('flag on app router', () => {
       if (cookieName === 'vercel-flag-overrides') {
         return { name: 'vercel-flag-overrides', value: override };
       }
-      throw new Error('no cookie found');
+      // As the cookies of Next.js: a missing cookie is undefined
+      return undefined;
     });
     mocks.headers.mockReturnValueOnce(headersOfFirstRequest);
     mocks.cookies.mockReturnValueOnce({ get: cookieMock });
