@@ -29,6 +29,14 @@
       "import": "./dist/binding.js",
       "require": "./dist/binding.cjs"
     },
+    "./manifest": {
+      "import": "./dist/manifest.js",
+      "require": "./dist/manifest.cjs"
+    },
+    "./manifest-loader": {
+      "import": "./dist/manifest-loader.js",
+      "require": "./dist/manifest-loader.cjs"
+    },
     "./plugin": {
       "import": "./dist/plugin.js",
       "require": "./dist/plugin.cjs"
@@ -40,6 +48,14 @@
       "binding": [
         "dist/binding.d.ts",
         "dist/binding.d.cts"
+      ],
+      "manifest": [
+        "dist/manifest.d.ts",
+        "dist/manifest.d.cts"
+      ],
+      "manifest-loader": [
+        "dist/manifest-loader.d.ts",
+        "dist/manifest-loader.d.cts"
       ],
       "plugin": [
         "dist/plugin.d.ts",

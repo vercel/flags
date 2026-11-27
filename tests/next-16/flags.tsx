@@ -1,3 +1,7 @@
+// Each export is a flag. The route app/.well-known/flags/manifest.json
+// lists them in the manifest of the flags.
+'use flags';
+
 import { flag } from 'flags';
 
 export const exampleFlag = flag<boolean>({
@@ -18,5 +22,3 @@ export const cookieFlag = flag<string>({
   decide: ({ cookies }) => cookies.get('example-cookie')?.value || 'no cookie',
   options: ['no cookie'],
 });
-
-export const precomputedFlags = [exampleFlag, hostFlag, cookieFlag];

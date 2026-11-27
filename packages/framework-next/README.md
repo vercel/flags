@@ -43,6 +43,20 @@ export default async function Page() {
 - In the Pages Router and in routing middleware, pass the request, e.g. `showBanner(request)` or `precompute(flags, request)`.
 - A flag inside `"use cache"` fails with a clear error: evaluate it outside of the cached function, and pass the value in.
 
+## The manifest of the flags
+
+Put `'use flags'` at the start of each module which exports only flags (see the README of `flags`). Then add this route:
+
+```ts
+// app/.well-known/flags/manifest.json/route.ts
+export { GET } from '@flags-sdk/next/manifest';
+```
+
+- In `next dev`, the route returns the manifest of the flags of all flags modules of the project. A new flags module shows up without a restart.
+- `next build` writes the manifest into `.next/flags-manifest.json` (in `distDir`). In production, the route returns 404.
+- A plugin of Next.js can not add a route, so the route file is necessary. Without it, there is no manifest.
+- If `next.config.ts` is not in the root of the project, give the directory: `withFlags(config, { dir })`.
+
 ## Flags Explorer
 
 `createFlagsDiscoveryEndpoint` creates the endpoint `/.well-known/vercel/flags`:
