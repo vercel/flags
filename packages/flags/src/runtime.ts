@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { loadFrameworkEnv, requireFramework } from './lib/framework';
-import { getOverrides } from './lib/overrides';
+import { findOverridesToken, getOverrides } from './lib/overrides';
 import {
   createFlagsRequest,
   type FlagsRequest,
@@ -43,8 +43,8 @@ export class RequestScope {
   }
 
   /**
-   * The overrides of the `vercel-flag-overrides` cookie, read one time for
-   * the request.
+   * The overrides of the `flag-overrides` or the `vercel-flag-overrides`
+   * cookie, read one time for the request.
    */
   overrides(): Promise<Record<string, unknown> | null> {
     this.#overrides ??= readOverrides(this.request);
@@ -87,8 +87,9 @@ export class RequestScope {
 function readOverrides(
   request: FlagsRequest,
 ): Promise<Record<string, unknown> | null> {
-  const cookie = request.cookies.get('vercel-flag-overrides')?.value;
-  if (typeof cookie !== 'string' || cookie === '') {
+  // flag-overrides, or else vercel-flag-overrides, the cookie of v4
+  const cookie = findOverridesToken(request.cookies);
+  if (cookie === undefined) {
     return Promise.resolve(null);
   }
   // The secret can come from the environment of the framework

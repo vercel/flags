@@ -73,7 +73,7 @@ function getOrigin<ValueType, EntitiesType>(
  *
  * This a feature flag function. When that function is called it will call the flag's `decide` function and return the result.
  *
- * If an override set by Vercel Toolbar, or more precisely if the `vercel-flag-overrides` cookie, is present then the `decide` function will not be called and the value of the override will be returned instead.
+ * If an override set by Vercel Toolbar, or more precisely if the `flag-overrides` or the `vercel-flag-overrides` cookie, is present then the `decide` function will not be called and the value of the override will be returned instead.
  *
  * In both cases this function also calls the `reportValue` function of `flags` so the evaluated flag shows up in Runtime Logs and is available for use with Web Analytics custom server-side events.
  *
