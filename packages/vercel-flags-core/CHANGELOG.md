@@ -1,5 +1,11 @@
 # @vercel/flags-core
 
+## 1.12.0
+
+### Minor Changes
+
+- [#629](https://github.com/vercel/flags/pull/629) [`8fa5ba8`](https://github.com/vercel/flags/commit/8fa5ba86c649f5514469785e513ffa50421df398) Thanks [@feugy](https://github.com/feugy)! - Add experimental support for layers in experiment evaluation.
+
 ## 1.11.1
 
 ### Patch Changes
