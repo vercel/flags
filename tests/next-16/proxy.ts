@@ -1,6 +1,6 @@
 import { precompute } from 'flags';
 import { type NextRequest, NextResponse } from 'next/server';
-import { precomputedFlags } from './flags';
+import { precomputedFlags } from './precomputed-flags';
 
 export const config = {
   matcher: ['/', '/pages-router', '/app-router-static', '/pages-router-static'],

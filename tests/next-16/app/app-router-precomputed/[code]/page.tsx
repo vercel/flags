@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { cookieFlag, exampleFlag, hostFlag, precomputedFlags } from '@/flags';
+import { cookieFlag, exampleFlag, hostFlag } from '@/flags';
+import { precomputedFlags } from '@/precomputed-flags';
 
 const PLACEHOLDER = '__placeholder__';
 

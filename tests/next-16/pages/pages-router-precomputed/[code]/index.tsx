@@ -3,12 +3,8 @@ import type {
   GetStaticProps,
   InferGetStaticPropsType,
 } from 'next';
-import {
-  cookieFlag,
-  exampleFlag,
-  hostFlag,
-  precomputedFlags,
-} from '../../../flags';
+import { cookieFlag, exampleFlag, hostFlag } from '../../../flags';
+import { precomputedFlags } from '../../../precomputed-flags';
 
 export const getStaticPaths = (async () => {
   return {

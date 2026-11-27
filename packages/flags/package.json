@@ -38,6 +38,14 @@
     "./react": {
       "import": "./dist/react.js",
       "require": "./dist/react.cjs"
+    },
+    "./manifest": {
+      "import": "./dist/manifest.js",
+      "require": "./dist/manifest.cjs"
+    },
+    "./tooling": {
+      "import": "./dist/tooling.js",
+      "require": "./dist/tooling.cjs"
     }
   },
   "typesVersions": {

@@ -1,3 +1,7 @@
+// Each export is a flag. The plugin of @flags-sdk/sveltekit lists them in the
+// manifest of the flags.
+'use flags';
+
 import type { ReadonlyHeaders, ReadonlyRequestCookies } from 'flags';
 import { flag } from 'flags';
 
