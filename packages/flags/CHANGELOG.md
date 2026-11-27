@@ -1,5 +1,21 @@
 # @vercel/flags
 
+## 4.6.0
+
+### Minor Changes
+
+- [#625](https://github.com/vercel/flags/pull/625) [`26a0150`](https://github.com/vercel/flags/commit/26a0150048b1ef52f82d9baf4368e0bd0eae2683) Thanks [@wbinnssmith](https://github.com/wbinnssmith)! - Add `setLoggerProvider` to emit OpenTelemetry `feature_flag.evaluation` log records for direct and bulk flag evaluations. Install `@opentelemetry/api-logs`, now an optional peer dependency, and pass a `LoggerProvider` to `setLoggerProvider` from `flags`.
+  
+  Each record includes `feature_flag.key`, and `feature_flag.result.variant` when the value matches exactly one labeled option. Failed evaluations include `error.type: general`. Flag values and evaluation context are not logged.
+
+### Patch Changes
+
+- [#638](https://github.com/vercel/flags/pull/638) [`446a639`](https://github.com/vercel/flags/commit/446a639421de0c629b8fae449dd719ed989aae90) Thanks [@AndyBitz](https://github.com/AndyBitz)! - In Next.js, a flag which falls back to its `defaultValue` now says so on its span. The `flag` span records `method: fallback` instead of `decided`. When the fallback follows an error thrown by `decide`, the span also records `error.type: general` and the status Error with the message of the error, while the flag still resolves to its `defaultValue`. When `bulkDecide` throws, the `batch` span records the error the same way. The `feature_flag.evaluation` log record of such a flag includes `error.type: general` and `feature_flag.result.reason: error`.
+  
+  Before, these spans had the status Ok and looked like successful decisions, so a failing provider was only visible in the logs.
+
+- [#624](https://github.com/vercel/flags/pull/624) [`c1dae52`](https://github.com/vercel/flags/commit/c1dae524f97bf1ca72c2aebf5553815a96198baf) Thanks [@wbinnssmith](https://github.com/wbinnssmith)! - `flag` spans include the OpenTelemetry semantic convention attribute `feature_flag.key` next to `key`. When the evaluated value matches exactly one option that has a label, the span also includes that label as `feature_flag.result.variant`. Flag values are not added to spans. `batch` spans of bulk evaluations keep their aggregate attributes only.
+
 ## 4.5.3
 
 ### Patch Changes
