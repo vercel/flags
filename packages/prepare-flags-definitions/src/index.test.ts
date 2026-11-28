@@ -167,7 +167,7 @@ describe('generateDefinitionsModule', () => {
 });
 
 describe('prepareFlagsDefinitions', () => {
-  it('embeds fetch completion time and preserves it when loaded later', async () => {
+  it('embeds the time the config last changed and preserves it when loaded later', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'flags-fetched-at-'));
     try {
       await prepareFlagsDefinitions({
@@ -188,9 +188,64 @@ describe('prepareFlagsDefinitions', () => {
       const bundle = await import(/* @vite-ignore */ url);
       expect(bundle.get(hashSdkKey('vf_server_timestamp'))).toEqual({
         configUpdatedAt: 123,
-        fetchedAt: FETCH_TIME + 5_000,
+        fetchedAt: 123,
         definitions: {},
       });
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('writes the same bundle when the same config is fetched at another time', async () => {
+    async function bundleFetchedAt(time: number) {
+      const cwd = await mkdtemp(join(tmpdir(), 'flags-stable-bundle-'));
+      try {
+        vi.setSystemTime(time);
+        await prepareFlagsDefinitions({
+          cwd,
+          env: { FLAGS: 'vf_server_stable' },
+          fetch: vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ configUpdatedAt: '123', definitions: {} }),
+          }),
+        });
+        return await readFile(
+          join(cwd, 'node_modules/@vercel/flags-definitions/index.js'),
+          'utf8',
+        );
+      } finally {
+        await rm(cwd, { recursive: true, force: true });
+      }
+    }
+
+    expect(await bundleFetchedAt(FETCH_TIME)).toBe(
+      await bundleFetchedAt(FETCH_TIME + 60_000),
+    );
+  });
+
+  it('embeds the fetch time when the config was updated in the future', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'flags-fetched-at-'));
+    try {
+      vi.setSystemTime(FETCH_TIME);
+      await prepareFlagsDefinitions({
+        cwd,
+        env: { FLAGS: 'vf_server_future' },
+        fetch: vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            // A time in the future would make the bundle look fresh.
+            configUpdatedAt: FETCH_TIME + 60_000,
+            definitions: {},
+          }),
+        }),
+      });
+      const url = pathToFileURL(
+        join(cwd, 'node_modules/@vercel/flags-definitions/index.js'),
+      ).href;
+      const bundle = await import(/* @vite-ignore */ url);
+      expect(bundle.get(hashSdkKey('vf_server_future')).fetchedAt).toBe(
+        FETCH_TIME,
+      );
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

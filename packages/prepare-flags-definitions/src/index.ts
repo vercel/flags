@@ -40,6 +40,29 @@ export type PrepareFlagsDefinitionsResult =
   | { created: true; entryCount: number };
 
 /**
+ * The fetch time to embed in the bundle, so that loading the bundle does not
+ * make old data fresh.
+ *
+ * This is the time the config last changed, not the time of this fetch: the
+ * bundle of a config that did not change is then the same in every build,
+ * which lets a platform reuse the functions that contain it. The data is at
+ * least that old, so it never looks fresher than it is. Falls back to the
+ * time of the fetch when the response has no valid `configUpdatedAt`.
+ */
+function getBundledFetchedAt(definitions: BundledDefinitions): number {
+  const now = Date.now();
+  const { configUpdatedAt } = definitions;
+  const updatedAt =
+    typeof configUpdatedAt === 'number' ||
+    (typeof configUpdatedAt === 'string' && configUpdatedAt !== '')
+      ? Number(configUpdatedAt)
+      : Number.NaN;
+  return Number.isFinite(updatedAt) && updatedAt >= 0
+    ? Math.min(updatedAt, now)
+    : now;
+}
+
+/**
  * Obfuscates SDK key for logging (shows first 18 chars)
  */
 function obfuscate(sdkKey: string, prefixLength = 18): string {
@@ -200,8 +223,7 @@ async function fetchDatafile(
 
     if (res.ok) {
       const definitions = (await res.json()) as BundledDefinitions;
-      // Preserve fetch time so loading the bundle does not make old data fresh.
-      return { ...definitions, fetchedAt: Date.now() };
+      return { ...definitions, fetchedAt: getBundledFetchedAt(definitions) };
     }
 
     if (res.status === 404) {
